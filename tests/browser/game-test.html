@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>器落山河 - Browser Test</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#333; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+canvas { display:block; background:#000; image-rendering:pixelated; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+// wx polyfill loaded from wx-mock.js (see script tag below)
+
+// Test API bridge
+window.__consoleLogs = [];
+window.__gameReady = false;
+window.__gameError = null;
+
+var origLog = console.log;
+console.log = function() {
+    var msg = Array.prototype.slice.call(arguments).join(' ');
+    window.__consoleLogs.push(msg);
+    if (window.__consoleLogs.length > 500) window.__consoleLogs.shift();
+    origLog.apply(console, arguments);
+};
+
+var origError = console.error;
+console.error = function() {
+    var msg = '[ERROR] ' + Array.prototype.slice.call(arguments).join(' ');
+    window.__consoleLogs.push(msg);
+    origError.apply(console, arguments);
+};
+
+// Expose game state for AI testing
+window.__testApi = {
+    getState: function() { return typeof state !== 'undefined' ? state : 'unknown'; },
+    getPlayerData: function() { return typeof playerData !== 'undefined' ? JSON.parse(JSON.stringify(playerData)) : null; },
+    touchStart: function(x, y) {
+        var t = new Touch({ identifier: 0, target: document.body, clientX: x, clientY: y });
+        document.dispatchEvent(new TouchEvent('touchstart', { touches: [t], changedTouches: [t] }));
+    },
+    touchMove: function(x, y) {
+        var t = new Touch({ identifier: 0, target: document.body, clientX: x, clientY: y });
+        document.dispatchEvent(new TouchEvent('touchmove', { touches: [t], changedTouches: [t] }));
+    },
+    touchEnd: function(x, y) {
+        var t = new Touch({ identifier: 0, target: document.body, clientX: x, clientY: y });
+        document.dispatchEvent(new TouchEvent('touchend', { touches: [], changedTouches: [t] }));
+    },
+    click: function(x, y) {
+        this.touchStart(x, y);
+        this.touchEnd(x, y);
+    },
+    debug: function(actionId) {
+        if (typeof executeDebugAction === 'function') executeDebugAction(actionId);
+    },
+    getGameState: function() {
+        return {
+            state: typeof state !== 'undefined' ? state : null,
+            playerData: typeof playerData !== 'undefined' ? JSON.parse(JSON.stringify(playerData)) : null,
+            bestScore: typeof bestScore !== 'undefined' ? bestScore : 0
+        };
+    },
+    getLogs: function() { return window.__consoleLogs.slice(); },
+    clearLogs: function() { window.__consoleLogs = []; },
+    getScreenshot: function() {
+        var canvas = document.getElementById('gameCanvas');
+        return canvas.toDataURL('image/png');
+    },
+    isReady: function() { return window.__gameReady; },
+    getError: function() { return window.__gameError; }
+};
+
+// Load wx-mock.js first (browser wx API compatibility layer)
+var s0 = document.createElement('script');
+s0.src = '../../wx-mock.js';
+s0.onload = function() {
+
+// Set canvas size
+var _testCanvas = document.getElementById('gameCanvas');
+_testCanvas.width = 375;
+_testCanvas.height = 667;
+
+// Capture init errors
+window.onerror = function(msg, url, line, col, err) {
+    window.__gameError = msg + ' at line ' + line;
+    console.error('[INIT ERROR]', window.__gameError);
+};
+
+// Dynamic loading for browser play (via HTTP server)
+// Uses fetch + eval with const→var patching to avoid redeclaration errors
+// Skip if Playwright harness will handle loading (detect by checking for __playwright)
+if (!window.__playwright) {
+(function() {
+    if (window.__skipBrowserLoad) return;
+
+    function patchConst(code) {
+        return code.replace(/^(const|let)\s/gm, 'var ');
+    }
+
+    fetch('../../dist/game-modules.js')
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+            var patched = patchConst(text)
+                .replace(/if\s*\(typeof module[^}]+\}\s*$/m, '')
+                .replace(/\/\/\s*#\s*sourceMappingURL[^\n]*/g, '');
+            // Execute modules in global scope
+            (0, eval)(patched);
+
+            // Mock require for game.js
+            window.require = function(path) {
+                if (path.indexOf('game-modules') !== -1 && typeof GameModules !== 'undefined') {
+                    return GameModules;
+                }
+                return {};
+            };
+
+            return fetch('../../game.js').then(function(r) { return r.text(); });
+        })
+        .then(function(text) {
+            var patched = patchConst(text)
+                .replace(/var _gameModules\s*=\s*require\(['"]\.\/dist\/game-modules\.js['"]\)/,
+                    'var _gameModules = GameModules')
+                .replace(/require\(['"][^'"]+['"]\)/g, '({})');
+            // Execute game.js in global scope
+            (0, eval)(patched);
+
+            // Call init
+            if (typeof init === 'function') {
+                init();
+                console.log('[BROWSER] init() called');
+            }
+            // Wait for ready
+            function waitForReady() {
+                try {
+                    if (typeof state !== 'undefined' && typeof playerData !== 'undefined') {
+                        window.__gameReady = true;
+                        console.log('[TEST] Game ready, state=' + state);
+                    } else {
+                        setTimeout(waitForReady, 100);
+                    }
+                } catch(e) {
+                    setTimeout(waitForReady, 100);
+                }
+            }
+            waitForReady();
+        })
+        .catch(function(err) {
+            console.error('[BROWSER] Load error:', err);
+            window.__gameError = err.message;
+        });
+})();
+} // end if (!window.__playwright)
+
+}; // end s0.onload
+document.head.appendChild(s0);
+</script>
+</body>
+</html>

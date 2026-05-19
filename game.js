@@ -1,0 +1,6171 @@
+// 器落山河 - Canvas 2D 游戏
+// 包含：游戏循环、数据持久化、广告（移除音效以保证兼容性）
+
+// 调试日志开关 - 生产环境自动关闭
+const _isDev = typeof __wxConfig !== 'undefined' ? __wxConfig.envVersion !== 'release' : true;
+const _log = _isDev ? console.log.bind(console) : function() {};
+const _warn = _isDev ? console.warn.bind(console) : function() {};
+
+// 游戏状态
+const GAME_STATE = {
+    MENU: 'menu',
+    PLAYING: 'playing',
+    PAUSED: 'paused',
+    GAMEOVER: 'gameover',
+    LEADERBOARD: 'leaderboard',
+    BACKPACK: 'backpack',
+    SHOP: 'shop',
+    SETTINGS: 'settings',   // 设置界面
+    TASKS: 'tasks',         // 任务界面
+    SEASON_MENU: 'season_menu',     // 赛季模式入口
+    SEASON_SELECT: 'season_select', // 赛季选择界面
+    SEASON_PLAYING: 'season_playing', // 赛季游戏进行中
+    STAGE_SELECT: 'stage_select',   // 闯关选择界面
+    STAGE_PLAYING: 'stage_playing', // 闯关游戏进行中
+    STAGE_RESULT: 'stage_result',   // 闯关结算界面
+    SQUAD: 'squad',          // 编队系统界面
+    FAITH: 'faith',          // 信仰系统界面
+    TOWER: 'tower',          // 无尽之塔界面
+    TOWER_COMBAT: 'tower_combat', // 爬塔战斗界面
+    TOWER_RESULT: 'tower_result', // 爬塔结算界面
+    TOWER_RESUME: 'tower_resume', // 爬塔继续/放弃选择界面
+    NOSTALGIC: 'nostalgic',  // 怀旧副本界面
+    BOSS_BATTLE: 'boss_battle', // Boss战模式
+    BOSS_SELECT: 'boss_select',  // Boss选择界面
+    BOSS_BATTLE_RESULT: 'boss_battle_result', // Boss战结算界面
+    GACHA_ANIMATION: 'gacha_animation', // 抽卡动画界面
+    DEBUG: 'debug',  // 调试面板
+    FUSION: 'fusion',  // 融合系统界面
+    UPGRADE: 'upgrade' // 升级系统界面
+};
+
+// 游戏变量
+let canvas = null;
+let ctx = null;
+let state = GAME_STATE.MENU;
+let previousState = GAME_STATE.MENU;  // 记录上一个状态，用于背包返回
+let score = 0;
+let timeLeft = 60;
+let timerInterval = null;
+let moveInterval = null;
+let renderInterval = null;
+let _rafId = null;
+let monsterAttackInterval = null;
+let bestScore = 0;
+let monstersKilled = 0;  // 击杀怪物计数
+let currentMonster = null;  // 当前怪物
+let gameEndTime = 0;  // 游戏结束时间戳，用于冷却期保护
+let pauseStartTime = 0;  // 暂停开始时间，用于调整灵韵消失时间
+
+
+// 防抖保存机制（避免频繁保存导致卡顿）
+let touchStartState = null;  // 触摸开始时的游戏状态
+
+
+// 玩家被打断状态（Boss技能）
+
+// 玩家中毒状态
+
+// 玩家闪避状态（闪避灵韵）
+
+// 调试面板
+let debugPanelOpen = false;          // 调试面板是否打开
+var devBattleSystem = null;            // 开发者战斗调参工具
+
+
+// 抽卡动画系统
+
+// ==================== 贪婪灵韵系统 ====================
+
+// ==================== 连击灵韵系统 ====================
+
+// ==================== Boss灵韵机制 ====================
+
+// ==================== 器灵吞噬者逃跑机制 ====================
+
+// ==================== 虚空皇帝限制机制 ====================
+
+// ==================== 外部模块加载（从 dist/game-modules.js） ====================
+var _gameModules = require('./dist/game-modules.js');
+var createStarThiefSystem = _gameModules.createStarThiefSystem;
+var createTaskSystem = _gameModules.createTaskSystem;
+var createFaithSystem = _gameModules.createFaithSystem;
+var createTowerSystem = _gameModules.createTowerSystem;
+var createAFKSystem = _gameModules.createAFKSystem;
+var createGachaSystem = _gameModules.createGachaSystem;
+// 抽卡配置（供渲染等直接使用）
+var GACHA_POOL_TYPES = _gameModules.GACHA_POOL_TYPES;
+var GACHA_POOL_ROTATION_DAYS = _gameModules.GACHA_POOL_ROTATION_DAYS;
+var GACHA_ANIMATION_CONFIG = _gameModules.GACHA_ANIMATION_CONFIG;
+var GACHA_POOLS = _gameModules.GACHA_POOLS;
+var STAR_CHEST_REWARDS = _gameModules.STAR_CHEST_REWARDS;
+var STAR_CHEST_DROP_RATE = _gameModules.STAR_CHEST_DROP_RATE;
+// 任务配置（供渲染等直接使用）
+var GUIDE_TASKS = _gameModules.GUIDE_TASKS;
+var DAILY_TASKS = _gameModules.DAILY_TASKS;
+var ACHIEVEMENT_TASKS = _gameModules.ACHIEVEMENT_TASKS;
+// 信仰配置（供渲染等直接使用）
+var FAITH_CONFIG = _gameModules.FAITH_CONFIG;
+// 爬塔配置（供渲染等直接使用）
+var TOWER_CONFIG = _gameModules.TOWER_CONFIG;
+// 角色系统配置
+var MAX_CHARACTER_LEVEL = _gameModules.MAX_CHARACTER_LEVEL;
+var createCharacterSystem = _gameModules.createCharacterSystem;
+var createDropSystem = _gameModules.createDropSystem;
+var createMaterialSystem = _gameModules.createMaterialSystem;
+var createAnimationSystem = _gameModules.createAnimationSystem;
+var createComboSystem = _gameModules.createComboSystem;
+var createPetSystem = _gameModules.createPetSystem;
+var createSkillSystem = _gameModules.createSkillSystem;
+var MonsterSkillType = _gameModules.MonsterSkillType;
+var createMonsterSkillSystem = _gameModules.createMonsterSkillSystem;
+var STAR_MODE = _gameModules.STAR_MODE;
+var FALLING_CONFIG = _gameModules.FALLING_CONFIG;
+var MAX_STARS_ON_SCREEN = _gameModules.MAX_STARS_ON_SCREEN;
+var getBirthTransform = _gameModules.getBirthTransform;
+var createStarSystem = _gameModules.createStarSystem;
+var ShopItems = _gameModules.ShopItems;
+var createShopSystem = _gameModules.createShopSystem;
+var createMonsterSpawnSystem = _gameModules.createMonsterSpawnSystem;
+var createPoisonPuddleSystem = _gameModules.createPoisonPuddleSystem;
+var createTipSystem = _gameModules.createTipSystem;
+var BOSS_STAR_COUNT = _gameModules.BOSS_STAR_COUNT;
+var BOSS_STAR_MISS_THRESHOLD = _gameModules.BOSS_STAR_MISS_THRESHOLD;
+var BOSS_STAR_DURATION = _gameModules.BOSS_STAR_DURATION;
+var BOSS_FIRST_TRIGGER = _gameModules.BOSS_FIRST_TRIGGER;
+var BOSS_REPEAT_TRIGGER = _gameModules.BOSS_REPEAT_TRIGGER;
+var BOSS_STUN_CHANCE = _gameModules.BOSS_STUN_CHANCE;
+var BOSS_STUN_DURATION = _gameModules.BOSS_STUN_DURATION;
+var createBossStarSystem = _gameModules.createBossStarSystem;
+var createUICoreRenderer = _gameModules.createUICoreRenderer;
+var createMonsterDrawRenderer = _gameModules.createMonsterDrawRenderer;
+var createAFKRenderer = _gameModules.createAFKRenderer;
+var createMenuRenderer = _gameModules.createMenuRenderer;
+var createSeasonRenderer = _gameModules.createSeasonRenderer;
+var createTaskRenderer = _gameModules.createTaskRenderer;
+var createDebugRenderer = _gameModules.createDebugRenderer;
+var createShopRenderer = _gameModules.createShopRenderer;
+var createBackpackRenderer = _gameModules.createBackpackRenderer;
+var createGachaRenderer = _gameModules.createGachaRenderer;
+var createStageRenderer = _gameModules.createStageRenderer;
+var createSquadRenderer = _gameModules.createSquadRenderer;
+var createBossRenderer = _gameModules.createBossRenderer;
+var createTowerRenderer = _gameModules.createTowerRenderer;
+var createGameBattleRenderer = _gameModules.createGameBattleRenderer;
+var SEASON_STAR_TYPES = _gameModules.SEASON_STAR_TYPES;
+var createSeasonSystem = _gameModules.createSeasonSystem;
+var createMonthlyCardSystem = _gameModules.createMonthlyCardSystem;
+var createStorageSystem = _gameModules.createStorageSystem;
+var playerEffects = _gameModules.playerEffects;
+var combatState = _gameModules.combatState;
+var uiScrollState = _gameModules.uiScrollState;
+var comboState = _gameModules.comboState;
+var createBattleEngine = _gameModules.createBattleEngine;
+var BATTLE_CONSTANTS = _gameModules.BATTLE_CONSTANTS;
+var createAudioSystem = _gameModules.createAudioSystem;
+var createModeLifecycleManager = _gameModules.createModeLifecycleManager;
+var createStateMachine = _gameModules.createStateMachine;
+var FUSION_TYPES = _gameModules.FUSION_TYPES;
+var FUSION_CONFIG = _gameModules.FUSION_CONFIG;
+var createFusionRegistry = _gameModules.createFusionRegistry;
+var createFusionEngine = _gameModules.createFusionEngine;
+var createFusionCharacterStrategy = _gameModules.createFusionCharacterStrategy;
+var createFusionPetStrategy = _gameModules.createFusionPetStrategy;
+var createFusionSkillStrategy = _gameModules.createFusionSkillStrategy;
+var createFusionStarStrategy = _gameModules.createFusionStarStrategy;
+var createFusionEquipmentStrategy = _gameModules.createFusionEquipmentStrategy;
+var createFusionRenderer = _gameModules.createFusionRenderer;
+var createUpgradeEngine = _gameModules.createUpgradeEngine;
+var createUpgradeCharacterStrategy = _gameModules.createUpgradeCharacterStrategy;
+var createUpgradeEquipmentStrategy = _gameModules.createUpgradeEquipmentStrategy;
+var createUpgradeSkillStrategy = _gameModules.createUpgradeSkillStrategy;
+var createUpgradePetStrategy = _gameModules.createUpgradePetStrategy;
+var createUpgradeStarStrategy = _gameModules.createUpgradeStarStrategy;
+var createUpgradeRenderer = _gameModules.createUpgradeRenderer;
+var upgradeEngine = null;
+var upgradeRenderer = null;
+let starThief = null;
+let audioSystem = null;
+let taskSystem = null;
+let faithSystem = null;
+let towerSystem = null;
+let afkSystem = null;
+let gachaSystem = null;
+let characterSystem = null;
+let dropSystem = null;
+let materialSystem = null;
+let animationSystem = null;
+// 任务系统函数桥接（在 init() 中实例化后赋值）
+var initTaskProgress = null;
+var checkDailyTaskRefresh = null;
+var updateTaskProgress = null;
+var updateTaskStats = null;
+var claimTaskReward = null;
+var getTasksWithProgress = null;
+var hasClaimableRewards = null;
+// 信仰系统函数桥接（在 init() 中实例化后赋值）
+var getCharacterFaithData = null;
+var getFaithAttributeBonus = null;
+var addFaithExp = null;
+var useFaithResource = null;
+var gainFaithResource = null;
+var unlockSpecialization = null;
+var unlockBreakthroughSkill = null;
+var performInheritance = null;
+var calculateTotalAttributesWithFaith = null;
+var hasBreakthroughEffect = null;
+// 角色系统函数桥接（在 init() 中实例化后赋值）
+var initCharacterExperience = null;
+var getCharacterExperience = null;
+var getExpForLevel = null;
+var addCharacterExperience = null;
+var getCharacterLevelBonus = null;
+var getCharacterStatsAtLevel = null;
+var getCharacterFullStats = null;
+var getPassiveSkillBonuses = null;
+// 掉落系统函数桥接
+var dropMaterial = null;
+var dropEquipment = null;
+var dropSkill = null;
+var dropPet = null;
+// 材料使用系统函数桥接
+var calculateStarScore = null;
+var calculateTotalAttack = null;
+var useMaterial = null;
+var upgradeIceStar = null;
+var upgradeFireStar = null;
+// 动画系统函数桥接
+var createCritAnimation = null;
+var updateCritAnimations = null;
+var drawCritAnimations = null;
+var createMeteorAnimation = null;
+var updateMeteorAnimations = null;
+var drawMeteorAnimations = null;
+var createMeteorHitEffect = null;
+var updateMeteorExplosions = null;
+var drawMeteorExplosions = null;
+var createHpBarCounterAnimation = null;
+var updateHpBarCounterAnimations = null;
+var drawHpBarCounterAnimations = null;
+var createPlayerDamageAnimation = null;
+var updatePlayerDamageAnimations = null;
+var drawPlayerDamageAnimations = null;
+var createMonsterDamageAnimation = null;
+var updateMonsterDamageAnimations = null;
+var drawMonsterDamageAnimations = null;
+var createTimeDamageAnimation = null;
+var updateTimeDamageAnimations = null;
+var drawTimeDamageAnimations = null;
+var createQuickTapAnimation = null;
+var updateQuickTapAnimations = null;
+var drawQuickTapAnimations = null;
+var createGoldDropAnimation = null;
+var updateGoldDropAnimations = null;
+var drawGoldDropAnimations = null;
+var addGameMessage = null;
+var drawGameMessages = null;
+var drawElementalComboEffect = null;
+var createSkillDamageAnimation = null;
+var updateSkillDamageAnimations = null;
+var drawSkillDamageAnimations = null;
+var createPetDamageAnimation = null;
+var updatePetDamageAnimations = null;
+var drawPetDamageAnimations = null;
+var createMonsterProjectileAnimation = null;
+var updateMonsterProjectileAnimations = null;
+var drawMonsterProjectileAnimations = null;
+var createTapRippleAnimation = null;
+var updateTapRippleAnimations = null;
+var drawTapRippleAnimations = null;
+var releaseTapRipple = null;
+var moveTapRipple = null;
+// 灵韵点击粒子爆发
+var createStarBurstAnimation = null;
+var updateStarBurstAnimations = null;
+var drawStarBurstAnimations = null;
+// 灵韵合成聚拢
+var updateMergeAnimations = null;
+var drawMergeAnimations = null;
+// 战斗动画清理
+var clearBattleAnimations = null;
+// 点击得分飘字
+var createScorePopupAnimation = null;
+var updateScorePopupAnimations = null;
+var drawScorePopupAnimations = null;
+// 视觉屏幕震动
+var createScreenShake = null;
+var updateScreenShake = null;
+var getScreenShakeOffset = null;
+// 动画暂停控制
+var pauseAnimations = null;
+var resumeAnimations = null;
+// 提示系统
+var tipSystem = null;
+var tipShowTipOnce = null;
+var tipUpdateTip = null;
+var tipRenderTip = null;
+var tipHandleTipClick = null;
+var tipGetStarTypeName = null;
+var getStarColor = null;
+var getStarGlowColor = null;
+var easeOutQuad = null;
+var setElementalComboState = null;
+var clearMessages = null;
+var clearAllAnimations = null;
+var getLastVibrateTime = null;
+var setLastVibrateTime = null;
+var getVibrateCooldown = null;
+// 连击系统函数桥接
+var comboSystem = null;
+var getComboTimeout = null;
+var updateCombo = null;
+var resetCombo = null;
+var checkComboTimeout = null;
+var getComboScoreBonus = null;
+// 宠物系统函数桥接
+var petSystem = null;
+var petAttackMonster = null;
+var triggerPetSkill = null;
+var startPetAttackTimer = null;
+var updateMonsterBurnStatus = null;
+var stopPetAttackTimer = null;
+// 技能系统函数桥接
+var skillSystem = null;
+var useSkill = null;
+var getSkillRemainingCooldown = null;
+var updateSkillEffects = null;
+var getActiveSkillBonuses = null;
+var isImmune = null;
+// 怪物技能系统函数桥接
+var monsterSkillSystem = null;
+var triggerMonsterSkill = null;
+var calculateMonsterDamage = null;
+var calculateDamageToMonster = null;
+var addMonsterSkillAnimation = null;
+var updateMonsterSkillAnimations = null;
+var drawMonsterSkillAnimations = null;
+// 融合系统
+var fusionRegistry = null;
+var fusionEngine = null;
+var fusionRenderer = null;
+// 灵韵系统函数桥接
+var starSystem = null;
+var shopSystem = null;
+var monsterSpawnSystem = null;
+var poisonPuddleSystem = null;
+var bossStarSystem = null;
+var addNewStar = null;
+var addRandomStar = null;
+var addFallingStar = null;
+var updateFallingStars = null;
+var mergeStars = null;
+var resetStar = null;
+var cleanupExpiredStars = null;
+var spawnDodgeStar = null;
+var updateStarSpawnInterval = null;
+// 商店系统函数桥接（在 init() 中实例化后赋值）
+var purchaseShopItem = null;
+var useItem = null;
+var resetBuffs = null;
+// 怪物生成系统函数桥接（在 init() 中实例化后赋值）
+var getMonsterInstance = null;
+var getAvailableMonsters = null;
+var getAvailableBosses = null;
+var getRandomMonster = null;
+var getMonsterTypeByScore = null;
+var getBossTypeByScore = null;
+var createMonster = null;
+var calculateMonsterPositions = null;
+var checkUnlockCharacter = null;
+var checkMonsterAppear = null;
+var spawnMonster = null;
+// Boss灵韵机制函数桥接（在 init() 中实例化后赋值）
+var triggerBossStarSkill = null;
+var checkBossStarPenalty = null;
+var resetBossStarMechanic = null;
+var removeBossStar = null;
+var incrementBossAttackCount = null;
+// 怪物战斗系统函数桥接（在 init() 中实例化后赋值）
+var singleMonsterAttack = null;
+var monsterAttackPlayer = null;
+var useGreedySkill = null;
+var checkGameOver = null;
+var updateMonsterAnimation = null;
+var attackMonster = null;
+var killMonster = null;
+var onMonsterKilled = null;
+var updatePoisonEffect = null;
+// 调试系统桥接
+var debugSystem = null;
+// UI编辑器桥接
+var uiConfig = null;
+var uiEditorSystem = null;
+var combatFontConfig = null;
+var executeDebugAction = null;
+var addMaterialToBackpack = null;
+var endStage = null;
+// 挂机系统函数桥接（在 init() 中实例化后赋值）
+var calculateAccumulatedAfkRewards = null;
+var claimAfkRewards = null;
+// 抽卡系统函数桥接
+var performGacha = null;
+var showGachaResults = null;
+var startGachaAnimation = null;
+var updateGachaAnimation = null;
+var closeGachaAnimation = null;
+var handleGachaAnimationClick = null;
+var handleGachaClick = null;
+var getGachaPoolRemainingDays = null;
+var checkGachaPoolRotation = null;
+// 赛季系统函数桥接
+var seasonSystem = null;
+var getCurrentSeasonWeek = null;
+var getMondayOfWeek = null;
+var getSeasonSeed = null;
+var seededRandom = null;
+var generateSeasonContent = null;
+var initSeasonContent = null;
+var generateMockSeasonLeaderboard = null;
+var getSeasonRank = null;
+var startDodgeStarTimer = null;
+var stopDodgeStarTimer = null;
+// 月卡系统函数桥接
+var monthlyCardSystem = null;
+var isMonthlyCardClaimedToday = null;
+var getTodayString = null;
+var handleMonthlyCardClick = null;
+var handleSmallMonthlyCardClick = null;
+var handleLargeMonthlyCardClick = null;
+var watchAdForMonthlyCard = null;
+var addMonthlyCardDays = null;
+var claimMonthlyCardReward = null;
+// 存档系统函数桥接
+var storageSystem = null;
+var savePlayerData = null;
+var loadBestScore = null;
+var saveBestScore = null;
+var clearGameData = null;
+// 广告系统函数桥接
+var adSystem = null;
+var initAds = null;
+var showRewardedVideoAd = null;
+var showItemAd = null;
+var handleItemAdReward = null;
+var showTimeCrystalAd = null;
+// 闯关模式系统函数桥接
+var stageModeSystem = null;
+var isStageUnlocked = null;
+var getDifficultyColor = null;
+var startStage = null;
+// Boss战系统函数桥接
+var bossBattleSystem = null;
+var normalBattleAdapter = null;
+var invariantChecker = null;
+var modeLifecycle = null;
+var stateMachine = null;
+var uiCoreRenderer = null;
+var monsterDrawRenderer = null;
+// 全局绘制函数桥接（init 中由渲染器实例化后赋值）
+var drawText = null;
+var drawButton = null;
+var drawBackButton = null;
+var isBackButtonClicked = null;
+var drawStar = null;
+var drawMonster = null;
+var drawSingleMonster = null;
+var drawPoisonPuddles = null;
+// AFK 渲染桥接
+var renderAfkPopup = null;
+var renderAfkResultPopup = null;
+var renderAfkButton = null;
+var handleAfkPopupTouch = null;
+var handleAfkButtonTouch = null;
+var handleAfkResultTouch = null;
+// 菜单/赛季/任务/调试渲染桥接
+var renderMenu = null;
+var renderGameOver = null;
+var renderPausedMenu = null;
+var renderLeaderboard = null;
+var renderSettings = null;
+var renderSeasonMenu = null;
+var renderSeasonSelect = null;
+var renderSeasonLeaderboard = null;
+var renderTasks = null;
+var renderDebugPanel = null;
+// 背包渲染桥接
+var renderBackpack = null;
+var renderMaterialsTab = null;
+var renderCharactersTab = null;
+var renderStarsTab = null;
+var renderItemsTab = null;
+var renderEquipmentsTab = null;
+var renderSkillsTab = null;
+var renderPetsTab = null;
+var renderFaithTab = null;
+// 商城渲染桥接
+var renderShop = null;
+var renderShopMaterialsTab = null;
+var renderShopBuffsTab = null;
+var renderShopItemsTab = null;
+var renderShopGachaTab = null;
+var renderShopPetsTab = null;
+var renderShopMonthlyTab = null;
+// 扭蛋渲染桥接
+var renderGachaAnimation = null;
+var renderGachaStarfield = null;
+var renderFlyingStar = null;
+var renderRevealedStars = null;
+var renderGachaConfirmButton = null;
+// 闯关渲染桥接
+var renderStageSelect = null;
+var renderStageResult = null;
+// 阵营渲染桥接
+var renderSquad = null;
+var renderPortraitLarge = null;
+var renderSquadCharacter = null;
+var renderSquadEquipment = null;
+var renderSquadSkills = null;
+var renderSquadPets = null;
+var renderSquadStars = null;
+// Boss渲染桥接
+var renderBossBattleResult = null;
+var renderBossSelect = null;
+// 塔渲染桥接
+var renderTower = null;
+var renderHiddenPathDialog = null;
+var renderBattle = null;
+var renderTowerResult = null;
+var renderTowerResume = null;
+// 核心战斗渲染桥接
+var renderGame = null;
+var afkRenderer = null;
+var menuRenderer = null;
+var seasonRenderer = null;
+var taskRenderer = null;
+var debugRenderer = null;
+var shopRenderer = null;
+var backpackRenderer = null;
+var gachaRenderer = null;
+var stageRenderer = null;
+var squadRenderer = null;
+var bossRenderer = null;
+var towerRenderer = null;
+var gameBattleRenderer = null;
+var _lastBossStunTime = 0;
+var getStarBaseScore = null;
+// 游戏生命周期系统函数桥接
+var gameLifecycleSystem = null;
+var startGame = null;
+var endGame = null;
+var pauseGame = null;
+var resumeGame = null;
+var restartGame = null;
+var startSeasonGame = null;
+var endSeasonGame = null;
+// 玩家数据加载系统函数桥接
+var playerDataSystem = null;
+var loadPlayerData = null;
+// 配置数据桥接（从 game-modules.js 导入）
+var EquipmentTypes = _gameModules.EquipmentTypes;
+var EquipmentRarity = _gameModules.EquipmentRarity;
+var Equipments = _gameModules.Equipments;
+var SkillTypes = _gameModules.SkillTypes;
+var Skills = _gameModules.Skills;
+var PetRarity = _gameModules.PetRarity;
+var Pets = _gameModules.Pets;
+var Materials = _gameModules.Materials;
+var STAGES = _gameModules.STAGES;
+var CHAPTERS = _gameModules.CHAPTERS;
+// 绘图工具函数桥接（从 game-modules.js 导入）
+var drawRoundRect = _gameModules.drawRoundRect;
+var fillRoundRect = _gameModules.fillRoundRect;
+var strokeRoundRect = _gameModules.strokeRoundRect;
+var gachaRoundRect = _gameModules.gachaRoundRect;
+// 大型配置数据桥接（从 game-modules.js 导入）
+var Monsters = _gameModules.Monsters;
+var MonsterRarityWeights = _gameModules.MonsterRarityWeights;
+var MonsterGrowth = _gameModules.MonsterGrowth;
+var BOSS_LIST = _gameModules.BOSS_LIST;
+var MonsterTypes = _gameModules.MonsterTypes;
+var Characters = _gameModules.Characters;
+var getCharacterKey = _gameModules.getCharacterKey;
+// 游戏核心配置桥接（从 game-modules.js 导入）
+var CONFIG = _gameModules.CONFIG;
+var BOSS_BATTLE_CONFIG = _gameModules.BOSS_BATTLE_CONFIG;
+// ========== MockLeaderboardData 已移除（使用开放数据域好友排行榜） ==========
+var BASE_STAR_INTERVAL = _gameModules.BASE_STAR_INTERVAL;
+var MIN_STAR_INTERVAL = _gameModules.MIN_STAR_INTERVAL;
+
+// spec-aware base interval: reads from BattleEngine RC if available, falls back to constant
+function _getSpecAwareBaseStarInterval() {
+    var engine = (normalBattleAdapter && normalBattleAdapter.getBattleEngine) ? normalBattleAdapter.getBattleEngine() : null;
+    if (engine && engine.getEffectiveSpec()) {
+        return _gameModules.getSpecValue(engine.getEffectiveSpec(), 'STAR.SPAWN_INTERVAL_MS') || BASE_STAR_INTERVAL;
+    }
+    return BASE_STAR_INTERVAL;
+}
+var DODGE_DURATION = _gameModules.DODGE_DURATION;
+var DODGE_STAR_SPAWN_INTERVAL = _gameModules.DODGE_STAR_SPAWN_INTERVAL;
+var DODGE_STAR_LIFETIME = _gameModules.DODGE_STAR_LIFETIME;
+var MONSTER_ABSORB_SCORE = _gameModules.MONSTER_ABSORB_SCORE;
+var MONSTER_ARMOR_GAIN = _gameModules.MONSTER_ARMOR_GAIN;
+var MONSTER_HP_GAIN = _gameModules.MONSTER_HP_GAIN;
+var MONSTER_DAMAGE_GAIN = _gameModules.MONSTER_DAMAGE_GAIN;
+var NORMAL_GAME_TIME = _gameModules.NORMAL_GAME_TIME;
+var TIME_STAR_MIN_TIME = _gameModules.TIME_STAR_MIN_TIME;
+var STAR_DEVOURER_ESCAPE_HP_RATIO = _gameModules.STAR_DEVOURER_ESCAPE_HP_RATIO;
+var GREEDY_SKILL_THRESHOLD = _gameModules.GREEDY_SKILL_THRESHOLD;
+var COMBO_STAR_DURATION = _gameModules.COMBO_STAR_DURATION;
+var COMBO_STAR_INTERVAL = _gameModules.COMBO_STAR_INTERVAL;
+var SKILL_SLOT_SIZE = _gameModules.SKILL_SLOT_SIZE;
+var MAX_ACTIVE_SKILLS = _gameModules.MAX_ACTIVE_SKILLS;
+var BACK_BTN_WIDTH = _gameModules.BACK_BTN_WIDTH;
+var BACK_BTN_HEIGHT = _gameModules.BACK_BTN_HEIGHT;
+var BACK_BTN_COLOR = _gameModules.BACK_BTN_COLOR;
+var isModeUnlocked = _gameModules.isModeUnlocked;
+var AWAKE_CONFIG = _gameModules.AWAKE_CONFIG;
+var getPlayerHpScaling = _gameModules.getPlayerHpScaling;
+var getPlayerAtkScaling = _gameModules.getPlayerAtkScaling;
+var getPlayerScoreScaling = _gameModules.getPlayerScoreScaling;
+var getAwakeStage = _gameModules.getAwakeStage;
+var getDropTier = _gameModules.getDropTier;
+// ═══════════════════════════════════════════════════════════
+// 战斗特性（CombatSpec features）— 渲染层感知
+// ═══════════════════════════════════════════════════════════
+var _COMBAT_SPEC = _gameModules.COMBAT_SPEC;
+var _specResolverFn = _gameModules.specResolver;
+var _normalCombatFeatures = _gameModules.COMBAT_FEATURES;
+var _bossCombatFeatures = _specResolverFn(_normalCombatFeatures, _gameModules.BOSS_COMBAT_FEATURES);
+var _towerCombatFeatures = _specResolverFn(_normalCombatFeatures, _gameModules.TOWER_COMBAT_FEATURES);
+function getCombatFeatures() {
+    if (state === GAME_STATE.BOSS_BATTLE) return _bossCombatFeatures;
+    if (state === GAME_STATE.TOWER_COMBAT) return _towerCombatFeatures;
+    return _normalCombatFeatures;
+}
+
+function applyPoisonStarEffect(dmg) {
+    if (playerData.playerShield > 0) {
+        var absorb = Math.min(playerData.playerShield, dmg);
+        playerData.playerShield -= absorb;
+        dmg -= absorb;
+    }
+    var oldHp = playerData.playerHp;
+    playerData.playerHp = Math.max(0, playerData.playerHp - dmg);
+    _log('[HP] poison_star | -' + dmg + ' | ' + oldHp + ' → ' + playerData.playerHp);
+    playerEffects.poisoned = true;
+    playerEffects.poisonEndTime = Date.now() + _COMBAT_SPEC.STATUS.POISON_DURATION_MS;
+    playerEffects.poisonDamage = _COMBAT_SPEC.STATUS.POISON_TICK_DAMAGE;
+    playerEffects.poisonTickTime = Date.now() + _COMBAT_SPEC.STATUS.POISON_TICK_MS;
+    addGameMessage('☠️ 毒灵爆发! -' + _COMBAT_SPEC.STATUS.POISON_STAR_DAMAGE + 'HP+中毒!', '#00ff00', true);
+    wx.vibrateShort({ type: 'heavy' });
+}
+
+// ==================== 技能栏系统 ====================
+
+// 宠物攻击系统
+
+// ==================== Boss战模式 ====================
+
+
+// ==================== 统一怪物配置系统 ====================
+
+
+// 排行榜系统
+
+
+// 任务系统
+let tasksTab = 'guide';  // 'guide' 引导任务、'daily' 每日任务 或 'achievements' 成就任务
+let tasksScrollY = 0; // 任务列表滚动偏移
+let tasksLastTouchY = 0; // 任务列表触摸上一次Y坐标
+
+// ==================== 闯关模式系统 ====================
+
+// 闯关模式变量
+let currentStage = null;           // 当前关卡ID
+let currentStageData = null;       // 当前关卡数据
+let stageScore = 0;                // 闯关分数
+let stageTime = 0;                 // 闯关时间
+let stageMonstersKilled = 0;       // 击杀怪物数
+let stageBossesKilled = 0;         // 击杀Boss数
+let stageMaxCombo = 0;             // 最高连击
+let stagePerfectCount = 0;         // 完美点击次数
+let stageCriticalCount = 0;        // 暴击次数
+let stageDamageTaken = 0;          // 受到的伤害
+let stageResult = { stars: 0, rewards: {} };  // 关卡结果
+let selectedChapter = 1;           // 当前选择的章节
+
+
+// }
+
+// ========== MockLeaderboardData 已移除（使用开放数据域好友排行榜） ==========
+
+// 游戏资源
+const Assets = {
+    backgroundImage: null,
+    fightBgImage: null,     // 战斗场景背景图片（初始）
+    fightBgImage2: null,    // 战斗场景背景图片（2000分解锁）
+    bgPositionCache: null,  // 缓存背景图片位置信息
+    fightBgPositionCache: null,  // 缓存战斗背景图片位置信息
+    fightBgPositionCache2: null, // 缓存第二张战斗背景图片位置信息
+    normalStarImage: null,  // 灵韵图片
+    iceStarImage: null,     // 冰灵图片
+    fireStarImage: null,    // 火灵图片
+    backpackImage: null,    // 背包UI图片
+    menuButtonImage: null,  // 菜单展开按钮图片（展开状态）
+    menuButtonImageCollapsed: null,  // 菜单展开按钮图片（未展开状态）
+    settingsIcon: null,     // 设置图标
+    goldIcon: null,         // 灵币图标
+    starSourceIcon: null,   // 器灵石图标
+    backIcon: null,         // 返回按钮图标
+    taskIcon: null,         // 任务图标
+    leaderboardIcon: null,  // 排行榜图标
+    seasonIcon: null,       // 赛季图标
+    shopIcon: null,         // 商城图标
+    towerIcon: null,        // 无尽塔图标
+    bossImage: null,        // Boss战图标
+    characterImages: {      // 角色图片
+        starter: null,      // 青铜小鼎
+        warrior: null       // 器灵战士
+    }
+};
+
+
+// ==================== 赛季模式配置 ====================
+// 通过 seasonSystem getter/setter 访问
+
+// 赛季模式状态（保留全局声明，通过 seasonSystem 同步）
+// 全局变量保留用于渲染等处直接读取，SeasonSystem 通过 setter 同步回来
+let seasonContent = null;
+let seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
+let seasonScore = 0;
+let seasonBestScore = 0;
+let seasonLeaderboard = [];
+
+// 赛季选择记忆：从上次保存的方案中恢复选择，验证选项在当前赛季池中有效
+function restoreSeasonSelection() {
+    _log('[赛季记忆] restoreSeasonSelection called');
+    _log('[赛季记忆] seasonContent:', seasonContent ? 'exists' : 'null');
+    _log('[赛季记忆] playerData:', playerData ? 'exists' : 'null');
+    _log('[赛季记忆] seasonData:', playerData && playerData.seasonData ? 'exists' : 'null');
+    _log('[赛季记忆] selection:', playerData && playerData.seasonData && playerData.seasonData.selection ? JSON.stringify(playerData.seasonData.selection) : 'null');
+    if (!seasonContent || !playerData || !playerData.seasonData || !playerData.seasonData.selection) {
+        _log('[赛季记忆] 条件不满足，跳过恢复');
+        return;
+    }
+    const saved = playerData.seasonData.selection;
+    if (!saved || (!saved.character && (!saved.skills || saved.skills.length === 0) && !saved.pet && (!saved.starTypes || saved.starTypes.length === 0))) {
+        _log('[赛季记忆] saved为空，跳过恢复');
+        return;
+    }
+    // 验证并恢复角色
+    let restored = { character: null, skills: [], pet: null, starTypes: [] };
+    if (saved.character && seasonContent.character === saved.character) {
+        restored.character = saved.character;
+    }
+    // 验证并恢复技能（只保留当前池中存在的）
+    if (saved.skills && Array.isArray(saved.skills)) {
+        for (let i = 0; i < saved.skills.length; i++) {
+            if (seasonContent.skills && seasonContent.skills.indexOf(saved.skills[i]) !== -1 && restored.skills.length < 2) {
+                restored.skills.push(saved.skills[i]);
+            }
+        }
+    }
+    // 验证并恢复宠物
+    if (saved.pet && seasonContent.pets && seasonContent.pets.indexOf(saved.pet) !== -1) {
+        restored.pet = saved.pet;
+    }
+    // 验证并恢复灵韵类型（只保留当前池中存在的）
+    if (saved.starTypes && Array.isArray(saved.starTypes)) {
+        for (let i = 0; i < saved.starTypes.length; i++) {
+            if (seasonContent.starTypes && seasonContent.starTypes.indexOf(saved.starTypes[i]) !== -1 && restored.starTypes.length < 3) {
+                restored.starTypes.push(saved.starTypes[i]);
+            }
+        }
+    }
+    seasonSelection = restored;
+    _log('恢复上次赛季选择:', JSON.stringify(restored));
+}
+
+
+// 当前激活的增益效果（单局生效）
+let activeBuffs = {
+    attackBonus: 0,
+    critRateBonus: 0,
+    goldBonus: 1,
+    timeBonus: 0,
+    hpBonus: 0
+};
+
+// 局内道具数量（每种最多带3个）
+let gameItems = {
+    healPotion: 0,
+    timePotion: 0
+};
+const MAX_GAME_ITEMS = 3;  // 每种道具局内最多携带数量
+
+// 局内广告道具次数（每种道具最多2次看广告机会）
+let adItems = {
+    healPotion: 0,
+    timePotion: 0
+};
+const MAX_AD_ITEMS = 2;  // 每种道具看广告次数上限
+
+// 玩家数据
+let playerData = {
+    id: 'player_001',
+    name: '玩家',
+    gold: 0,                  // 灵币（打怪获得）
+    starSource: 9999,            // 器灵石（稀有货币）
+    starStones: 0,
+    ownedCharacters: [],
+    currentCharacterId: null,
+    showCharacterDetails: false,  // 是否显示角色详细信息
+    characterExperience: {},  // 角色独立经验系统：{ 'char_001': { level: 1, exp: 0, maxExp: 100 }, 'char_002': { level: 1, exp: 0, maxExp: 100 } }
+    materials: {
+        iceCrystal: { quantity: 0, usedCount: 0 },
+        fireSource: { quantity: 0, usedCount: 0 },
+        critCrystal: { quantity: 0, usedCount: 0 },
+        critFireSource: { quantity: 0, usedCount: 0 },
+        timeCrystal: { quantity: 0, usedCount: 0 },
+        devourerResidue: { quantity: 0, usedCount: 0 }
+    },           // 背包中的材料
+    items: {
+        healPotion: { quantity: 0 },      // 治疗药水
+        timePotion: { quantity: 0 },      // 时间药水
+        expPotionSmall: { quantity: 0 },  // 经验药水(小)
+        expPotionMedium: { quantity: 0 }, // 经验药水(中)
+        expPotionLarge: { quantity: 0 },  // 经验药水(大)
+        starChest: { quantity: 0 }        // 灵韵宝箱
+    },           // 背包中的道具
+    usedMaterials: {},       // 已使用的材料（永久加成）
+    unlockedStarTypes: [],
+    iceStarLevel: 0,         // 冰灵等级（最高10级）
+    maxIceStarLevel: 10,     // 冰灵最高等级
+    fireStarLevel: 0,        // 火灵等级（最高10级）
+    maxFireStarLevel: 10,    // 火灵最高等级
+    totalMonstersKilled: 0,  // 累积击杀怪物数
+    bossKillCount: 0,        // 当前Boss战累积击杀数
+    firstBossKilled: false,  // 是否已击杀过第一个Boss（首次必掉暴击冰晶）
+    extraCritRate: 0,        // 暴击冰晶提供的额外暴击率
+    extraCritDamage: 0,      // 爆伤火源提供的额外暴击伤害
+    playerHp: 100,           // 玩家血量
+    maxPlayerHp: 100,        // 玩家最大血量
+    playerShield: 0,         // 玩家护盾（优先扣护盾再扣血量）
+    playerRage: 0,           // 玩家怒气值（倒霉灵韵触发，满3点触发随机效果）
+    // 月卡系统
+    monthlyCards: {
+        small: {
+            days: 0,             // 剩余天数
+            lastClaimDate: null, // 上次领取日期 (YYYY-MM-DD)
+            adsWatched: 0        // 今日已看广告数（用于获取月卡）
+        },
+        large: {
+            days: 0,
+            lastClaimDate: null,
+            adsWatched: 0
+        }
+    }
+};
+
+// 游戏状态
+const GameState = {
+    MENU: 'menu',
+    PLAYING: 'playing',
+    GAMEOVER: 'gameover',
+    BACKPACK: 'backpack'
+};
+
+
+// 数据存储和加载
+
+// 防抖保存：延迟保存，避免频繁 I/O 导致卡顿
+// ========== loadPlayerData 暂留 game.js（依赖全局 playerData 默认结构） ==========
+
+
+// 游戏模式设置
+let starMode = STAR_MODE.RANDOM;  // 默认随机生成模式（保留全局，多处读取）
+
+
+// 灵韵数组（支持多个灵韵同时存在）
+let stars = [];
+
+// 怪物数组（支持多怪物同时存在）
+let monsters = [];
+
+// poisonPuddles, poisonStars 通过 poisonPuddleSystem 访问
+
+function spawnPoisonPuddles(monsterX, monsterY, skill) { poisonPuddleSystem.spawnPoisonPuddles(monsterX, monsterY, skill); }
+function updatePoisonPuddles() { poisonPuddleSystem.updatePoisonPuddles(); }
+
+
+// 获取第一个激活的怪物（兼容旧代码）
+var getActiveMonster = null;
+var getActiveMonsters = null;
+
+// 兼容层：monster 变量指向第一个激活的怪物
+const monster = new Proxy({}, {
+    get(target, prop) {
+        const activeMonster = getActiveMonster();
+        if (activeMonster && prop in activeMonster) {
+            return activeMonster[prop];
+        }
+        // 返回默认值
+        const defaults = {
+            active: false, x: 0, y: 0, size: 60, hp: 0, maxHp: 0,
+            type: null, scale: 1, animationFrame: 0, armor: 0,
+            shield: 0, hasRaged: false, hasSplit: false, skills: [],
+            absorbType: null, empowered: false, empowerType: null,
+            damageBonus: 0, hpBonus: 0, attack: 10, attackInterval: 2000,
+            rageMultiplier: 1, skillStates: {}, lastIceAttackTime: 0,
+            lastFireAttackTime: 0, comboCooldown: 0
+        };
+        return defaults[prop];
+    },
+    set(target, prop, value) {
+        const activeMonster = getActiveMonster();
+        if (activeMonster) {
+            activeMonster[prop] = value;
+        }
+        return true;
+    }
+});
+
+// 屏幕尺寸
+let screenWidth = 0;
+let screenHeight = 0;
+
+// 广告
+
+// 游戏配置
+
+// 初始化
+function init() {
+    try {
+        _log('开始初始化...');
+
+        // 获取Canvas
+        canvas = wx.createCanvas();
+        ctx = canvas.getContext('2d');
+        
+        // 获取屏幕尺寸
+        const systemInfo = wx.getSystemInfoSync();
+        screenWidth = systemInfo.windowWidth;
+        screenHeight = systemInfo.windowHeight;
+        const dpr = systemInfo.pixelRatio || 1;
+
+        // 高DPI适配：Canvas物理分辨率 = 逻辑尺寸 × DPR
+        canvas.width = screenWidth * dpr;
+        canvas.height = screenHeight * dpr;
+        ctx.scale(dpr, dpr);
+
+        _log('屏幕尺寸:', screenWidth, 'x', screenHeight, 'DPR:', dpr, '物理:', canvas.width, 'x', canvas.height);
+        
+        // 初始化存档系统（必须在 loadBestScore/loadPlayerData 之前）
+        storageSystem = createStorageSystem({
+            getPlayerData: function() { return playerData; },
+            setPlayerData: function(val) { playerData = val; },
+            getScore: function() { return score; },
+            getBestScore: function() { return bestScore; },
+            setBestScore: function(val) { bestScore = val; },
+            getSeasonBestScore: function() { return seasonBestScore; },
+            showToast: function(opts) { wx.showToast(opts); }
+        });
+        savePlayerData = function(immediate) { storageSystem.savePlayerData(immediate); };
+        loadBestScore = function() { storageSystem.loadBestScore(); };
+        saveBestScore = function() { storageSystem.saveBestScore(); };
+        clearGameData = function() { storageSystem.clearGameData(); };
+        _log('存档系统模块初始化完成');
+
+        // 初始化玩家数据加载系统
+        playerDataSystem = _gameModules.createPlayerDataSystem({
+            getWxStorage: function(key) { return wx.getStorageSync(key); },
+            setPlayerData: function(data) { playerData = data; },
+            savePlayerData: function() { savePlayerData(); },
+            setTimeCrystalUnlocked: function(val) { combatState.timeCrystalUnlocked = val; }
+        });
+        loadPlayerData = function() { playerDataSystem.loadPlayerData(); };
+        _log('玩家数据加载系统模块初始化完成');
+
+        // 初始化调试系统模块
+        debugSystem = _gameModules.createDebugSystem({
+            getPlayerData: function() { return playerData; },
+            getCharacters: function() { return Characters; },
+            getEquipments: function() { return _gameModules.Equipments; },
+            getSkills: function() { return _gameModules.Skills; },
+            getPets: function() { return _gameModules.Pets; },
+            getSeasonStarTypes: function() { return _gameModules.SEASON_STAR_TYPES; },
+            savePlayerData: function() { savePlayerData(); },
+            showToast: function(title, icon, duration) { wx.showToast({ title: title, icon: icon, duration: duration }); },
+            setBestScore: function(val) { bestScore = val; },
+            getUpgradeEngine: function() { return upgradeEngine; },
+            toggleDevBattle: function() {
+                if (devBattleSystem) {
+                    devBattleSystem.toggle();
+                    debugPanelOpen = false;
+                }
+            },
+            toggleUIEditor: function() {
+                debugPanelOpen = false;
+                if (uiEditorSystem) uiEditorSystem.toggle();
+            }
+        });
+        executeDebugAction = function(actionId) { debugSystem.executeDebugAction(actionId); };
+        _log('调试系统模块初始化完成');
+
+        // 初始化UIConfig和UIEditor
+        uiConfig = _gameModules.createUIConfig({
+            wxSetStorageSync: function(key, val) { wx.setStorageSync(key, val); },
+            wxGetStorageSync: function(key) { return wx.getStorageSync(key); }
+        });
+        uiConfig.load();
+
+        // 初始化战斗字体配置
+        combatFontConfig = _gameModules.createCombatFontConfig();
+
+        uiEditorSystem = _gameModules.createUIEditorSystem({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getGameState: function() { return state; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            uiConfig: uiConfig,
+            showToast: function(opts) { wx.showToast(opts); }
+        });
+        _log('UI编辑器模块初始化完成');
+
+        // 加载最高分
+        loadBestScore();
+        
+        // 加载玩家数据
+        loadPlayerData();
+
+        // 上传排行榜数据到云存储
+        storageSystem.uploadLeaderboardData();
+
+        // 更新灵韵模式（从玩家数据加载）
+        if (playerData.starMode) {
+            starMode = playerData.starMode;
+        }
+        if (starSystem) starSystem.setStarMode(starMode);
+        _log('灵韵模式:', starMode);
+        
+        // 加载背景图片
+        Assets.backgroundImage = wx.createImage();
+        Assets.backgroundImage.src = 'assets/images/background.png';
+        Assets.backgroundImage.onload = function() {
+            _log('背景图片加载成功');
+        };
+        Assets.backgroundImage.onerror = function() {
+            _log('背景图片加载失败，使用纯色背景');
+            Assets.backgroundImage = null;
+        };
+
+        // 加载战斗场景背景图片（初始）
+        Assets.fightBgImage = wx.createImage();
+        Assets.fightBgImage.src = 'assets/images/Fight_01_BG.jpg';
+        Assets.fightBgImage.onload = function() {
+            _log('战斗背景图片1加载成功');
+        };
+        Assets.fightBgImage.onerror = function() {
+            _log('战斗背景图片1加载失败');
+            Assets.fightBgImage = null;
+        };
+
+        // 加载战斗场景背景图片（2000分解锁）
+        Assets.fightBgImage2 = wx.createImage();
+        Assets.fightBgImage2.src = 'assets/images/Fight_02_BG.jpg';
+        Assets.fightBgImage2.onload = function() {
+            _log('战斗背景图片2加载成功');
+        };
+        Assets.fightBgImage2.onerror = function() {
+            _log('战斗背景图片2加载失败');
+            Assets.fightBgImage2 = null;
+        };
+
+        // 加载灵韵图片
+        Assets.normalStarImage = wx.createImage();
+        Assets.normalStarImage.src = 'assets/images/ST.png';
+        Assets.normalStarImage.onload = function() {
+            _log('灵韵图片加载成功');
+        };
+        Assets.normalStarImage.onerror = function() {
+            _log('灵韵图片加载失败，使用默认emoji');
+            Assets.normalStarImage = null;
+        };
+
+        // 加载冰灵图片
+        Assets.iceStarImage = wx.createImage();
+        Assets.iceStarImage.src = 'assets/images/IST.png';
+        Assets.iceStarImage.onload = function() {
+            _log('冰灵图片加载成功');
+        };
+        Assets.iceStarImage.onerror = function() {
+            _log('冰灵图片加载失败，使用默认emoji');
+            Assets.iceStarImage = null;
+        };
+
+        // 加载火灵图片
+        Assets.fireStarImage = wx.createImage();
+        Assets.fireStarImage.src = 'assets/images/FST.png';
+        Assets.fireStarImage.onload = function() {
+            _log('火灵图片加载成功');
+        };
+        Assets.fireStarImage.onerror = function() {
+            _log('火灵图片加载失败，使用默认emoji');
+            Assets.fireStarImage = null;
+        };
+
+        // 加载背包UI图片
+        Assets.backpackImage = wx.createImage();
+        Assets.backpackImage.src = 'assets/images/BPK.png';
+        Assets.backpackImage.onload = function() {
+            _log('背包图片加载成功');
+        };
+        Assets.backpackImage.onerror = function() {
+            _log('背包图片加载失败');
+            Assets.backpackImage = null;
+        };
+
+        // 加载菜单展开按钮图片（展开状态）
+        Assets.menuButtonImage = wx.createImage();
+        Assets.menuButtonImage.src = 'assets/images/WS.png';
+        Assets.menuButtonImage.onload = function() {
+            _log('菜单按钮图片(展开)加载成功');
+        };
+        Assets.menuButtonImage.onerror = function() {
+            _log('菜单按钮图片(展开)加载失败');
+            Assets.menuButtonImage = null;
+        };
+
+        // 加载菜单展开按钮图片（未展开状态）
+        Assets.menuButtonImageCollapsed = wx.createImage();
+        Assets.menuButtonImageCollapsed.src = 'assets/images/WSC.png';
+        Assets.menuButtonImageCollapsed.onload = function() {
+            _log('菜单按钮图片(未展开)加载成功');
+        };
+        Assets.menuButtonImageCollapsed.onerror = function() {
+            _log('菜单按钮图片(未展开)加载失败');
+            Assets.menuButtonImageCollapsed = null;
+        };
+
+        // 加载设置图标
+        Assets.settingsIcon = wx.createImage();
+        Assets.settingsIcon.src = 'assets/images/GEAR.png';
+        Assets.settingsIcon.onload = function() {
+            _log('设置图标加载成功');
+        };
+        Assets.settingsIcon.onerror = function() {
+            _log('设置图标加载失败，使用默认emoji');
+            Assets.settingsIcon = null;
+        };
+
+        // 加载角色图片
+        Assets.characterImages.starter = wx.createImage();
+        Assets.characterImages.starter.src = 'assets/images/XXSZ_HF.png';
+        Assets.characterImages.starter.onload = function() {
+            _log('青铜小鼎图片加载成功');
+        };
+        Assets.characterImages.starter.onerror = function() {
+            _log('青铜小鼎图片加载失败，使用默认emoji');
+            Assets.characterImages.starter = null;
+        };
+
+        // 加载器灵战士图片（主页小图）
+        Assets.characterImages.warrior = wx.createImage();
+        Assets.characterImages.warrior.src = 'assets/images/XXZS_HF.png';
+        Assets.characterImages.warrior.onload = function() {
+            _log('器灵战士图片加载成功');
+        };
+        Assets.characterImages.warrior.onerror = function() {
+            _log('器灵战士图片加载失败，使用默认emoji');
+            Assets.characterImages.warrior = null;
+        };
+        
+        // 加载器灵战士立绘图片（编队界面大图）
+        Assets.characterImages.warriorPortrait = wx.createImage();
+        Assets.characterImages.warriorPortrait.src = 'assets/images/XXZS.png';
+        Assets.characterImages.warriorPortrait.onload = function() {
+            _log('器灵战士立绘图片加载成功');
+        };
+        Assets.characterImages.warriorPortrait.onerror = function() {
+            _log('器灵战士立绘图片加载失败');
+            Assets.characterImages.warriorPortrait = null;
+        };
+
+        // 加载灵币图标
+        Assets.goldIcon = wx.createImage();
+        Assets.goldIcon.src = 'assets/images/GL.png';
+        Assets.goldIcon.onload = function() {
+            _log('灵币图标加载成功');
+        };
+        Assets.goldIcon.onerror = function() {
+            _log('灵币图标加载失败，使用默认emoji');
+            Assets.goldIcon = null;
+        };
+
+        // 加载器灵石图标
+        Assets.starSourceIcon = wx.createImage();
+        Assets.starSourceIcon.src = 'assets/images/SST.png';
+        Assets.starSourceIcon.onload = function() {
+            _log('器灵石图标加载成功');
+        };
+        Assets.starSourceIcon.onerror = function() {
+            _log('器灵石图标加载失败，使用默认emoji');
+            Assets.starSourceIcon = null;
+        };
+
+        // 加载返回按钮图标
+        Assets.backIcon = wx.createImage();
+        Assets.backIcon.src = 'assets/images/BK.png';
+        Assets.backIcon.onload = function() {
+            _log('返回按钮图标加载成功');
+        };
+        Assets.backIcon.onerror = function() {
+            _log('返回按钮图标加载失败，使用默认文字');
+            Assets.backIcon = null;
+        };
+
+        // 加载任务图标
+        Assets.taskIcon = wx.createImage();
+        Assets.taskIcon.src = 'assets/images/TKS.png';
+        Assets.taskIcon.onload = function() {
+            _log('任务图标加载成功');
+        };
+        Assets.taskIcon.onerror = function() {
+            _log('任务图标加载失败，使用默认文字');
+            Assets.taskIcon = null;
+        };
+
+        // 加载排行榜图标
+        Assets.leaderboardIcon = wx.createImage();
+        Assets.leaderboardIcon.src = 'assets/images/TOP.png';
+        Assets.leaderboardIcon.onload = function() {
+            _log('排行榜图标加载成功');
+        };
+        Assets.leaderboardIcon.onerror = function() {
+            _log('排行榜图标加载失败，使用默认文字');
+            Assets.leaderboardIcon = null;
+        };
+
+        // 加载赛季图标
+        Assets.seasonIcon = wx.createImage();
+        Assets.seasonIcon.src = 'assets/images/CS.png';
+        Assets.seasonIcon.onload = function() {
+            _log('赛季图标加载成功');
+        };
+        Assets.seasonIcon.onerror = function() {
+            _log('赛季图标加载失败，使用默认文字');
+            Assets.seasonIcon = null;
+        };
+
+        // 加载商城图标
+        Assets.shopIcon = wx.createImage();
+        Assets.shopIcon.src = 'assets/images/SP.png';
+        Assets.shopIcon.onload = function() {
+            _log('商城图标加载成功');
+        };
+        Assets.shopIcon.onerror = function() {
+            _log('商城图标加载失败，使用默认文字');
+            Assets.shopIcon = null;
+        };
+
+        // 加载无尽塔图标
+        Assets.towerIcon = wx.createImage();
+        Assets.towerIcon.src = 'assets/images/IFT.png';
+        Assets.towerIcon.onload = function() {
+            _log('无尽塔图标加载成功');
+        };
+        Assets.towerIcon.onerror = function() {
+            _log('无尽塔图标加载失败，使用默认文字');
+            Assets.towerIcon = null;
+        };
+
+        // 加载Boss战图标
+        Assets.bossImage = wx.createImage();
+        Assets.bossImage.src = 'assets/images/BOSS.png';
+        Assets.bossImage.onload = function() {
+            _log('Boss图标加载成功');
+        };
+        Assets.bossImage.onerror = function() {
+            _log('Boss图标加载失败，使用默认emoji');
+            Assets.bossImage = null;
+        };
+
+        // 初始化偷灵者模块
+        starThief = createStarThiefSystem({
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
+            pushStar: function(star) { stars.push(star); },
+            removeStarAt: function(i) { stars.splice(i, 1); },
+            getMonsters: function() { return monsters; },
+            getPlayerData: function() { return playerData; },
+            getEquipments: function() { return Equipments; },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            saveData: function() { savePlayerData(); },
+            updateStarSpawn: function() { updateStarSpawnInterval(); },
+            clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
+            stopDodgeStarTimer: function() { stopDodgeStarTimer(); },
+            fillRoundRectFn: fillRoundRect,
+            getScreenScaleFn: getScreenScale,
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; }
+        });
+        _log('偷灵者模块初始化完成');
+
+        // 初始化任务系统模块
+        taskSystem = createTaskSystem({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); },
+            addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
+            showToast: function(opts) { wx.showToast(opts); }
+        });
+        // 将任务系统函数挂载到全局（保持向后兼容）
+        initTaskProgress = function() { taskSystem.initTaskProgress(); };
+        checkDailyTaskRefresh = function() { taskSystem.checkDailyTaskRefresh(); };
+        updateTaskProgress = function(taskType, value, isAdditive) { taskSystem.updateTaskProgress(taskType, value, isAdditive); };
+        updateTaskStats = function(statType, value, isAdditive) { taskSystem.updateTaskStats(statType, value, isAdditive); };
+        claimTaskReward = function(taskId, taskType) { return taskSystem.claimTaskReward(taskId, taskType); };
+        getTasksWithProgress = function(taskType) { return taskSystem.getTasksWithProgress(taskType); };
+        hasClaimableRewards = function() { return taskSystem.hasClaimableRewards(); };
+        _log('任务系统模块初始化完成');
+
+        // 初始化信仰系统模块
+        faithSystem = createFaithSystem({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); }
+        });
+        getCharacterFaithData = function(charId) { return faithSystem.getCharacterFaithData(charId); };
+        getFaithAttributeBonus = function(charId, attribute) { return faithSystem.getFaithAttributeBonus(charId, attribute); };
+        addFaithExp = function(charId, expAmount) { return faithSystem.addFaithExp(charId, expAmount); };
+        useFaithResource = function(charId, resourceType, amount) { return faithSystem.useFaithResource(charId, resourceType, amount); };
+        gainFaithResource = function(resourceType, amount) { faithSystem.gainFaithResource(resourceType, amount); };
+        unlockSpecialization = function(charId, path) { return faithSystem.unlockSpecialization(charId, path); };
+        unlockBreakthroughSkill = function(charId, skillId) { return faithSystem.unlockBreakthroughSkill(charId, skillId); };
+        performInheritance = function(charId) { return faithSystem.performInheritance(charId); };
+        calculateTotalAttributesWithFaith = function(charId, baseAttributes) { return faithSystem.calculateTotalAttributesWithFaith(charId, baseAttributes); };
+        hasBreakthroughEffect = function(charId, effectType) { return faithSystem.hasBreakthroughEffect(charId, effectType); };
+        _log('信仰系统模块初始化完成');
+
+        // 初始化爬塔系统模块
+        towerSystem = createTowerSystem({
+            battleEngine: null, // 占位，创建后回填
+            initTowerEngineFn: function(engine, config) { normalBattleAdapter.initTowerEngine(engine, config); },
+            releaseTowerEngineFn: function() { normalBattleAdapter.releaseEngine(); },
+            updateStarSpawnInterval: function() { updateStarSpawnInterval(); },
+            getCombatState: function() { return combatState; },
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); },
+            addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
+            getCharFullStats: function(charId) { return getCharacterFullStats(charId); },
+            getScreenScale: getScreenScale,
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
+            clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
+            clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
+            clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
+            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            getGameState: function() { return state; },
+            getCtx: function() { return ctx; },
+            showToast: function(opts) { wx.showToast(opts); },
+            createStarBurstAnimation: function(x, y, starType) { createStarBurstAnimation(x, y, starType); },
+            createScreenShake: function(intensity) { createScreenShake(intensity); },
+            createMonsterDamageAnimation: function(x, y, dmg) { createMonsterDamageAnimation(x, y, dmg); },
+            createPlayerDamageAnimation: function(dmg, isBoss, isPoison, customText, isShield) { createPlayerDamageAnimation(dmg, isBoss, isPoison, customText, isShield); },
+            addGameMessage: function(text, color, isR) { addGameMessage(text, color, isR); },
+            createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, ce) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, ce); },
+            createCritAnimation: function(x, y, dmg, score, color) { createCritAnimation(x, y, dmg, score, color); },
+            createQuickTapAnimation: function(x, y, score, tier, isF) { createQuickTapAnimation(x, y, score, tier, isF); },
+            createMonsterProjectileAnimation: function(sx, sy, dmg, td, boss, onHit) { createMonsterProjectileAnimation(sx, sy, dmg, td, boss, onHit); },
+            createHpBarCounterAnimation: function() { createHpBarCounterAnimation(); },
+            updateCombo: function() { updateCombo(); },
+            resetCombo: function() { resetCombo(); },
+            getComboCount: function() { return comboState.count; },
+            calculateStarScore: function(t) { return calculateStarScore(t); },
+            createTimeDamageAnimation: function(dmg) { createTimeDamageAnimation(dmg); },
+            getCharacterFullStats: function(id) { return getCharacterFullStats(id); },
+            COMBO_STAR_DURATION: COMBO_STAR_DURATION,
+            COMBO_STAR_INTERVAL: COMBO_STAR_INTERVAL,
+            getMonsterSkillType: function() { return MonsterSkillType; },
+            getSkillsConfig: function() { return Skills; },
+            getSkillTypes: function() { return SkillTypes; },
+            getPets: function() { return Pets; },
+            clearBattleAnimations: function() { animationSystem.clearAllAnimations(); },
+            clearStars: function() { stars = []; }
+        });
+
+        // 创建 BattleEngine 并回填给 TowerSystem
+        var battleEngine = createBattleEngine({
+            screen: {
+                getWidth: function() { return screenWidth; },
+                getHeight: function() { return screenHeight; },
+                getScale: getScreenScale
+            },
+            player: {
+                getData: function() { return playerData; },
+                getCharFullStats: function(id) { return getCharacterFullStats(id); },
+                save: function() { savePlayerData(); }
+            },
+            animation: {
+                createStarBurst: function(x, y, t) { createStarBurstAnimation(x, y, t); },
+                createScreenShake: function(i) { createScreenShake(i); },
+                createMonsterDamage: function(x, y, d) { createMonsterDamageAnimation(x, y, d); },
+                createPlayerDamage: function(d, b, p, t, s) { createPlayerDamageAnimation(d, b, p, t, s); },
+                createMeteor: function(sx, sy, d, c, st, ss, cm, cb, ce) { return createMeteorAnimation(sx, sy, d, c, st, ss, cm, cb, ce); },
+                createCrit: function(x, y, d, s, c) { createCritAnimation(x, y, d, s, c); },
+                createQuickTap: function(x, y, s, t, f) { createQuickTapAnimation(x, y, s, t, f); },
+                createScorePopup: function(x, y, s, c) { createScorePopupAnimation(x, y, s, c); },
+                createMonsterProjectile: function(sx, sy, d, td, b, h) { createMonsterProjectileAnimation(sx, sy, d, td, b, h); },
+                createHpBarCounter: function() { createHpBarCounterAnimation(); },
+                createTimeDamage: function(d) { createTimeDamageAnimation(d); },
+                createPetDamage: function(x, y, d, e, c) { createPetDamageAnimation(x, y, d, e, c); },
+                addMessage: function(t, c, r) { addGameMessage(t, c, r); },
+                vibrateShort: function(o) { try { wx.vibrateShort(o); } catch(e) {} }
+            },
+            combat: {
+                getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
+                updateCombo: function() { updateCombo(); },
+                resetCombo: function() { resetCombo(); },
+                getComboCount: function() { return comboState.count; },
+                calculateStarScore: function(t) { return calculateStarScore(t); },
+                getMonsterSkillType: function() { return MonsterSkillType; }
+            },
+            skills: {
+                getConfig: function() { return Skills; },
+                getTypes: function() { return SkillTypes; }
+            }
+        });
+        towerSystem._setBattleEngine(battleEngine);
+        _log('爬塔系统模块初始化完成');
+
+        // 初始化开发者战斗调参工具
+        devBattleSystem = _gameModules.createDevBattleSystem({
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
+            getBattleEngine: function() {
+                // 优先返回当前活跃模式的引擎，避免推送到错误的引擎实例
+                if (normalBattleAdapter && normalBattleAdapter.getBattleEngine) {
+                    var nbe = normalBattleAdapter.getBattleEngine();
+                    if (nbe) return nbe;
+                }
+                if (towerSystem && towerSystem._getBattleEngine) return towerSystem._getBattleEngine();
+                if (typeof BossBattleMode !== 'undefined' && BossBattleMode.getBattleEngine) return BossBattleMode.getBattleEngine();
+                return null;
+            },
+            onToggle: function(isVisible) {
+                if (isVisible) {
+                    if (state === GAME_STATE.PLAYING && pauseGame) pauseGame();
+                    else if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) bossBattleSystem.togglePause();
+                } else {
+                    if (state === GAME_STATE.PAUSED && resumeGame) resumeGame();
+                    else if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem && bossBattleSystem.getIsPaused && bossBattleSystem.getIsPaused()) bossBattleSystem.togglePause();
+                }
+            },
+            onSpecChanged: function(overrides) {
+                // spec 参数已通过 BattleEngine.subscribe → StarSystem.onSpecChanged 自动推送
+                // 这里只同步灵韵生成间隔到 comboState（供 getCurrentStarInterval 读取）
+                var RC = _gameModules.specResolver(_gameModules.COMBAT_SPEC, Object.keys(overrides).length > 0 ? overrides : null);
+                var newInterval = _gameModules.getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS');
+                if (newInterval && newInterval !== comboState.currentStarInterval) {
+                    comboState.currentStarInterval = newInterval;
+                }
+            }
+        });
+
+        // 初始化挂机系统模块
+        afkSystem = createAFKSystem({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); },
+            addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
+            getEquipments: function() { return Equipments; },
+            getScreenScale: getScreenScale,
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getBestScore: function() { return bestScore; },
+            getTowerHighestFloor: function() { return playerData.infiniteTower ? playerData.infiniteTower.highestFloor : 0; },
+            showToast: function(opts) { wx.showToast(opts); }
+        });
+        calculateAccumulatedAfkRewards = function() { return afkSystem.calculateAccumulatedAfkRewards(); };
+        claimAfkRewards = function() { afkSystem.claimAfkRewards(); };
+        _log('挂机系统模块初始化完成');
+
+        // 初始化抽卡系统模块
+        gachaSystem = createGachaSystem({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); },
+            getSkills: function() { return Skills; },
+            getCharacters: function() { return Characters; },
+            getPets: function() { return Pets; },
+            getStarTypes: function() { return SEASON_STAR_TYPES; },
+            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            getGameState: function() { return state; },
+            getScreenScale: getScreenScale,
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; }
+        });
+        performGacha = function(count, poolType) { return gachaSystem.performGacha(count, poolType); };
+        showGachaResults = function(results) { gachaSystem.showGachaResults(results); };
+        startGachaAnimation = function(results, poolType) { gachaSystem.startGachaAnimation(results, poolType); };
+        updateGachaAnimation = function() { gachaSystem.updateGachaAnimation(); };
+        closeGachaAnimation = function() { gachaSystem.closeGachaAnimation(); };
+        handleGachaAnimationClick = function(x, y) { gachaSystem.handleGachaAnimationClick(x, y); };
+        handleGachaClick = function(x, y, scale) { gachaSystem.handleGachaClick(x, y, scale); };
+        getGachaPoolRemainingDays = function() { return gachaSystem.getGachaPoolRemainingDays(); };
+        checkGachaPoolRotation = function() { gachaSystem.checkGachaPoolRotation(); };
+        _log('抽卡系统模块初始化完成');
+
+        // 初始化角色经验系统模块
+        characterSystem = createCharacterSystem({
+            getPlayerData: function() { return playerData; },
+            getCharacters: function() { return Characters; },
+            getCharacterKey: getCharacterKey,
+            getEquipments: function() { return Equipments; },
+            getSkills: function() { return Skills; },
+            getPets: function() { return Pets; },
+            saveData: function() { savePlayerData(); },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            getGameState: function() { return state; },
+            getSeasonSelection: function() { return seasonSelection; }
+        });
+        initCharacterExperience = function(charId) { characterSystem.initCharacterExperience(charId); };
+        getCharacterExperience = function(charId) { return characterSystem.getCharacterExperience(charId); };
+        getExpForLevel = function(level) { return characterSystem.getExpForLevel(level); };
+        addCharacterExperience = function(charId, exp) { characterSystem.addCharacterExperience(charId, exp); };
+        getCharacterLevelBonus = function(charId) { return characterSystem.getCharacterLevelBonus(charId); };
+        getCharacterStatsAtLevel = function(charKey, level) { return characterSystem.getCharacterStatsAtLevel(charKey, level); };
+        getCharacterFullStats = function(charId) { return characterSystem.getCharacterFullStats(charId); };
+        getPassiveSkillBonuses = function() { return characterSystem.getPassiveSkillBonuses(); };
+        getCurrentCharacterConfig = function() { return characterSystem.getCurrentCharacterConfig(); };
+        _log('角色经验系统模块初始化完成');
+
+        // 初始化掉落系统模块
+        dropSystem = createDropSystem({
+            getPlayerData: function() { return playerData; },
+            getScore: function() { return score; },
+            getEquipments: function() { return Equipments; },
+            getSkills: function() { return Skills; },
+            getPets: function() { return Pets; },
+            getStarChestDropRate: function() { return STAR_CHEST_DROP_RATE; },
+            saveData: function() { savePlayerData(); },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); }
+        });
+        dropMaterial = function() { dropSystem.dropMaterial(); };
+        dropEquipment = function(isBoss) { dropSystem.dropEquipment(isBoss); };
+        dropSkill = function() { dropSystem.dropSkill(); };
+        dropPet = function(isBoss) { dropSystem.dropPet(isBoss); };
+        _log('掉落系统模块初始化完成');
+
+        // 初始化材料使用系统模块
+        materialSystem = createMaterialSystem({
+            getPlayerData: function() { return playerData; },
+            getMaterials: function() { return Materials; },
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
+            getSeasonSelection: function() { return seasonSelection; },
+            getMaxCharacterLevel: function() { return MAX_CHARACTER_LEVEL; },
+            getActiveBuffs: function() { return activeBuffs; },
+            getComboScoreBonus: function() { return getComboScoreBonus(); },
+            getPassiveSkillBonuses: function() { return getPassiveSkillBonuses(); },
+            getCharacterStatsAtLevel: function(charKey, level) { return getCharacterStatsAtLevel(charKey, level); },
+            getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
+            updateTaskProgress: function(type, val) { updateTaskProgress(type, val); },
+            saveData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); }
+        });
+        calculateStarScore = function(starType) { return materialSystem.calculateStarScore(starType); };
+        calculateTotalAttack = function() { return materialSystem.calculateTotalAttack(); };
+        useMaterial = function(materialId) { return materialSystem.useMaterial(materialId); };
+        upgradeIceStar = function() { return materialSystem.upgradeIceStar(); };
+        upgradeFireStar = function() { return materialSystem.upgradeFireStar(); };
+        _log('材料使用系统模块初始化完成');
+
+        // 初始化音频系统
+        audioSystem = createAudioSystem();
+        audioSystem.init();
+
+        // 初始化动画系统模块
+        animationSystem = createAnimationSystem({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
+            getPlayerData: function() { return playerData; },
+            getMonster: function() { return monster; },
+            getComboCount: function() { return comboState.count; },
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            combatFontConfig: function() { return combatFontConfig; },
+            playMeteorSound: function(starType) { if (audioSystem) audioSystem.playMeteor(starType); },
+            playDodgeHealSound: function() { if (audioSystem) audioSystem.playDodgeHeal(); },
+            playMeteorImpactSound: function() { if (audioSystem) audioSystem.playMeteorImpact(); }
+        });
+        createCritAnimation = function(x, y, damage, score, color) { animationSystem.createCritAnimation(x, y, damage, score, color); };
+        updateCritAnimations = function() { animationSystem.updateCritAnimations(); };
+        drawCritAnimations = function(scale) { animationSystem.drawCritAnimations(scale); };
+        createMeteorAnimation = function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return animationSystem.createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); };
+        updateMeteorAnimations = function() { animationSystem.updateMeteorAnimations(); };
+        drawMeteorAnimations = function(scale) { animationSystem.drawMeteorAnimations(scale); };
+        createMeteorHitEffect = function(x, y, dmg, crit, st) { animationSystem.createMeteorHitEffect(x, y, dmg, crit, st); };
+        updateMeteorExplosions = function() { animationSystem.updateMeteorExplosions(); };
+        drawMeteorExplosions = function(scale) { animationSystem.drawMeteorExplosions(scale); };
+        createHpBarCounterAnimation = function() { animationSystem.createHpBarCounterAnimation(); };
+        updateHpBarCounterAnimations = function() { animationSystem.updateHpBarCounterAnimations(); };
+        drawHpBarCounterAnimations = function(scale) { animationSystem.drawHpBarCounterAnimations(scale); };
+        createPlayerDamageAnimation = function(dmg, isBoss, isPoison, customText, isShield) { animationSystem.createPlayerDamageAnimation(dmg, isBoss, isPoison, customText, isShield); };
+        updatePlayerDamageAnimations = function() { animationSystem.updatePlayerDamageAnimations(); };
+        drawPlayerDamageAnimations = function(scale) { animationSystem.drawPlayerDamageAnimations(scale); };
+        createMonsterDamageAnimation = function(x, y, dmg) { animationSystem.createMonsterDamageAnimation(x, y, dmg); };
+        updateMonsterDamageAnimations = function() { animationSystem.updateMonsterDamageAnimations(); };
+        drawMonsterDamageAnimations = function(scale) { animationSystem.drawMonsterDamageAnimations(scale); };
+        createTimeDamageAnimation = function(x, y, dmg) { animationSystem.createTimeDamageAnimation(x, y, dmg); };
+        updateTimeDamageAnimations = function() { animationSystem.updateTimeDamageAnimations(); };
+        drawTimeDamageAnimations = function(scale) { animationSystem.drawTimeDamageAnimations(scale); };
+        createQuickTapAnimation = function(x, y, score, tier, isF) { animationSystem.createQuickTapAnimation(x, y, score, tier, isF); };
+        updateQuickTapAnimations = function() { animationSystem.updateQuickTapAnimations(); };
+        drawQuickTapAnimations = function(scale) { animationSystem.drawQuickTapAnimations(scale); };
+        createGoldDropAnimation = function(x, y, gold) { animationSystem.createGoldDropAnimation(x, y, gold); };
+        updateGoldDropAnimations = function() { animationSystem.updateGoldDropAnimations(); };
+        drawGoldDropAnimations = function(scale) { animationSystem.drawGoldDropAnimations(scale); };
+        addGameMessage = function(text, color, isR) { animationSystem.addGameMessage(text, color, isR); };
+        drawGameMessages = function(scale) { animationSystem.drawGameMessages(scale); };
+        drawElementalComboEffect = function(scale) { animationSystem.drawElementalComboEffect(scale); };
+        createSkillDamageAnimation = function(x, y, dmg, emoji) { animationSystem.createSkillDamageAnimation(x, y, dmg, emoji); };
+        updateSkillDamageAnimations = function() { animationSystem.updateSkillDamageAnimations(); };
+        drawSkillDamageAnimations = function(scale) { animationSystem.drawSkillDamageAnimations(scale); };
+        createPetDamageAnimation = function(x, y, dmg, emoji, crit) { animationSystem.createPetDamageAnimation(x, y, dmg, emoji, crit); };
+        updatePetDamageAnimations = function() { animationSystem.updatePetDamageAnimations(); };
+        drawPetDamageAnimations = function(scale) { animationSystem.drawPetDamageAnimations(scale); };
+        createMonsterProjectileAnimation = function(sx, sy, dmg, td, boss, onHit) { animationSystem.createMonsterProjectileAnimation(sx, sy, dmg, td, boss, onHit); };
+        updateMonsterProjectileAnimations = function() { animationSystem.updateMonsterProjectileAnimations(); };
+        drawMonsterProjectileAnimations = function(scale) { animationSystem.drawMonsterProjectileAnimations(scale); };
+        createTapRippleAnimation = function(x, y, touchId) { animationSystem.createTapRippleAnimation(x, y, touchId); };
+        updateTapRippleAnimations = function() { animationSystem.updateTapRippleAnimations(); };
+        drawTapRippleAnimations = function(scale) { animationSystem.drawTapRippleAnimations(scale); };
+        releaseTapRipple = function(touchId) { animationSystem.releaseTapRipple(touchId); };
+        moveTapRipple = function(touchId, x, y) { animationSystem.moveTapRipple(touchId, x, y); };
+        createStarBurstAnimation = function(x, y, starType) { animationSystem.createStarBurstAnimation(x, y, starType); };
+        updateStarBurstAnimations = function() { animationSystem.updateStarBurstAnimations(); };
+        drawStarBurstAnimations = function(scale) { animationSystem.drawStarBurstAnimations(scale); };
+        updateMergeAnimations = function() { animationSystem.updateMergeAnimations(); };
+        drawMergeAnimations = function(scale) { animationSystem.drawMergeAnimations(scale); };
+        clearBattleAnimations = function() { animationSystem.clearAllAnimations(); };
+        createScorePopupAnimation = function(x, y, score, color) { animationSystem.createScorePopupAnimation(x, y, score, color); };
+        updateScorePopupAnimations = function() { animationSystem.updateScorePopupAnimations(); };
+        drawScorePopupAnimations = function(scale) { animationSystem.drawScorePopupAnimations(scale); };
+        createScreenShake = function(intensity) { animationSystem.createScreenShake(intensity); };
+        updateScreenShake = function() { animationSystem.updateScreenShake(); };
+        getScreenShakeOffset = function() { return animationSystem.getScreenShakeOffset(); };
+        pauseAnimations = function() { animationSystem.pauseAnimations(); };
+        resumeAnimations = function() { animationSystem.resumeAnimations(); };
+        getStarColor = function(st) { return animationSystem.getStarColor(st); };
+        getStarGlowColor = function(st) { return animationSystem.getStarGlowColor(st); };
+        easeOutQuad = function(t) { return animationSystem.easeOutQuad(t); };
+        setElementalComboState = function(active, time) { animationSystem.setElementalComboState(active, time); };
+        clearMessages = function() { animationSystem.clearMessages(); };
+        clearAllAnimations = function() { animationSystem.clearAllAnimations(); };
+        getLastVibrateTime = function() { return animationSystem.getLastVibrateTime(); };
+        setLastVibrateTime = function(t) { animationSystem.setLastVibrateTime(t); };
+        getVibrateCooldown = function() { return animationSystem.getVibrateCooldown(); };
+        _log('动画系统模块初始化完成');
+
+        // 初始化提示系统
+        tipSystem = createTipSystem({
+            getPlayerData: function() { return playerData; },
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale
+        });
+        tipShowTipOnce = function(tipId, text) { tipSystem.showTipOnce(tipId, text); };
+        tipUpdateTip = function() { tipSystem.updateTip(); };
+        tipRenderTip = function(scale) { tipSystem.renderTip(scale); };
+        tipHandleTipClick = function(x, y) { return tipSystem.handleTipClick(x, y); };
+        tipGetStarTypeName = function(type) { return tipSystem.getStarTypeName(type); };
+        _log('提示系统模块初始化完成');
+
+        // 初始化连击系统
+        comboSystem = createComboSystem({
+            getCurrentCharacterConfig: function() { return getCurrentCharacterConfig(); },
+            updateStarSpawnInterval: function() { updateStarSpawnInterval(); },
+            updateTaskProgress: function(taskId, progress, isReplace) { updateTaskProgress(taskId, progress, isReplace); },
+            updateTaskStats: function(key, val, isReplace) { updateTaskStats(key, val, isReplace); },
+            getPassiveSkillBonuses: function() { return getPassiveSkillBonuses(); },
+            setCurrentStarInterval: function(val) { comboState.currentStarInterval = val; },
+            getBaseStarInterval: function() { return _getSpecAwareBaseStarInterval(); },
+            getMinStarInterval: function() { return MIN_STAR_INTERVAL; }
+        });
+        getComboTimeout = function() { return comboSystem.getComboTimeout(); };
+        updateCombo = function() { comboSystem.updateCombo(); var prevCombo = comboState.count; comboState.count = comboSystem.getComboCount(); comboState.lastComboTime = comboSystem.getLastComboTime(); if (comboState.count > prevCombo) { comboState.slideAnim = 0; comboState.slideTriggered = true; if (stageModeSystem) stageModeSystem.updateMaxCombo(comboState.count); } };
+        resetCombo = function() { comboSystem.resetCombo(); comboState.count = 0; comboState.lastComboTime = 0; comboState.slideAnim = 0; comboState.slideTriggered = false; };
+        checkComboTimeout = function() { comboSystem.checkComboTimeout(); comboState.count = comboSystem.getComboCount(); comboState.lastComboTime = comboSystem.getLastComboTime(); };
+        getComboScoreBonus = function() { return comboSystem.getComboScoreBonus(); };
+        _log('连击系统模块初始化完成');
+
+        // 初始化宠物系统
+        petSystem = createPetSystem({
+            getPlayerData: function() { return playerData; },
+            getPets: function() { return Pets; },
+            getActiveMonsters: function() { return getActiveMonsters(); },
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getStarThief: function() { return starThief; },
+            getBossBattleMode: function() { return BossBattleMode; },
+            getCurrentStarInterval: function() { return comboState.currentStarInterval; },
+            setCurrentStarInterval: function(val) { comboState.currentStarInterval = val; },
+            getBaseStarInterval: function() { return _getSpecAwareBaseStarInterval(); },
+            getMinStarInterval: function() { return MIN_STAR_INTERVAL; },
+            createPetDamageAnimation: function(x, y, dmg, emoji, crit) { createPetDamageAnimation(x, y, dmg, emoji, crit); },
+            onMonsterKilled: function(m) { onMonsterKilled(m); },
+            setMonsters: function(val) { monsters = val; },
+            onPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
+            addMessage: function(msg, color) { addGameMessage(msg, color); }
+        });
+        petAttackMonster = function() { petSystem.petAttackMonster(); };
+        triggerPetSkill = function(pet, target) { petSystem.triggerPetSkill(pet, target); };
+        startPetAttackTimer = function() { petSystem.startPetAttackTimer(); };
+        updateMonsterBurnStatus = function() { petSystem.updateMonsterBurnStatus(); };
+        stopPetAttackTimer = function() { petSystem.stopPetAttackTimer(); };
+        _log('宠物系统模块初始化完成');
+
+        // 初始化技能系统
+        skillSystem = createSkillSystem({
+            getPlayerData: function() { return playerData; },
+            getSkills: function() { return Skills; },
+            getSkillTypes: function() { return SkillTypes; },
+            getActiveMonsters: function() { return getActiveMonsters(); },
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getBossBattleMode: function() { return BossBattleMode; },
+            getMonster: function() { return monster; },
+            getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
+            getScreenScale: getScreenScale,
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getStars: function() { return stars; },
+            setCurrentStarInterval: function(val) { comboState.currentStarInterval = val; },
+            getBaseStarInterval: function() { return _getSpecAwareBaseStarInterval(); },
+            getMinStarInterval: function() { return MIN_STAR_INTERVAL; },
+            addTimeLeft: function(val) { timeLeft += val; },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            createCritAnimation: function(x, y, dmg, score, color) { createCritAnimation(x, y, dmg, score, color); },
+            createSkillDamageAnimation: function(x, y, dmg, emoji) { createSkillDamageAnimation(x, y, dmg, emoji); },
+            onMonsterKilled: function(m) { onMonsterKilled(m); },
+            vibrateShort: function(opts) { wx.vibrateShort(opts); }
+        });
+        useSkill = function(skillId) { return skillSystem.useSkill(skillId); };
+        getSkillRemainingCooldown = function(skillId) { return skillSystem.getSkillRemainingCooldown(skillId); };
+        updateSkillEffects = function() { skillSystem.updateSkillEffects(); };
+        getActiveSkillBonuses = function() { return skillSystem.getActiveSkillBonuses(); };
+        isImmune = function() { return skillSystem.isImmune(); };
+        _log('技能系统模块初始化完成');
+
+        // 初始化怪物技能系统
+        monsterSkillSystem = createMonsterSkillSystem({
+            getCtx: function() { return ctx; }
+        });
+        triggerMonsterSkill = function(monster, skillType, context) { return monsterSkillSystem.triggerMonsterSkill(monster, skillType, context); };
+        calculateMonsterDamage = function(monster) { return monsterSkillSystem.calculateMonsterDamage(monster); };
+        calculateDamageToMonster = function(monster, baseDamage, starType) { return monsterSkillSystem.calculateDamageToMonster(monster, baseDamage, starType); };
+        addMonsterSkillAnimation = function(monster, skillType, text) { monsterSkillSystem.addMonsterSkillAnimation(monster, skillType, text); };
+        updateMonsterSkillAnimations = function() { monsterSkillSystem.updateMonsterSkillAnimations(); };
+        drawMonsterSkillAnimations = function(scale, monsterX, monsterY, targetMonster) { monsterSkillSystem.drawMonsterSkillAnimations(scale, monsterX, monsterY, targetMonster); };
+        _log('怪物技能系统模块初始化完成');
+
+        // 初始化灵韵系统
+        starSystem = createStarSystem({
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
+            getPlayerData: function() { return playerData; },
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getSeasonSelection: function() { return seasonSelection; },
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
+            pushStar: function(star) { stars.push(star); },
+            getStarThief: function() { return starThief; },
+            getMoveInterval: function() { return moveInterval; },
+            setMoveInterval: function(val) { moveInterval = val; },
+            getCurrentStarInterval: function() { return comboState.currentStarInterval; },
+            setCurrentStarInterval: function(val) { comboState.currentStarInterval = val; },
+            getSpecValueFn: function(path) {
+                var engine = normalBattleAdapter && normalBattleAdapter.getBattleEngine ? normalBattleAdapter.getBattleEngine() : null;
+                if (engine && engine.getEffectiveSpec()) return _gameModules.getSpecValue(engine.getEffectiveSpec(), path);
+                return _gameModules.getSpecValue(_gameModules.COMBAT_SPEC, path);
+            },
+            combatSpec: _gameModules.COMBAT_SPEC,
+            getPauseStartTime: function() { return pauseStartTime; },
+            createMergeAnimation: function(x1,y1,t1,x2,y2,t2,cb) { animationSystem.createMergeAnimation(x1,y1,t1,x2,y2,t2,cb); }
+        });
+        addNewStar = function() { starSystem.addNewStar(); };
+        addRandomStar = function() { starSystem.addRandomStar(); };
+        addFallingStar = function() { starSystem.addFallingStar(); };
+        updateFallingStars = function() { starSystem.updateFallingStars(); };
+        mergeStars = function() { starSystem.mergeStars(); };
+        resetStar = function() { starSystem.resetStar(); };
+        cleanupExpiredStars = function() { starSystem.cleanupExpiredStars(); };
+        spawnDodgeStar = function() { starSystem.spawnDodgeStar(); };
+        // 更新 updateStarSpawnInterval 桥接
+        updateStarSpawnInterval = function() { starSystem.updateStarSpawnInterval(); };
+        // 同步灵韵模式到 StarSystem（init 早期恢复 starMode 时 starSystem 还未创建）
+        starSystem.setStarMode(starMode);
+        _log('灵韵系统模块初始化完成，模式:', starMode);
+
+        // 初始化商店系统
+        shopSystem = createShopSystem({
+            getPlayerData: function() { return playerData; },
+            getActiveBuffs: function() { return activeBuffs; },
+            setActiveBuffs: function(val) { activeBuffs = val; },
+            getGameItems: function() { return gameItems; },
+            saveData: function() { savePlayerData(); },
+            addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            performGacha: function(count, poolType) { return performGacha(count, poolType); },
+            showGachaResults: function(results) { showGachaResults(results); },
+            getGachaSystem: function() { return gachaSystem; },
+            addTimeLeft: function(val) { timeLeft += val; },
+            updateTaskProgress: function(taskId, progress, isReplace) { updateTaskProgress(taskId, progress, isReplace); },
+            updateTaskStats: function(key, val, isReplace) { updateTaskStats(key, val, isReplace); },
+            showToast: function(opts) { wx.showToast(opts); },
+            showModal: function(opts) { wx.showModal(opts); },
+            getPets: function() { return Pets; },
+            getStarChestRewards: function() { return STAR_CHEST_REWARDS; }
+        });
+        purchaseShopItem = function(item) { return shopSystem.purchaseShopItem(item); };
+        useItem = function(itemId) { return shopSystem.useItem(itemId); };
+        resetBuffs = function() { shopSystem.resetBuffs(); };
+        _log('商店系统模块初始化完成');
+
+        // 初始化怪物生成系统
+        monsterSpawnSystem = createMonsterSpawnSystem({
+            getMonsters: function() { return monsters; },
+            setMonsters: function(val) { monsters = val; },
+            getScore: function() { return score; },
+            getBestScore: function() { return bestScore; },
+            getPlayerData: function() { return playerData; },
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getConfig: function() { return CONFIG; },
+            getMonsterTypes: function() { return MonsterTypes; },
+            getMonstersConfig: function() { return Monsters; },
+            getMonsterGrowth: function() { return MonsterGrowth; },
+            getMonsterRarityWeights: function() { return MonsterRarityWeights; },
+            getMonstersKilled: function() { return monstersKilled; },
+            getStarThief: function() { return starThief; },
+            getMonsterSkillType: function() { return MonsterSkillType; },
+            getMonsterAbsorbScore: function() { return MONSTER_ABSORB_SCORE; },
+            getStarDevourerEscaped: function() { return combatState.starDevourerEscaped; },
+            setStarDevourerEscaped: function(val) { combatState.starDevourerEscaped = val; },
+            getVoidEmperorSpawned: function() { return combatState.voidEmperorSpawned; },
+            setVoidEmperorSpawned: function(val) { combatState.voidEmperorSpawned = val; },
+            getMonsterAttackInterval: function() { return monsterAttackInterval; },
+            setMonsterAttackInterval: function(val) { monsterAttackInterval = val; },
+            monsterAttackPlayer: function() { monsterAttackPlayer(); },
+            initCharacterExp: function(charId) { initCharacterExperience(charId); },
+            saveData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); },
+            showTipOnce: function(tipId, text) { if (tipShowTipOnce) tipShowTipOnce(tipId, text); },
+            getSeasonScore: function() { return seasonScore; },
+            getNormalBattleAdapter: function() { return normalBattleAdapter; },
+            getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || playerData); },
+            getPlayerAtkScaling: function(pd) { return getPlayerAtkScaling(pd || playerData); },
+            getAwakeStage: function(pd) { return getAwakeStage(pd || playerData); },
+            getAwakeConfig: function() { return AWAKE_CONFIG; }
+        });
+        getMonsterInstance = function(monsterId, level) { return monsterSpawnSystem.getMonsterInstance(monsterId, level); };
+        getAvailableMonsters = function(score) { return monsterSpawnSystem.getAvailableMonsters(score); };
+        getAvailableBosses = function(score) { return monsterSpawnSystem.getAvailableBosses(score); };
+        getRandomMonster = function(score) { return monsterSpawnSystem.getRandomMonster(score); };
+        getMonsterTypeByScore = function(score) { return monsterSpawnSystem.getMonsterTypeByScore(score); };
+        getBossTypeByScore = function(score) { return monsterSpawnSystem.getBossTypeByScore(score); };
+        createMonster = function(type, x, y, options) { return monsterSpawnSystem.createMonster(type, x, y, options); };
+        calculateMonsterPositions = function(count, baseY) { return monsterSpawnSystem.calculateMonsterPositions(count, baseY); };
+        checkUnlockCharacter = function() { monsterSpawnSystem.checkUnlockCharacter(); };
+        checkMonsterAppear = function() { monsterSpawnSystem.checkMonsterAppear(); };
+        spawnMonster = function(type, options) { return monsterSpawnSystem.spawnMonster(type, options); };
+        getActiveMonster = function() { return monsterSpawnSystem.getActiveMonster(); };
+        getActiveMonsters = function() { return monsterSpawnSystem.getActiveMonsters(); };
+        _log('怪物生成系统模块初始化完成');
+
+        // 初始化毒液滩系统
+        poisonPuddleSystem = createPoisonPuddleSystem({
+            getScreenScale: getScreenScale,
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getCtx: function() { return ctx; }
+        });
+
+        // 初始化Boss灵韵机制
+        bossStarSystem = createBossStarSystem({
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
+            pushStar: function(star) { stars.push(star); },
+            getPlayerData: function() { return playerData; },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            checkGameOver: function() { checkGameOver(); },
+            vibrateShort: function(opts) { wx.vibrateShort(opts); }
+        });
+        triggerBossStarSkill = function(bossMonster) { bossStarSystem.triggerBossStarSkill(bossMonster); };
+        checkBossStarPenalty = function(bossMonster) { bossStarSystem.checkBossStarPenalty(bossMonster); };
+        resetBossStarMechanic = function() { bossStarSystem.resetBossStarMechanic(); };
+        removeBossStar = function(bossStarId) { bossStarSystem.removeBossStar(bossStarId); };
+        incrementBossAttackCount = function() { return bossStarSystem.incrementBossAttackCount(); };
+        _log('Boss灵韵机制模块初始化完成');
+
+        // 初始化渲染器
+        uiCoreRenderer = createUICoreRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStarThief: function() { return starThief; },
+            getSEASON_STAR_TYPES: function() { return SEASON_STAR_TYPES; },
+            BACK_BTN_WIDTH: BACK_BTN_WIDTH,
+            BACK_BTN_HEIGHT: BACK_BTN_HEIGHT,
+            BACK_BTN_COLOR: BACK_BTN_COLOR
+        });
+        monsterDrawRenderer = createMonsterDrawRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            uiCore: uiCoreRenderer,
+            getFillRoundRect: function() { return fillRoundRect; },
+            getMonsterTypes: function() { return MonsterTypes; },
+            getActiveMonsters: function() { return getActiveMonsters(); },
+            getStarThief: function() { return starThief; },
+            getPoisonPuddleSystem: function() { return poisonPuddleSystem; },
+            getAssets: function() { return Assets; },
+            drawMonsterSkillAnimations: function(scale, x, y, m) { drawMonsterSkillAnimations(scale, x, y, m); },
+            updateMonsterSkillAnimations: function() { updateMonsterSkillAnimations(); }
+        });
+        // 替换全局绘制函数为渲染器委托
+        drawText = function(t, x, y, s, c) { uiCoreRenderer.drawText(t, x, y, s, c); };
+        drawButton = function(t, x, y, w, h, c, e) { uiCoreRenderer.drawButton(t, x, y, w, h, c, e); };
+        drawBackButton = function() { uiCoreRenderer.drawBackButton(); };
+        isBackButtonClicked = function(x, y) { return uiCoreRenderer.isBackButtonClicked(x, y); };
+        drawStar = function(obj, x, y, s, sc) { uiCoreRenderer.drawStar(obj, x, y, s, sc); };
+        drawMonster = function() { monsterDrawRenderer.drawMonster(); };
+        drawSingleMonster = function(m, i, t) { monsterDrawRenderer.drawSingleMonster(m, i, t); };
+        drawPoisonPuddles = function(scale) { monsterDrawRenderer.drawPoisonPuddles(scale); };
+
+        afkRenderer = createAFKRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getAfkSystem: function() { return afkSystem; },
+            getPlayerData: function() { return playerData; },
+            getCalculateAccumulatedAfkRewards: function() { return calculateAccumulatedAfkRewards; },
+            getClaimAfkRewards: function() { return claimAfkRewards; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getGachaRoundRect: function() { return gachaRoundRect; }
+        });
+        renderAfkPopup = function() { afkRenderer.renderAfkPopup(); };
+        renderAfkResultPopup = function() { afkRenderer.renderAfkResultPopup(); };
+        renderAfkButton = function() { afkRenderer.renderAfkButton(); };
+        handleAfkPopupTouch = function(x, y) { return afkRenderer.handleAfkPopupTouch(x, y); };
+        handleAfkButtonTouch = function(x, y) { return afkRenderer.handleAfkButtonTouch(x, y); };
+        handleAfkResultTouch = function(x, y) { return afkRenderer.handleAfkResultTouch(x, y); };
+
+        menuRenderer = createMenuRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getBestScore: function() { return bestScore; },
+            getScore: function() { return score; },
+            getStarMode: function() { return starMode; },
+            getSTAR_MODE: function() { return STAR_MODE; },
+            getFALLING_CONFIG: function() { return FALLING_CONFIG; },
+            getUiScrollState: function() { return uiScrollState; },
+            getDebugPanelOpen: function() { return debugPanelOpen; },
+            getCharacters: function() { return Characters; },
+            getCharacterKey: getCharacterKey,
+            isModeUnlocked: isModeUnlocked,
+            getSkills: function() { return Skills; },
+            getPets: function() { return Pets; },
+            getCharacterExperience: function(cid) { return getCharacterExperience(cid); },
+            getCharacterLevelBonus: function(cid) { return getCharacterLevelBonus(cid); },
+            getCalculateTotalAttack: function() { return calculateTotalAttack(); },
+            getHasClaimableRewards: function() { return hasClaimableRewards; },
+            getLeaderboardSharedCanvas: function() { return leaderboardSharedCanvas; },
+            getCurrentLeaderboardTab: function() { return currentLeaderboardTab; },
+            setCurrentLeaderboardTab: function(tab) { currentLeaderboardTab = tab; },
+            getGameState: function() { return GAME_STATE; },
+            getSeasonScore: function() { return seasonScore; },
+            getSeasonBestScore: function() { return seasonBestScore; },
+            getSeasonRank: function() { return getSeasonRank(); },
+            getSeasonContent: function() { return seasonContent; },
+            getSeasonSelection: function() { return seasonSelection; },
+            getAdSystem: function() { return adSystem; },
+            getTimeLeft: function() { return timeLeft; },
+            uiConfig: uiConfig
+        });
+        renderMenu = function() { menuRenderer.renderMenu(); };
+        renderGameOver = function() { menuRenderer.renderGameOver(); };
+        renderPausedMenu = function() { menuRenderer.renderPausedMenu(); };
+        renderLeaderboard = function() { menuRenderer.renderLeaderboard(); };
+        renderSettings = function() { menuRenderer.renderSettings(); };
+
+        seasonRenderer = createSeasonRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getCharacters: function() { return Characters; },
+            getSkills: function() { return Skills; },
+            getPets: function() { return Pets; },
+            getSeasonContent: function() { return seasonContent; },
+            getSeasonSelection: function() { return seasonSelection; },
+            getUiScrollState: function() { return uiScrollState; },
+            getSeasonBestScore: function() { return seasonBestScore; },
+            getSeasonRank: function() { return getSeasonRank(); },
+            getSeasonLeaderboard: function() { return seasonLeaderboard; },
+            getSEASON_STAR_TYPES: function() { return SEASON_STAR_TYPES; },
+            getMAX_CHARACTER_LEVEL: function() { return MAX_CHARACTER_LEVEL; },
+            getCharacterStatsAtLevel: function(cid, lv) { return getCharacterStatsAtLevel(cid, lv); },
+            initSeasonContent: function() { initSeasonContent(); }
+        });
+        renderSeasonMenu = function() { seasonRenderer.renderSeasonMenu(); };
+        renderSeasonSelect = function() { seasonRenderer.renderSeasonSelect(); };
+        renderSeasonLeaderboard = function() { seasonRenderer.renderSeasonLeaderboard(); };
+
+        taskRenderer = createTaskRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getTasksWithProgress: function(tab) { return getTasksWithProgress(tab); },
+            getTasksTab: function() { return tasksTab; },
+            getTasksScrollY: function() { return tasksScrollY; },
+            setTasksScrollY: function(val) { tasksScrollY = val; }
+        });
+        renderTasks = function() { taskRenderer.renderTasks(); };
+
+        debugRenderer = createDebugRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; }
+        });
+        renderDebugPanel = function() { debugRenderer.renderDebugPanel(); };
+
+        shopRenderer = createShopRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getUiScrollState: function() { return uiScrollState; },
+            ShopItems: ShopItems,
+            Pets: Pets,
+            GACHA_POOLS: GACHA_POOLS,
+            getGachaSystem: function() { return gachaSystem; },
+            getMonthlyCardSystem: function() { return monthlyCardSystem; },
+            getCombatState: function() { return combatState; }
+        });
+        renderShop = function() { shopRenderer.renderShop(); };
+        renderShopMaterialsTab = function() { shopRenderer.renderShopMaterialsTab(); };
+        renderShopBuffsTab = function() { shopRenderer.renderShopBuffsTab(); };
+        renderShopItemsTab = function() { shopRenderer.renderShopItemsTab(); };
+        renderShopGachaTab = function() { shopRenderer.renderShopGachaTab(); };
+        renderShopPetsTab = function() { shopRenderer.renderShopPetsTab(); };
+        renderShopMonthlyTab = function() { shopRenderer.renderShopMonthlyTab(); };
+
+        backpackRenderer = createBackpackRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getGachaRoundRect: function() { return gachaRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getUiScrollState: function() { return uiScrollState; },
+            Materials: Materials,
+            Characters: Characters,
+            getCharacterKey: getCharacterKey,
+            Skills: Skills,
+            SkillTypes: SkillTypes,
+            Pets: Pets,
+            PetRarity: PetRarity,
+            Equipments: Equipments,
+            EquipmentTypes: EquipmentTypes,
+            EquipmentRarity: EquipmentRarity,
+            SEASON_STAR_TYPES: SEASON_STAR_TYPES,
+            MAX_CHARACTER_LEVEL: MAX_CHARACTER_LEVEL,
+            getCharacterExperience: function(cid) { return getCharacterExperience(cid); },
+            getCharacterStatsAtLevel: function(cid, lv) { return getCharacterStatsAtLevel(cid, lv); },
+            calculateTotalAttack: function() { return calculateTotalAttack(); },
+            getFaithSystem: function() { return faithSystem; },
+            getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
+            savePlayerData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); },
+            getMaxActiveSkills: function() { return MAX_ACTIVE_SKILLS; }
+        });
+        renderBackpack = function() { backpackRenderer.renderBackpack(); };
+        renderMaterialsTab = function() { backpackRenderer.renderMaterialsTab(); };
+        renderCharactersTab = function() { backpackRenderer.renderCharactersTab(); };
+        renderStarsTab = function() { backpackRenderer.renderStarsTab(); };
+        renderItemsTab = function() { backpackRenderer.renderItemsTab(); };
+        renderEquipmentsTab = function() { backpackRenderer.renderEquipmentsTab(); };
+
+        // ===== 融合系统实例化 =====
+        fusionRegistry = createFusionRegistry({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); }
+        });
+        var fusionCharStrategy = createFusionCharacterStrategy({
+            getPlayerData: function() { return playerData; },
+            getCharacters: function() { return Characters; }
+        });
+        var fusionPetStrategy = createFusionPetStrategy({
+            getPlayerData: function() { return playerData; },
+            getPets: function() { return Pets; }
+        });
+        var fusionSkillStrategy = createFusionSkillStrategy({
+            getPlayerData: function() { return playerData; },
+            getSkills: function() { return Skills; }
+        });
+        var fusionStarStrategy = createFusionStarStrategy({
+            getPlayerData: function() { return playerData; },
+            getStarTypes: function() {
+                var map = {};
+                for (var i = 0; i < SEASON_STAR_TYPES.length; i++) {
+                    map[SEASON_STAR_TYPES[i].id] = SEASON_STAR_TYPES[i];
+                }
+                return map;
+            },
+            getSeasonStarTypes: function() { return SEASON_STAR_TYPES; }
+        });
+        var fusionEquipStrategy = createFusionEquipmentStrategy({
+            getPlayerData: function() { return playerData; },
+            getEquipments: function() { return Equipments; }
+        });
+        fusionEngine = createFusionEngine({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); },
+            getRegistry: function() { return fusionRegistry; },
+            strategies: {
+                character: fusionCharStrategy,
+                pet: fusionPetStrategy,
+                skill: fusionSkillStrategy,
+                star: fusionStarStrategy,
+                equipment: fusionEquipStrategy
+            }
+        });
+
+        // 跨会话恢复：把持久化的融合产物重新注册到配置表
+        (function restoreFusionProducts() {
+            var fr = playerData.fusionResults;
+            if (!fr) return;
+            var keys = Object.keys(fr);
+            for (var i = 0; i < keys.length; i++) {
+                var r = fr[keys[i]];
+                if (!r || !r.type || !r.id) continue;
+                if (r.type === 'pet' && Pets && !Pets[r.id]) {
+                    Pets[r.id] = {
+                        id: r.id, name: r.name, rarity: r.rarity,
+                        attack: (r.stats && r.stats.attack) || 0,
+                        attackSpeed: (r.stats && r.stats.attackSpeed) || 2,
+                        description: '融合产物·' + (r.evolutionType || ''),
+                        emoji: r.emoji || '🐾', skill: r.skill || null
+                    };
+                } else if (r.type === 'equipment' && Equipments && !Equipments[r.id]) {
+                    Equipments[r.id] = {
+                        id: r.id, name: r.name, type: r.slot, rarity: r.rarity,
+                        description: '神锻装备·' + (r.forgeAffix || ''),
+                        emoji: r.emoji || '⚔️',
+                        attack: (r.stats && r.stats.attack) || 0,
+                        critRate: (r.stats && r.stats.critRate) || 0,
+                        critDamage: (r.stats && r.stats.critDamage) || 0
+                    };
+                } else if (r.type === 'skill' && Skills && !Skills[r.id]) {
+                    Skills[r.id] = {
+                        id: r.id, name: r.name, type: r.compositeType || 'attack',
+                        rarity: r.rarity, cooldown: r.cooldown || 30,
+                        description: '复合技能·' + (r.compositeType || ''),
+                        emoji: r.emoji || '✨',
+                        effect: r.compositeType || 'damage',
+                        damage: (r.stats && r.stats.damage) || 0
+                    };
+                } else if (r.type === 'character' && Characters && !Characters[r.id]) {
+                    Characters[r.id] = {
+                        id: r.id, name: r.name, emoji: r.emoji || '⭐',
+                        rarity: r.rarity, element: r.element || 'none',
+                        description: '融合角色·' + (r.element || ''),
+                        hp: (r.stats && r.stats.hp) || 100, hpGrowth: 10,
+                        attack: (r.stats && r.stats.attack) || 10, attackGrowth: 2,
+                        critRate: 5, critRateGrowth: 1,
+                        critDamage: 10, critDamageGrowth: 0.1,
+                        mana: 5, manaGrowth: 1,
+                        faith: 5, faithGrowth: 1,
+                        defense: 5, defenseGrowth: 1
+                    };
+                } else if (r.type === 'star' && typeof SEASON_STAR_TYPES !== 'undefined') {
+                    var exists = false;
+                    for (var s = 0; s < SEASON_STAR_TYPES.length; s++) {
+                        if (SEASON_STAR_TYPES[s].id === r.starType) { exists = true; break; }
+                    }
+                    if (!exists) {
+                        SEASON_STAR_TYPES.push({ id: r.starType, name: r.name || r.starType, rarity: 'SR' });
+                    }
+                }
+            }
+        })();
+        fusionRenderer = createFusionRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getPlayerData: function() { return playerData; },
+            getFusionEngine: function() { return fusionEngine; },
+            getFusionRegistry: function() { return fusionRegistry; },
+            uiCore: uiCoreRenderer,
+            getFillRoundRect: function() { return fillRoundRect; },
+            getAssets: function() { return Assets; },
+            showToast: function(opts) { wx.showToast(opts); }
+        });
+
+        // ==================== 升级系统 ====================
+        var upgradeCharStrategy = createUpgradeCharacterStrategy({
+            getPlayerData: function() { return playerData; },
+            getCharacters: function() { return Characters; }
+        });
+        var upgradeEquipStrategy = createUpgradeEquipmentStrategy({
+            getPlayerData: function() { return playerData; },
+            getEquipments: function() { return Equipments; }
+        });
+        var upgradeSkillStrategy = createUpgradeSkillStrategy({
+            getPlayerData: function() { return playerData; },
+            getSkills: function() { return Skills; }
+        });
+        var upgradePetStrategy = createUpgradePetStrategy({
+            getPlayerData: function() { return playerData; },
+            getPets: function() { return Pets; }
+        });
+        var upgradeStarStrategy = createUpgradeStarStrategy({
+            getPlayerData: function() { return playerData; },
+            getSeasonStarTypes: function() { return SEASON_STAR_TYPES; }
+        });
+
+        upgradeEngine = createUpgradeEngine({
+            getPlayerData: function() { return playerData; },
+            saveData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); },
+            strategies: {
+                character: upgradeCharStrategy,
+                equipment: upgradeEquipStrategy,
+                skill: upgradeSkillStrategy,
+                pet: upgradePetStrategy,
+                star: upgradeStarStrategy
+            }
+        });
+
+        upgradeRenderer = createUpgradeRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getPlayerData: function() { return playerData; },
+            getUpgradeEngine: function() { return upgradeEngine; },
+            uiCore: uiCoreRenderer,
+            getFillRoundRect: function() { return fillRoundRect; },
+            getAssets: function() { return Assets; }
+        });
+
+        renderSkillsTab = function() { backpackRenderer.renderSkillsTab(); };
+        renderPetsTab = function() { backpackRenderer.renderPetsTab(); };
+        renderFaithTab = function() { backpackRenderer.renderFaithTab(); };
+
+        gachaRenderer = createGachaRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getGachaRoundRect: function() { return gachaRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getGachaSystem: function() { return gachaSystem; },
+            getStarSystem: function() { return starSystem; },
+            getGachaAnimationConfig: function() { return GACHA_ANIMATION_CONFIG; }
+        });
+        renderGachaAnimation = function() { gachaRenderer.renderGachaAnimation(); };
+        renderGachaStarfield = function() { gachaRenderer.renderGachaStarfield(); };
+        renderFlyingStar = function(i) { gachaRenderer.renderFlyingStar(i); };
+        renderRevealedStars = function() { gachaRenderer.renderRevealedStars(); };
+        renderGachaConfirmButton = function() { gachaRenderer.renderGachaConfirmButton(); };
+
+        stageRenderer = createStageRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getGachaRoundRect: function() { return gachaRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getSTAGES: function() { return STAGES; },
+            getCHAPTERS: function() { return CHAPTERS; },
+            getUiScrollState: function() { return uiScrollState; },
+            getGameState: function() { return GAME_STATE; },
+            getStarSystem: function() { return starSystem; },
+            getSelectedChapter: function() { return selectedChapter; },
+            setSelectedChapter: function(v) { selectedChapter = v; },
+            getIsStageUnlocked: function(id) { return isStageUnlocked(id); },
+            getDifficultyColor: function(d) { return getDifficultyColor(d); },
+            getStageModeSystem: function() { return stageModeSystem; },
+            getMaterials: function() { return Materials; }
+        });
+        renderStageSelect = function() { stageRenderer.renderStageSelect(); };
+        renderStageResult = function() { stageRenderer.renderStageResult(); };
+
+        squadRenderer = createSquadRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getGachaRoundRect: function() { return gachaRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getUiScrollState: function() { return uiScrollState; },
+            Characters: Characters,
+            getCharacterKey: getCharacterKey,
+            Skills: Skills,
+            SkillTypes: SkillTypes,
+            Pets: Pets,
+            PetRarity: PetRarity,
+            Equipments: Equipments,
+            EquipmentTypes: EquipmentTypes,
+            EquipmentRarity: EquipmentRarity,
+            SEASON_STAR_TYPES: SEASON_STAR_TYPES,
+            MAX_CHARACTER_LEVEL: MAX_CHARACTER_LEVEL,
+            getCharacterExperience: function(cid) { return getCharacterExperience(cid); },
+            getCharacterStatsAtLevel: function(cid, lv) { return getCharacterStatsAtLevel(cid, lv); },
+            getCharacterFullStats: function(cid) { return getCharacterFullStats(cid); },
+            calculateTotalAttack: function() { return calculateTotalAttack(); },
+            getStarSystem: function() { return starSystem; },
+            getSquadTab: function() { return squadTab; },
+            getShowPortraitLarge: function() { return showPortraitLarge; },
+            isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
+            setSquadTab: function(tab) { squadTab = tab; },
+            setShowPortraitLarge: function(val) { showPortraitLarge = val; },
+            getGameConst: function() { return GAME_STATE; },
+            transitionTo: function(s) { stateMachine.transitionTo(s); },
+            savePlayerData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); },
+            log: function() { _log.apply(null, arguments); }
+        });
+        renderSquad = function() { squadRenderer.renderSquad(); };
+        renderPortraitLarge = function() { squadRenderer.renderPortraitLarge(); };
+        renderSquadCharacter = function() { squadRenderer.renderSquadCharacter(); };
+        renderSquadEquipment = function() { squadRenderer.renderSquadEquipment(); };
+        renderSquadSkills = function() { squadRenderer.renderSquadSkills(); };
+        renderSquadPets = function() { squadRenderer.renderSquadPets(); };
+        renderSquadStars = function() { squadRenderer.renderSquadStars(); };
+
+        bossRenderer = createBossRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getBossBattleSystem: function() { return bossBattleSystem; },
+            getBossStarSystem: function() { return bossStarSystem; },
+            getEquipments: function() { return Equipments; },
+            getEquipmentRarity: function() { return EquipmentRarity; },
+            BOSS_LIST: BOSS_LIST,
+            getBossBattleMode: function() { return BossBattleMode; },
+            getMaterials: function() { return Materials; },
+            getSkills: function() { return Skills; }
+        });
+        renderBossBattleResult = function() { bossRenderer.renderBossBattleResult(); };
+        renderBossSelect = function() { bossRenderer.renderBossSelect(); };
+
+        towerRenderer = createTowerRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getPlayerData: function() { return playerData; },
+            getTowerSystem: function() { return towerSystem; },
+            getCombatState: function() { return combatState; },
+            getComboState: function() { return comboState; },
+            getTowerConfig: function() { return TOWER_CONFIG; },
+            getGameState: function() { return GAME_STATE; },
+            getCombatFeatures: function() { return getCombatFeatures(); },
+            getCurrentCharacterConfig: function() {
+                var cid = playerData.currentCharacterId || 'char_001';
+                return Characters[getCharacterKey(cid)];
+            },
+            getUpdateCritAnimations: function() { return updateCritAnimations; },
+            getDrawCritAnimations: function() { return drawCritAnimations; },
+            getUpdateQuickTapAnimations: function() { return updateQuickTapAnimations; },
+            getDrawQuickTapAnimations: function() { return drawQuickTapAnimations; },
+            getUpdateMeteorAnimations: function() { return updateMeteorAnimations; },
+            getDrawMeteorAnimations: function() { return drawMeteorAnimations; },
+            getUpdateMeteorExplosions: function() { return updateMeteorExplosions; },
+            getDrawMeteorExplosions: function() { return drawMeteorExplosions; },
+            getUpdateMonsterProjectileAnimations: function() { return updateMonsterProjectileAnimations; },
+            getDrawMonsterProjectileAnimations: function() { return drawMonsterProjectileAnimations; },
+            getUpdateHpBarCounterAnimations: function() { return updateHpBarCounterAnimations; },
+            getDrawHpBarCounterAnimations: function() { return drawHpBarCounterAnimations; },
+            getUpdatePlayerDamageAnimations: function() { return updatePlayerDamageAnimations; },
+            getDrawPlayerDamageAnimations: function() { return drawPlayerDamageAnimations; },
+            getUpdateMonsterDamageAnimations: function() { return updateMonsterDamageAnimations; },
+            getDrawMonsterDamageAnimations: function() { return drawMonsterDamageAnimations; },
+            getUpdateStarBurstAnimations: function() { return updateStarBurstAnimations; },
+            getDrawStarBurstAnimations: function() { return drawStarBurstAnimations; },
+            getDrawGameMessages: function() { return drawGameMessages; },
+            getUpdateTimeDamageAnimations: function() { return updateTimeDamageAnimations; },
+            getDrawTimeDamageAnimations: function() { return drawTimeDamageAnimations; }
+        });
+        renderTower = function() { towerRenderer.renderTower(); };
+        renderHiddenPathDialog = function() { towerRenderer.renderHiddenPathDialog(); };
+        renderBattle = function() { towerRenderer.renderBattle(); };
+        renderTowerResult = function() { towerRenderer.renderTowerResult(); };
+        renderTowerResume = function() { towerRenderer.renderTowerResume(); };
+
+        gameBattleRenderer = createGameBattleRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            uiCore: uiCoreRenderer,
+            getAssets: function() { return Assets; },
+            getFillRoundRect: function() { return fillRoundRect; },
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getGachaRoundRect: function() { return gachaRoundRect; },
+            getState: function() { return state; },
+            getGameState: function() { return GAME_STATE; },
+            getPlayerData: function() { return playerData; },
+            getScore: function() { return score; },
+            getTimeLeft: function() { return timeLeft; },
+            getBestScore: function() { return bestScore; },
+            getStarMode: function() { return starMode; },
+            getStarSystem: function() { return starSystem; },
+            getComboSystem: function() { return comboSystem; },
+            getPetSystem: function() { return petSystem; },
+            getActiveMonsters: function() { return getActiveMonsters(); },
+            getCombatState: function() { return combatState; },
+            getPlayerEffects: function() { return playerEffects; },
+            getUiScrollState: function() { return uiScrollState; },
+            getBossBattleMode: function() { return BossBattleMode; },
+            getNormalBattleAdapter: function() { return normalBattleAdapter; },
+            getTowerSystem: function() { return towerSystem; },
+            getBossBattleSystem: function() { return bossBattleSystem; },
+            getBossStarSystem: function() { return bossStarSystem; },
+            getStageModeSystem: function() { return stageModeSystem; },
+            getCombatFeatures: function() { return getCombatFeatures(); },
+            getStarThief: function() { return starThief; },
+            getAnimationSystem: function() { return animationSystem; },
+            combatFontConfig: function() { return combatFontConfig; },
+            getSEASON_STAR_TYPES: function() { return SEASON_STAR_TYPES; },
+            getUpdatePoisonEffect: function() { return updatePoisonEffect; },
+            getDrawPoisonEffect: function() { return drawPoisonEffect; },
+            getUpdateCritAnimations: function() { return updateCritAnimations; },
+            getDrawCritAnimations: function() { return drawCritAnimations; },
+            getUpdateQuickTapAnimations: function() { return updateQuickTapAnimations; },
+            getDrawQuickTapAnimations: function() { return drawQuickTapAnimations; },
+            getUpdateMeteorAnimations: function() { return updateMeteorAnimations; },
+            getDrawMeteorAnimations: function() { return drawMeteorAnimations; },
+            getUpdateMeteorExplosions: function() { return updateMeteorExplosions; },
+            getDrawMeteorExplosions: function() { return drawMeteorExplosions; },
+            getUpdateMonsterProjectileAnimations: function() { return updateMonsterProjectileAnimations; },
+            getDrawMonsterProjectileAnimations: function() { return drawMonsterProjectileAnimations; },
+            getDrawGameMessages: function() { return drawGameMessages; },
+            getUpdateStarBurstAnimations: function() { return updateStarBurstAnimations; },
+            getDrawStarBurstAnimations: function() { return drawStarBurstAnimations; },
+            getUpdateHpBarCounterAnimations: function() { return updateHpBarCounterAnimations; },
+            getDrawHpBarCounterAnimations: function() { return drawHpBarCounterAnimations; },
+            getUpdatePlayerDamageAnimations: function() { return updatePlayerDamageAnimations; },
+            getDrawPlayerDamageAnimations: function() { return drawPlayerDamageAnimations; },
+            getUpdateMonsterDamageAnimations: function() { return updateMonsterDamageAnimations; },
+            getDrawMonsterDamageAnimations: function() { return drawMonsterDamageAnimations; },
+            getDrawMonsterSkillAnimations: function(scale, x, y, m) { drawMonsterSkillAnimations(scale, x, y, m); },
+            getUpdateMonsterSkillAnimations: function() { updateMonsterSkillAnimations(); },
+            getUpdateTimeDamageAnimations: function() { return updateTimeDamageAnimations; },
+            getDrawTimeDamageAnimations: function() { return drawTimeDamageAnimations; },
+            STAR_MODE: STAR_MODE,
+            MAX_STARS_ON_SCREEN: MAX_STARS_ON_SCREEN,
+            BASE_STAR_INTERVAL: BASE_STAR_INTERVAL,
+            MIN_STAR_INTERVAL: MIN_STAR_INTERVAL,
+            FALLING_CONFIG: FALLING_CONFIG,
+            SEASON_STAR_TYPES: SEASON_STAR_TYPES,
+            checkComboTimeout: function() { checkComboTimeout(); },
+            updateFallingStars: function(dt) { updateFallingStars(dt); },
+            checkMonsterAppear: function() { checkMonsterAppear(); },
+            updateSkillEffects: function() { updateSkillEffects(); },
+            attackMonster: function(dmg, crit, type, target) { return attackMonster(dmg, crit, type, target); },
+            updateMonsterAnimation: function() { updateMonsterAnimation(); },
+            updateGoldDropAnimations: function() { updateGoldDropAnimations(); },
+            drawGoldDropAnimations: function(s) { drawGoldDropAnimations(s); },
+            updateSkillDamageAnimations: function() { updateSkillDamageAnimations(); },
+            drawSkillDamageAnimations: function(s) { drawSkillDamageAnimations(s); },
+            updatePetDamageAnimations: function() { updatePetDamageAnimations(); },
+            drawPetDamageAnimations: function(s) { drawPetDamageAnimations(s); },
+            drawElementalComboEffect: function(s) { drawElementalComboEffect(s); },
+            updatePoisonEffect: function() { updatePoisonEffect(); },
+            getMonster: function() { return monster; },
+            getStars: function() { return stars; },
+            getSeasonScore: function() { return seasonScore; },
+            getPlayerHp: function() { return playerData.playerHp; },
+            setStars: function(val) { stars = val; },
+            setMonsters: function(val) { monsters = val; },
+            setTimeLeft: function(val) { timeLeft = val; },
+            comboState: comboState,
+            Skills: Skills,
+            SkillTypes: SkillTypes,
+            COMBO_STAR_DURATION: COMBO_STAR_DURATION,
+            COMBO_STAR_INTERVAL: COMBO_STAR_INTERVAL,
+            GREEDY_SKILL_THRESHOLD: GREEDY_SKILL_THRESHOLD,
+            MAX_AD_ITEMS: MAX_AD_ITEMS,
+            getGameItems: function() { return gameItems; },
+            getAdItems: function() { return adItems; },
+            tipShowTipOnce: function(key, text) { tipShowTipOnce(key, text); },
+            getCharacterFullStats: function(id) { return getCharacterFullStats(id); },
+            calculateCritFn: function() { return normalBattleAdapter.calculateCrit(playerData); },
+            getActiveMonster: function() { return monster; },
+            createMeteorAnimation: function(x, y, dmg, crit, type, el, mul, cb) { createMeteorAnimation(x, y, dmg, crit, type, el, mul, cb); },
+            getSkillRemainingCooldown: function(id) { return getSkillRemainingCooldown(id); },
+            getCurrentCharacterConfig: function() { return getCurrentCharacterConfig(); },
+            cleanupExpiredStars: function() { cleanupExpiredStars(); },
+            updatePoisonPuddles: function() { updatePoisonPuddles(); },
+            drawPoisonPuddles: function(s) { drawPoisonPuddles(s); },
+            renderPausedMenu: function() { renderPausedMenu(); },
+            drawMonster: function() { drawMonster(); },
+            _log: function() { _log.apply(null, arguments); },
+            getBirthTransform: function(star, now) { return getBirthTransform(star, now); }
+        });
+        renderGame = function() { gameBattleRenderer.renderGame(); };
+
+        // MonsterBattleSystem 已删除，战斗逻辑全部走 NormalBattleAdapter
+        singleMonsterAttack = function(m) { normalBattleAdapter.singleMonsterAttack(m); };
+        monsterAttackPlayer = function() { normalBattleAdapter.monsterAttackPlayer(); };
+        useGreedySkill = function() { return normalBattleAdapter.useGreedySkill(combatState.greedySkillUnlocked); };
+        checkGameOver = function() { normalBattleAdapter.checkGameOver(); };
+        updateMonsterAnimation = function() { normalBattleAdapter.updateMonsterAnimation(); };
+        attackMonster = function(damage, isCritical, starType, targetMonster, skipKill) {
+            return normalBattleAdapter.attackMonster(damage, isCritical, starType, targetMonster);
+        };
+        killMonster = function(isElementalCombo, targetMonster) { normalBattleAdapter.killMonster(isElementalCombo, targetMonster); };
+        onMonsterKilled = function(targetMonster) { normalBattleAdapter.onMonsterKilled(targetMonster); };
+        updatePoisonEffect = function() { normalBattleAdapter.updatePoisonEffect(); };
+        addMaterialToBackpack = function(matId, amount) { _log('addMaterialToBackpack: matId=', matId, 'amount=', amount, '(待实现)'); };
+        endStage = function(killedMonster) {
+            if (state === GAME_STATE.STAGE_PLAYING && stageModeSystem) {
+                stageModeSystem.onMonsterDefeated(killedMonster);
+            }
+        };
+        _log('怪物战斗系统模块初始化完成');
+
+        // 初始化赛季系统
+        seasonSystem = createSeasonSystem({
+            getPlayerData: function() { return playerData; },
+            getCharacters: function() { return Characters; },
+            spawnDodgeStar: function() { spawnDodgeStar(); },
+            saveData: function() { savePlayerData(); },
+            getSeasonContent: function() { return seasonContent; },
+            setSeasonContent: function(val) { seasonContent = val; },
+            getSeasonSelection: function() { return seasonSelection; },
+            setSeasonSelection: function(val) { seasonSelection = val; },
+            getSeasonScore: function() { return seasonScore; },
+            setSeasonScore: function(val) { seasonScore = val; },
+            getSeasonBestScore: function() { return seasonBestScore; },
+            setSeasonBestScore: function(val) { seasonBestScore = val; },
+            getSeasonLeaderboard: function() { return seasonLeaderboard; },
+            setSeasonLeaderboard: function(val) { seasonLeaderboard = val; }
+        });
+        getCurrentSeasonWeek = function() { return seasonSystem.getCurrentSeasonWeek(); };
+        getMondayOfWeek = function() { return seasonSystem.getMondayOfWeek(); };
+        getSeasonSeed = function() { return seasonSystem.getSeasonSeed(); };
+        seededRandom = function(seed) { return seasonSystem.seededRandom(seed); };
+        generateSeasonContent = function() { return seasonSystem.generateSeasonContent(); };
+        initSeasonContent = function() { seasonSystem.initSeasonContent(); };
+        generateMockSeasonLeaderboard = function() { return seasonSystem.generateMockSeasonLeaderboard(); };
+        getSeasonRank = function() { return seasonSystem.getSeasonRank(); };
+        startDodgeStarTimer = function() { seasonSystem.startDodgeStarTimer(); };
+        stopDodgeStarTimer = function() { seasonSystem.stopDodgeStarTimer(); };
+        _log('赛季系统模块初始化完成');
+
+        // 初始化月卡系统
+        monthlyCardSystem = createMonthlyCardSystem({
+            getPlayerData: function() { return playerData; },
+            getScreenWidth: function() { return screenWidth; },
+            saveData: function() { savePlayerData(); },
+            showToast: function(opts) { wx.showToast(opts); },
+            getRewardedVideoAd: function() { return adSystem ? adSystem.getRewardedVideoAd() : null; },
+            isAdLoaded: function() { return adSystem ? adSystem.isAdLoaded() : false; }
+        });
+        isMonthlyCardClaimedToday = function(cardType) { return monthlyCardSystem.isMonthlyCardClaimedToday(cardType); };
+        getTodayString = function() { return monthlyCardSystem.getTodayString(); };
+        handleMonthlyCardClick = function(x, y, scale) { monthlyCardSystem.handleMonthlyCardClick(x, y, scale); };
+        handleSmallMonthlyCardClick = function() { monthlyCardSystem.handleSmallMonthlyCardClick(); };
+        handleLargeMonthlyCardClick = function() { monthlyCardSystem.handleLargeMonthlyCardClick(); };
+        watchAdForMonthlyCard = function(cardType) { monthlyCardSystem.watchAdForMonthlyCard(cardType); };
+        addMonthlyCardDays = function(cardType, days) { monthlyCardSystem.addMonthlyCardDays(cardType, days); };
+        claimMonthlyCardReward = function(cardType) { monthlyCardSystem.claimMonthlyCardReward(cardType); };
+        _log('月卡系统模块初始化完成');
+
+        // 广告系统（已移除）
+        adSystem = {
+            initAds: function() {},
+            showRewardedVideoAd: function() {},
+            showItemAd: function() {},
+            handleItemAdReward: function() {},
+            showTimeCrystalAd: function() {},
+            getRewardedVideoAd: function() { return null; },
+            isAdLoaded: function() { return false; }
+        };
+        initAds = function() {};
+        showRewardedVideoAd = function() {};
+        showItemAd = function() {};
+        handleItemAdReward = function() {};
+        showTimeCrystalAd = function() {};
+
+        // 闯关模式系统
+        stageModeSystem = _gameModules.createStageModeSystem({
+            getSTAGES: function() { return STAGES; },
+            getMonsterTypes: function() { return MonsterTypes; },
+            getPlayerData: function() { return playerData; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
+            addCharacterExperience: function(charId, exp) { addCharacterExperience(charId, exp); },
+            saveData: function() { savePlayerData(); },
+            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            getGameState: function() { return state; },
+            GAME_STATE: GAME_STATE,
+            getStageSelectScrollY: function() { return uiScrollState.stageSelectScrollY; },
+            getSelectedChapter: function() { return selectedChapter; },
+            getStageCriticalCount: function() { return stageCriticalCount; },
+            getStagePerfectCount: function() { return stagePerfectCount; },
+            getStageDamageTaken: function() { return stageDamageTaken; },
+            // 全局状态
+            getMonsters: function() { return monsters; },
+            setMonsters: function(val) { monsters = val; },
+            setStars: function(val) { stars = val; },
+            addNewStar: function() { addNewStar(); },
+            getCurrentStarInterval: function() { return comboState.currentStarInterval; },
+            createMonster: function(type, x, y, options) { return createMonster(type, x, y, options); },
+            // 全局定时器
+            clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
+            setTimerInterval: function(id) { timerInterval = id; },
+            clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
+            setMoveInterval: function(id) { moveInterval = id; },
+            clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
+            setMonsterAttackInterval: function(id) { monsterAttackInterval = id; },
+            monsterAttackPlayer: function() { monsterAttackPlayer(); },
+            startDodgeStarTimer: function() { startDodgeStarTimer(); },
+            stopDodgeStarTimer: function() { stopDodgeStarTimer(); },
+            startPetAttackTimer: function() { startPetAttackTimer(); },
+            stopPetAttackTimer: function() { stopPetAttackTimer(); },
+            resetCombo: function() { resetCombo(); },
+            clearMessages: function() { clearMessages(); },
+            clearAllAnimations: function() { clearAllAnimations(); },
+            setTimeLeft: function(val) { timeLeft = val; },
+            getNormalBattleAdapter: function() { return normalBattleAdapter; }
+        });
+        isStageUnlocked = function(stageId) { return stageModeSystem.isStageUnlocked(stageId); };
+        getDifficultyColor = function(difficulty) { return stageModeSystem.getDifficultyColor(difficulty); };
+        startStage = function(stageId) {
+            stageCriticalCount = 0;
+            stagePerfectCount = 0;
+            stageDamageTaken = 0;
+            stageModeSystem.startStage(stageId);
+        };
+        _log('闯关模式系统模块初始化完成');
+
+        // Boss战系统（BattleEngine 适配器）
+        bossBattleSystem = _gameModules.createBossBattleAdapter({
+            getPlayerData: function() { return playerData; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
+            saveData: function() { savePlayerData(); },
+            saveDataImmediate: function() { savePlayerData(true); },
+            saveBestScore: function() { saveBestScore(); },
+            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            getGameState: function() { return state; },
+            GAME_STATE: GAME_STATE,
+            getBOSS_LIST: function() { return BOSS_LIST; },
+            getBOSS_BATTLE_CONFIG: function() { return BOSS_BATTLE_CONFIG; },
+            getBOSS_STUN_CHANCE: function() { return BOSS_STUN_CHANCE; },
+            getBOSS_STUN_DURATION: function() { return BOSS_STUN_DURATION; },
+            clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
+            clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
+            clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
+            setTimerInterval: function(id) { timerInterval = id; },
+            setMoveInterval: function(id) { moveInterval = id; },
+            setMonsterAttackInterval: function(id) { monsterAttackInterval = id; },
+            getTimerInterval: function() { return timerInterval; },
+            getMoveInterval: function() { return moveInterval; },
+            getMonsterAttackInterval: function() { return monsterAttackInterval; },
+            getScore: function() { return score; },
+            setScore: function(val) { score = val; },
+            getTimeLeft: function() { return timeLeft; },
+            setTimeLeft: function(val) { timeLeft = val; },
+            addTimeLeft: function(sec) { timeLeft += sec; },
+            subtractTimeLeft: function(sec) { timeLeft = Math.max(0, timeLeft - sec); },
+            getComboCount: function() { return comboState.count; },
+            setComboCount: function(val) { if (val > comboState.count) { comboState.slideAnim = 0; comboState.slideTriggered = true; } comboState.count = val; },
+            getLastComboTime: function() { return comboState.lastComboTime; },
+            setLastComboTime: function(val) { comboState.lastComboTime = val; },
+            getCurrentStarInterval: function() { return comboState.currentStarInterval; },
+            setCurrentStarInterval: function(val) { comboState.currentStarInterval = val; },
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
+            getMonstersKilled: function() { return monstersKilled; },
+            setMonstersKilled: function(val) { monstersKilled = val; },
+            getMonsters: function() { return monsters; },
+            setMonsters: function(val) { monsters = val; },
+            getMonster: function() { return monster; },
+            setMonsterHp: function(val) { monster.hp = val; },
+            getStarMode: function() { return starMode; },
+            getSTAR_MODE: function() { return STAR_MODE; },
+            getFallingConfig: function() { return FALLING_CONFIG; },
+            getBaseStarInterval: function() { return _getSpecAwareBaseStarInterval(); },
+            resetCombo: function() { resetCombo(); },
+            clearMessages: function() { clearMessages(); },
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            createMonster: function(id, x, y, opts) { return createMonster(id, x, y, opts); },
+            addNewStar: function() { addNewStar(); },
+            startDodgeStarTimer: function() { startDodgeStarTimer(); },
+            stopDodgeStarTimer: function() { stopDodgeStarTimer(); },
+            startPetAttackTimer: function() { startPetAttackTimer(); },
+            stopPetAttackTimer: function() { stopPetAttackTimer(); },
+            getPauseStartTime: function() { return pauseStartTime; },
+            setPauseStartTime: function(val) { pauseStartTime = val; },
+            getGameItems: function() { return gameItems; },
+            getAdItems: function() { return adItems; },
+            getMAX_GAME_ITEMS: function() { return MAX_GAME_ITEMS; },
+            getSkillSystem: function() { return skillSystem; },
+            getComboStarActive: function() { return combatState.comboStarActive; },
+            setComboStarActive: function(val) { combatState.comboStarActive = val; },
+            getComboStarStartTime: function() { return combatState.comboStarStartTime; },
+            setComboStarStartTime: function(val) { combatState.comboStarStartTime = val; },
+            getComboStarLastAttackTime: function() { return combatState.comboStarLastAttackTime; },
+            setComboStarLastAttackTime: function(val) { combatState.comboStarLastAttackTime = val; },
+            getComboStarTimer: function() { return combatState.comboStarTimer; },
+            setComboStarTimer: function(val) { combatState.comboStarTimer = val; },
+            updateCombo: function() { updateCombo(); },
+            getComboScoreBonus: function() { return getComboScoreBonus(); },
+            calculateTotalAttack: function() { return calculateTotalAttack(); },
+            getPlayerDodging: function() { return playerEffects.dodging; },
+            setPlayerDodging: function(val) { playerEffects.dodging = val; },
+            getPlayerDodgeEndTime: function() { return playerEffects.dodgeEndTime; },
+            setPlayerDodgeEndTime: function(val) { playerEffects.dodgeEndTime = val; },
+            getPlayerStunned: function() { return playerEffects.stunned; },
+            setPlayerStunned: function(val) { playerEffects.stunned = val; },
+            getPlayerStunEndTime: function() { return playerEffects.stunEndTime; },
+            setPlayerStunEndTime: function(val) { playerEffects.stunEndTime = val; },
+            getGreedyHpPool: function() { return combatState.greedyHpPool; },
+            setGreedyHpPool: function(val) { combatState.greedyHpPool = val; },
+            getGreedySkillUnlocked: function() { return combatState.greedySkillUnlocked; },
+            setGreedySkillUnlocked: function(val) { combatState.greedySkillUnlocked = val; },
+            getGreedySkillThreshold: function() { return GREEDY_SKILL_THRESHOLD; },
+            getDodgeDuration: function() { return DODGE_DURATION; },
+            createMeteorAnimation: function(x, y, dmg, crit, type, score, count, cb) { createMeteorAnimation(x, y, dmg, crit, type, score, count, cb); },
+            createCritAnimation: function(x, y, dmg, delay, color) { createCritAnimation(x, y, dmg, delay, color); },
+            createPlayerDamageAnimation: function(dmg, isBoss, isPoison, customText, isShield) { createPlayerDamageAnimation(dmg, isBoss, isPoison, customText, isShield); },
+            createTimeDamageAnimation: function(dmg) { createTimeDamageAnimation(dmg); },
+            createMonsterDamageAnimation: function(m, dmg) { createMonsterDamageAnimation(m, dmg); },
+            createHpBarCounterAnimation: function() { createHpBarCounterAnimation(); },
+            removeBossStar: function(id) { removeBossStar(id); },
+            useItem: function(type) { useItem(type); },
+            showItemAd: function(type) { showItemAd(type); },
+            useSkill: function(id) { useSkill(id); },
+            useGreedySkill: function() { useGreedySkill(); },
+            vibrateShort: function(type) { try { wx.vibrateShort({ type: type }); } catch(e) {} },
+            // 史莱姆王技能依赖
+            setPlayerPoisoned: function(val) { playerEffects.poisoned = val; },
+            setPlayerPoisonEndTime: function(val) { playerEffects.poisonEndTime = val; },
+            setPlayerPoisonDamage: function(val) { playerEffects.poisonDamage = val; },
+            setPlayerPoisonTickTime: function(val) { playerEffects.poisonTickTime = val; },
+            addMonsterSkillAnimation: function(m, type, text) { if (monsterSkillSystem) monsterSkillSystem.addMonsterSkillAnimation(m, type, text); },
+            spawnPoisonPuddles: function(mx, my, skill) { spawnPoisonPuddles(mx, my, skill); },
+            getMonstersConfig: function() { return Monsters; },
+            getMonsterTypes: function() { return MonsterTypes; },
+            calculateMonsterPositions: function(count, y) { return calculateMonsterPositions(count, y); },
+            clearPoisonPuddles: function() { poisonPuddleSystem.clearPoisonPuddles(); },
+            // BattleEngine 额外动画依赖
+            createStarBurstAnimation: function(x, y, t) { createStarBurstAnimation(x, y, t); },
+            createScreenShake: function(i) { createScreenShake(i); },
+            createQuickTapAnimation: function(x, y, s, t, f) { createQuickTapAnimation(x, y, s, t, f); },
+            createMonsterProjectileAnimation: function(sx, sy, d, td, b, h) { createMonsterProjectileAnimation(sx, sy, d, td, b, h); },
+            createPetDamageAnimation: function(x, y, d, e, c) { createPetDamageAnimation(x, y, d, e, c); },
+            // BattleEngine 战斗依赖
+            getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
+            updateCombo: function() { updateCombo(); },
+            getMonsterSkillType: function() { return MonsterSkillType; },
+            getSkillsConfig: function() { return Skills; },
+            getSkillTypes: function() { return SkillTypes; },
+            // NormalBattleAdapter 统一点击路径
+            initBossEngineFn: function(engine, config) { normalBattleAdapter.initBossEngine(engine, config); },
+            releaseBossEngineFn: function() { normalBattleAdapter.releaseEngine(); },
+            updateStarSpawnInterval: function() { updateStarSpawnInterval(); }
+        });
+        getStarBaseScore = function(type) { return bossBattleSystem.getStarBaseScore(type); };
+        _log('Boss战系统模块初始化完成');
+
+        // 普通战斗适配器（BattleEngine — Phase 3 灵韵点击迁移）
+        normalBattleAdapter = _gameModules.createNormalBattleAdapter({
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getPlayerData: function() { return playerData; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            // 灵韵
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
+            // 怪物
+            getActiveMonster: function() { return monster; },
+            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            getMonsters: function() { return monsters; },
+            setMonsters: function(val) { monsters = val; },
+            // 战斗系统
+            getMonsterBattleSystem: function() { return normalBattleAdapter; },
+            attackMonster: function(dmg, crit, type, target, skipKill) { return normalBattleAdapter.attackMonster(dmg, crit, type, target); },
+            onMonsterKilled: function(target) { normalBattleAdapter.onMonsterKilled(target); },
+            // 分数
+            getScore: function() { return score; },
+            setScore: function(val) { score = val; },
+            getSeasonScore: function() { return seasonScore; },
+            setSeasonScore: function(val) { seasonScore = val; },
+            getStageModeSystem: function() { return stageModeSystem; },
+            // 角色属性
+            calculateTotalAttack: function() { return calculateTotalAttack(); },
+            calculateStarScore: function(t) { return calculateStarScore(t); },
+            getCharacterFullStats: function(id) { return getCharacterFullStats(id); },
+            getCharacterStatsAtLevel: function(char, lvl) { return getCharacterStatsAtLevel(char, lvl); },
+            getMaxCharacterLevel: function() { return MAX_CHARACTER_LEVEL; },
+            addCharacterExperience: function(id, exp) { addCharacterExperience(id, exp); },
+            // 连击
+            updateCombo: function() { updateCombo(); },
+            resetCombo: function() { resetCombo(); },
+            getComboCount: function() { return comboState.count; },
+            getComboState: function() { return comboState; },
+            // 玩家效果
+            getPlayerEffects: function() { return playerEffects; },
+            getCombatState: function() { return combatState; },
+            getDodgeDuration: function() { return DODGE_DURATION; },
+            getGreedySkillThreshold: function() { return GREEDY_SKILL_THRESHOLD; },
+            onMonsterDefeat: function(m) {
+                if (audioSystem && m && (m.type === 'slime' || m.type === 'slime_king')) {
+                    audioSystem.playMonsterDefeat();
+                }
+            },
+            onMonsterDodge: function() {
+                if (audioSystem) audioSystem.playMonsterDodge();
+            },
+            onPetAttack: function() {
+                if (audioSystem) audioSystem.playPetAttack();
+            },
+            // 灵韵模式
+            getStarMode: function() { return starMode; },
+            getSTAR_MODE: function() { return STAR_MODE; },
+            getFallingConfig: function() { return FALLING_CONFIG; },
+            // 系统
+            getStarThief: function() { return starThief; },
+            getPoisonPuddleSystem: function() { return poisonPuddleSystem; },
+            getActiveBuffs: function() { return activeBuffs; },
+            getSeasonSelection: function() { return seasonSelection; },
+            getTowerSystem: function() { return towerSystem; },
+            updateTaskProgress: function(t, n) { updateTaskProgress(t, n); },
+            updateTaskStats: function(t, n) { updateTaskStats(t, n); },
+            // 动画
+            addMessage: function(msg, color, important) { addGameMessage(msg, color, important); },
+            vibrateShort: function(type) { try { wx.vibrateShort({ type: type }); } catch(e) {} },
+            createMeteorAnimation: function(x, y, dmg, crit, type, score, count, cb, target) { createMeteorAnimation(x, y, dmg, crit, type, score, count, cb, target); },
+            createCritAnimation: function(x, y, dmg, delay, color) { createCritAnimation(x, y, dmg, delay, color); },
+            createStarBurstAnimation: function(x, y, t) { createStarBurstAnimation(x, y, t); },
+            createScreenShake: function(i) { createScreenShake(i); },
+            createQuickTapAnimation: function(x, y, s, t, f) { createQuickTapAnimation(x, y, s, t, f); },
+            createScorePopupAnimation: function(x, y, s, c) { createScorePopupAnimation(x, y, s, c); },
+            createPlayerDamageAnimation: function(dmg, isBoss, isPoison, text, isShield) { createPlayerDamageAnimation(dmg, isBoss, isPoison, text, isShield); },
+            removeBossStar: function(id) { removeBossStar(id); },
+            getMonsterSkillType: function() { return MonsterSkillType; },
+            tipShowTipOnce: function(key, text) { tipShowTipOnce(key, text); },
+            // Phase 4: 击杀/掉落 deps
+            getMonsterTypes: function() { return MonsterTypes; },
+            getMonstersConfig: function() { return Monsters; },
+            getMonsterSplitCount: function() { return combatState.monsterSplitCount; },
+            setMonsterSplitCount: function(val) { combatState.monsterSplitCount = val; },
+            getStageMonstersKilled: function() { return stageMonstersKilled; },
+            setStageMonstersKilled: function(val) { stageMonstersKilled = val; },
+            getStageMaxCombo: function() { return stageMaxCombo; },
+            setStageMaxCombo: function(val) { stageMaxCombo = val; },
+            getStageBossesKilled: function() { return stageBossesKilled; },
+            setStageBossesKilled: function(val) { stageBossesKilled = val; },
+            getStageCriticalCount: function() { return stageCriticalCount; },
+            getStagePerfectCount: function() { return stagePerfectCount; },
+            incrementStagePerfectCount: function() { stagePerfectCount++; },
+            getCurrentStageData: function() { return StageMode ? StageMode.currentStage : null; },
+            getStarDevourerEscaped: function() { return combatState.starDevourerEscaped; },
+            setStarDevourerEscaped: function(val) { combatState.starDevourerEscaped = val; },
+            getStarDevourerEscapeHpRatio: function() { return STAR_DEVOURER_ESCAPE_HP_RATIO; },
+            getEquipments: function() { return Equipments; },
+            getSkills: function() { return Skills; },
+            getPets: function() { return Pets; },
+            getMonsterAttackInterval: function() { return monsterAttackInterval; },
+            setMonsterAttackInterval: function(id) { monsterAttackInterval = id; },
+            getActiveBuffs: function() { return activeBuffs; },
+            getSeasonSelection: function() { return seasonSelection; },
+            dropEquipment: function(isBoss) { dropEquipment(isBoss); },
+            dropSkill: function() { dropSkill(); },
+            dropPet: function(isBoss) { dropPet(isBoss); },
+            dropMaterial: function() { dropMaterial(); },
+            addMaterialToBackpack: function(id, n) { addMaterialToBackpack(id, n); },
+            createGoldDropAnimation: function(x, y, amt) { createGoldDropAnimation(x, y, amt); },
+            createMonster: function(id, x, y, opts) { return createMonster(id, x, y, opts); },
+            calculateMonsterPositions: function(count, y) { return calculateMonsterPositions(count, y); },
+            savePlayerData: function() { savePlayerData(); },
+            spawnPoisonPuddles: function(mx, my, skill) { spawnPoisonPuddles(mx, my, skill); },
+            monsterAttackPlayer: function() { monsterAttackPlayer(); },
+            getPassiveSkillBonuses: function() { return getPassiveSkillBonuses(); },
+            addTimeLeft: function(sec) { timeLeft += sec; },
+            // Phase 5: attackMonster 防御逻辑 deps
+            triggerMonsterSkill: function(m, type, ctx) { return triggerMonsterSkill(m, type, ctx); },
+            setElementalComboState: function(active, time) { setElementalComboState(active, time); },
+            addMonsterSkillAnimation: function(m, type, text) { if (monsterSkillSystem) monsterSkillSystem.addMonsterSkillAnimation(m, type, text); },
+            resetBossStarMechanic: function() { resetBossStarMechanic(); },
+            incrementBossAttackCount: function() { return incrementBossAttackCount(); },
+            triggerBossStarSkill: function(m) { triggerBossStarSkill(m); },
+            createMonsterProjectileAnimation: function(sx, sy, d, td, b, cb) { createMonsterProjectileAnimation(sx, sy, d, td, b, cb); },
+            createMonsterDamageAnimation: function(m, d) { createMonsterDamageAnimation(m, d); },
+            createHpBarCounterAnimation: function() { createHpBarCounterAnimation(); },
+            getBossStunChance: function() { return BOSS_STUN_CHANCE; },
+            getBossStunDuration: function() { return BOSS_STUN_DURATION; },
+            setTimeLeft: function(val) { timeLeft = val; },
+            getTimeLeft: function() { return timeLeft; },
+            getStageDamageTaken: function() { return stageDamageTaken; },
+            setStageDamageTaken: function(val) { stageDamageTaken = val; },
+            getBOSS_STUN_COOLDOWN: function() { return 5000; },
+            getLastBossStunTime: function() { return _lastBossStunTime; },
+            setLastBossStunTime: function(val) { _lastBossStunTime = val; },
+            createTimeDamageAnimation: function(dmg) { createTimeDamageAnimation(dmg); },
+            endGame: function() { endGame(); },
+            // 觉醒系统
+            getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || playerData); },
+            getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || playerData); },
+            getDropTier: function(pd) { return getDropTier(pd || playerData); },
+            getAwakeConfig: function() { return AWAKE_CONFIG; },
+            onEngineReady: function(engine) {
+                if (starSystem && starSystem.onSpecChanged) {
+                    engine.subscribe(starSystem.onSpecChanged);
+                }
+            }
+        });
+        _log('普通战斗适配器模块初始化完成');
+
+        // 运行时不变量检查器（调试模式每帧自动检查）
+        invariantChecker = _gameModules.createInvariantChecker({
+            getGameState: function() { return state; },
+            getGameConst: function() { return GAME_STATE; },
+            getMonsters: function() { return monsters; },
+            getNormalBattleAdapter: function() { return normalBattleAdapter; },
+            isDebug: function() { return debugPanelOpen; }
+        });
+
+        // 游戏生命周期系统
+        gameLifecycleSystem = _gameModules.createGameLifecycleSystem({
+            getPlayerData: function() { return playerData; },
+            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            getGameState: function() { return state; },
+            GAME_STATE: GAME_STATE,
+            getScore: function() { return score; },
+            setScore: function(val) { score = val; },
+            getTimeLeft: function() { return timeLeft; },
+            setTimeLeft: function(val) { timeLeft = val; },
+            getNormalGameTime: function() { return NORMAL_GAME_TIME; },
+            getBestScore: function() { return bestScore; },
+            saveData: function() { savePlayerData(); },
+            saveDataImmediate: function() { savePlayerData(true); },
+            saveBestScore: function() { saveBestScore(); },
+            getNormalBattleAdapter: function() { return normalBattleAdapter; },
+            clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
+            clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
+            clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
+            setTimerInterval: function(id) { timerInterval = id; },
+            setMoveInterval: function(id) { moveInterval = id; },
+            setMonsterAttackInterval: function(id) { monsterAttackInterval = id; },
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
+            getMonsters: function() { return monsters; },
+            setMonsters: function(val) { monsters = val; },
+            addNewStar: function() { addNewStar(); },
+            resetStar: function() { resetStar(); },
+            spawnMonster: function(type) { spawnMonster(type); },
+            monsterAttackPlayer: function() { monsterAttackPlayer(); },
+            getStarMode: function() { return starMode; },
+            getSTAR_MODE: function() { return STAR_MODE; },
+            getFallingConfig: function() { return FALLING_CONFIG; },
+            getCurrentStarInterval: function() { return comboState.currentStarInterval; },
+            getBaseStarInterval: function() { return _getSpecAwareBaseStarInterval(); },
+            setCurrentStarInterval: function(val) { comboState.currentStarInterval = val; },
+            clearMessages: function() { clearMessages(); },
+            resetCombo: function() { resetCombo(); },
+            clearAllAnimations: function() { clearAllAnimations(); },
+            resetBossStarMechanic: function() { resetBossStarMechanic(); },
+            stopPetAttackTimer: function() { stopPetAttackTimer(); },
+            startPetAttackTimer: function() { startPetAttackTimer(); },
+            startDodgeStarTimer: function() { startDodgeStarTimer(); },
+            stopDodgeStarTimer: function() { stopDodgeStarTimer(); },
+            getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
+            getCharacterStatsAtLevel: function(charId, level) { return getCharacterStatsAtLevel(charId, level); },
+            getMAX_CHARACTER_LEVEL: function() { return MAX_CHARACTER_LEVEL; },
+            getSkillSystem: function() { return skillSystem; },
+            getActiveBuffs: function() { return activeBuffs; },
+            getGameItems: function() { return gameItems; },
+            getAdItems: function() { return adItems; },
+            getMAX_GAME_ITEMS: function() { return MAX_GAME_ITEMS; },
+            getMonsterSplitCount: function() { return combatState.monsterSplitCount; },
+            setMonsterSplitCount: function(val) { combatState.monsterSplitCount = val; },
+            getMonsterSplitType: function() { return combatState.monsterSplitType; },
+            setMonsterSplitType: function(val) { combatState.monsterSplitType = val; },
+            getPlayerPoisoned: function() { return playerEffects.poisoned; },
+            setPlayerPoisoned: function(val) { playerEffects.poisoned = val; },
+            getPlayerPoisonDamage: function() { return playerEffects.poisonDamage; },
+            setPlayerPoisonDamage: function(val) { playerEffects.poisonDamage = val; },
+            getGreedyHpPool: function() { return combatState.greedyHpPool; },
+            setGreedyHpPool: function(val) { combatState.greedyHpPool = val; },
+            getGreedySkillUnlocked: function() { return combatState.greedySkillUnlocked; },
+            setGreedySkillUnlocked: function(val) { combatState.greedySkillUnlocked = val; },
+            getComboStarActive: function() { return combatState.comboStarActive; },
+            setComboStarActive: function(val) { combatState.comboStarActive = val; },
+            getComboStarStartTime: function() { return combatState.comboStarStartTime; },
+            setComboStarStartTime: function(val) { combatState.comboStarStartTime = val; },
+            getComboStarLastAttackTime: function() { return combatState.comboStarLastAttackTime; },
+            setComboStarLastAttackTime: function(val) { combatState.comboStarLastAttackTime = val; },
+            getComboStarLastRemainingTime: function() { return combatState.comboStarLastRemainingTime; },
+            setComboStarLastRemainingTime: function(val) { combatState.comboStarLastRemainingTime = val; },
+            getComboStarTimer: function() { return combatState.comboStarTimer; },
+            setComboStarTimer: function(val) { combatState.comboStarTimer = val; },
+            getStarDevourerEscaped: function() { return combatState.starDevourerEscaped; },
+            setStarDevourerEscaped: function(val) { combatState.starDevourerEscaped = val; },
+            getVoidEmperorSpawned: function() { return combatState.voidEmperorSpawned; },
+            setVoidEmperorSpawned: function(val) { combatState.voidEmperorSpawned = val; },
+            getComboCount: function() { return comboState.count; },
+            setLastComboTime: function(val) { comboState.lastComboTime = val; },
+            getPauseStartTime: function() { return pauseStartTime; },
+            setPauseStartTime: function(val) { pauseStartTime = val; },
+            getCONFIG: function() { return CONFIG; },
+            getSeasonScore: function() { return seasonScore; },
+            setSeasonScore: function(val) { seasonScore = val; },
+            getSeasonBestScore: function() { return seasonBestScore; },
+            setSeasonBestScore: function(val) { seasonBestScore = val; },
+            getSeasonSelection: function() { return seasonSelection; },
+            getSeasonLeaderboard: function() { return seasonLeaderboard; },
+            setSeasonLeaderboard: function(val) { seasonLeaderboard = val; },
+            getStarThief: function() { return starThief; },
+            setMonstersKilled: function(val) { monstersKilled = val; },
+            uploadLeaderboardData: function() { if (storageSystem) storageSystem.uploadLeaderboardData(); },
+            uploadSeasonScore: function(score) { if (storageSystem) storageSystem.uploadSeasonScore(score); },
+            updateTaskProgress: function(task, val, isMax) { updateTaskProgress(task, val, isMax); },
+            updateTaskStats: function(stat, val, isMax) { updateTaskStats(stat, val, isMax); },
+            getBossBattleMode: function() { return BossBattleMode; },
+            endStage: function(m) { if (stageModeSystem) stageModeSystem.onMonsterDefeated(m); },
+            stageModeEnd: function(success) { if (stageModeSystem) stageModeSystem.end(success); },
+            resumeStageTimers: function() { if (stageModeSystem) { stageModeSystem.resumeTimers(); } },
+            getGameEndTime: function() { return gameEndTime; },
+            setGameEndTime: function(val) { gameEndTime = val; },
+            clearPoisonPuddles: function() { poisonPuddleSystem.clearPoisonPuddles(); }
+        });
+        startGame = function() { gameLifecycleSystem.startGame(); };
+        endGame = function() { gameLifecycleSystem.endGame(); };
+        pauseGame = function() { gameLifecycleSystem.pauseGame(); };
+        resumeGame = function() { gameLifecycleSystem.resumeGame(); };
+        restartGame = function() { gameLifecycleSystem.restartGame(); };
+        startSeasonGame = function() { gameLifecycleSystem.startSeasonGame(); };
+        endSeasonGame = function() { gameLifecycleSystem.endSeasonGame(); };
+        _log('游戏生命周期系统模块初始化完成');
+
+        // ===== ModeLifecycleManager — 统一模式生命周期 =====
+        modeLifecycle = createModeLifecycleManager({
+            getGameState: function() { return state; },
+            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            GAME_STATE: GAME_STATE,
+            saveData: function() { savePlayerData(); }
+        });
+
+        // 注册 5 个战斗模式
+        modeLifecycle.registerMode('normal', {
+            enter: function(ctx) { if (ctx && ctx.startGame) gameLifecycleSystem.startGame(); },
+            pause: function() { gameLifecycleSystem.pauseGame(); },
+            resume: function(ctx) { gameLifecycleSystem.resumeGame(); },
+            cleanup: function() {
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                saveBestScore();
+            }
+        }, GAME_STATE.PLAYING);
+
+        modeLifecycle.registerMode('boss', {
+            enter: function(ctx) {},
+            pause: function() { if (bossBattleSystem) bossBattleSystem.togglePause(); },
+            resume: function(ctx) { if (bossBattleSystem) bossBattleSystem.togglePause(); },
+            cleanup: function() {
+                if (BossBattleMode) BossBattleMode.cleanup();
+                saveBestScore();
+            }
+        }, GAME_STATE.BOSS_BATTLE);
+
+        modeLifecycle.registerMode('tower', {
+            enter: function(ctx) {},
+            pause: function() { if (towerSystem) towerSystem.pauseCombat(); },
+            resume: function(ctx) { if (towerSystem) towerSystem.resumeCombat(); },
+            cleanup: function() { if (towerSystem) towerSystem.pauseTower(); }
+        }, GAME_STATE.TOWER_COMBAT);
+
+        modeLifecycle.registerMode('stage', {
+            enter: function(ctx) {},
+            pause: function() { if (stageModeSystem) stageModeSystem.togglePause(); },
+            resume: function(ctx) { if (stageModeSystem) stageModeSystem.togglePause(); },
+            cleanup: function() { if (stageModeSystem) stageModeSystem.end(false); }
+        }, GAME_STATE.STAGE_PLAYING);
+
+        modeLifecycle.registerMode('season', {
+            enter: function(ctx) { if (ctx && ctx.start) gameLifecycleSystem.startSeasonGame(); },
+            pause: function() { gameLifecycleSystem.pauseGame(); },
+            resume: function(ctx) { gameLifecycleSystem.resumeGame(); },
+            cleanup: function() { gameLifecycleSystem.endSeasonGame(); }
+        }, GAME_STATE.SEASON_PLAYING);
+
+        _log('ModeLifecycleManager 初始化完成，已注册 5 个战斗模式');
+
+        // ===== StateMachine — 状态转移校验 =====
+        stateMachine = createStateMachine({
+            getGameState: function() { return state; },
+            setGameStateRaw: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            getPreviousState: function() { return previousState; },
+            setPreviousState: function(s) { previousState = s; }
+        });
+        _log('StateMachine 初始化完成');
+
+        // 初始化广告（已移除）
+        initAds();
+        
+        // 注册触摸事件
+        wx.onTouchStart(handleTouchStart);
+        wx.onTouchMove(handleTouchMove);
+        wx.onTouchEnd(handleTouchEnd);
+        
+        // 启动渲染循环（requestAnimationFrame）
+        function renderLoop() {
+            render();
+            _rafId = requestAnimationFrame(renderLoop);
+        }
+        _rafId = requestAnimationFrame(renderLoop);
+        
+        // 挂机系统 - 生命周期钩子（持续挂机模式）
+        wx.onHide(function() {
+            _log('游戏隐藏 - 保存数据');
+            savePlayerData(true);
+        });
+        
+        wx.onShow(function() {
+            _log('游戏显示 - 继续挂机');
+            // 持续挂机模式：不需要计算，玩家主动点击领取
+        });
+        
+        // 初始化挂机时间（如果是新玩家）
+        if (!playerData.afkData.lastClaimTime) {
+            playerData.afkData.lastClaimTime = Date.now();
+            savePlayerData();
+        }
+        
+        _log('游戏初始化完成');
+
+        // 验证玩家数据
+        _log('=== 数据验证 ===');
+        _log('ownedCharacters:', playerData.ownedCharacters);
+        _log('currentCharacterId:', playerData.currentCharacterId);
+        _log('unlockedStarTypes:', playerData.unlockedStarTypes);
+        _log('materials:', JSON.stringify(playerData.materials));
+        _log('characterExperience:', JSON.stringify(playerData.characterExperience));
+        _log('==================');
+        
+        // 初始化开放数据域（用于好友排行榜）
+        initOpenDataContext();
+        
+    } catch (error) {
+        console.error('初始化失败:', error);
+        wx.showToast({
+            title: '初始化失败: ' + error.message,
+            icon: 'none',
+            duration: 3000
+        });
+    }
+}
+
+// 加载最高分
+
+// 初始化广告
+
+// 添加新灵韵
+// 灵韵合成相关常量
+
+// getCurrentCharacterConfig 保留在 game.js（被多处使用）
+
+// 获取当前角色配置
+var getCurrentCharacterConfig = null;
+
+
+// ========== 连击系统结束 ==========
+
+// 触摸事件处理
+function handleTouchStart(res) {
+    // 获取所有触点
+    var touches = res.touches;
+    var touch = touches[0];
+    var x = touch.clientX;
+    var y = touch.clientY;
+    const scale = getScreenScale();
+
+    // 点击音效
+    if (audioSystem) audioSystem.playClick();
+
+    // 点击波纹反馈动画（支持多指）
+    for (let ti = 0; ti < touches.length; ti++) {
+        createTapRippleAnimation(touches[ti].clientX, touches[ti].clientY, touches[ti].identifier);
+    }
+
+    _log('触摸点数:', touches.length, '状态:', state);
+
+    // ===== UI编辑器拦截（最高优先级）=====
+    if (uiEditorSystem && uiEditorSystem.isActive()) {
+        uiEditorSystem.handleTouchStart(x, y);
+        return;
+    }
+
+    // ===== 挂机弹窗处理（最高优先级，阻止触摸穿透）=====
+    if (afkSystem.popupVisible || afkSystem.resultVisible) {
+        return;
+    }
+
+    // ===== 开发者战斗调参工具（优先级最高）=====
+    if (devBattleSystem && devBattleSystem.isVisible()) {
+        devBattleSystem.handleTouch(x, y);
+        return;
+    }
+
+    // ===== 调试面板处理（优先级最高）=====
+    if (debugPanelOpen) {
+        var touchResult = debugRenderer.handleDebugPanelTouch(x, y);
+        if (touchResult === 'close') {
+            debugPanelOpen = false;
+            _log('关闭调试面板');
+            return;
+        }
+        if (touchResult) {
+            executeDebugAction(touchResult);
+            return;
+        }
+        return; // 调试面板打开时，不处理其他点击
+    }
+    
+    // ===== 调试按钮点击（菜单界面右上角）=====
+    if (state === GAME_STATE.MENU) {
+        const hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        if (hasUnlockedStarter) {
+            const debugIconSize = Math.floor(32 * scale);
+            var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
+            const debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
+            const debugIconY = Math.floor(15 * scale) + debugOv.dy * scale;
+
+            if (x >= debugIconX && x <= debugIconX + debugIconSize &&
+                y >= debugIconY && y <= debugIconY + debugIconSize) {
+                debugPanelOpen = true;
+                _log('打开调试面板');
+                return;
+            }
+        }
+    }
+
+    // ===== 战斗中 DevBattle 浮动按钮（左下角）=====
+    if (devBattleSystem && (state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING)) {
+        var devBtnSize = Math.floor(36 * scale);
+        var devBtnX = Math.floor(12 * scale);
+        var devBtnY = screenHeight - Math.floor(56 * scale);
+        if (x >= devBtnX && x <= devBtnX + devBtnSize &&
+            y >= devBtnY && y <= devBtnY + devBtnSize) {
+            devBattleSystem.toggle();
+            return;
+        }
+    }
+
+    // 如果是TOWER状态，记录触摸位置
+    if (state === GAME_STATE.TOWER) {
+        towerSystem.touchStartX = touches[0].clientX;
+        towerSystem.touchStartY = touches[0].clientY;
+        towerSystem.isDragging = false;
+        return;
+    }
+
+    // 融合界面记录触摸位置用于滚动
+    if (state === GAME_STATE.FUSION) {
+        if (fusionRenderer) fusionRenderer.handleFusionTouchStart(touches[0].clientY);
+    }
+
+    // 升级界面记录触摸位置用于滚动
+    if (state === GAME_STATE.UPGRADE) {
+        if (upgradeRenderer) upgradeRenderer.handleUpgradeTouchStart(touches[0].clientY);
+    }
+
+    // 背包状态记录触摸位置用于滚动
+    if (state === GAME_STATE.BACKPACK) {
+        uiScrollState.backpackLastTouchY = touches[0].clientY;
+        uiScrollState.backpackIsDragging = false;
+        backpackTotalDragDistance = 0;  // 重置累计拖拽距离
+        _log('背包触摸开始: Y=', touches[0].clientY, 'uiScrollState.backpackIsDragging=', uiScrollState.backpackIsDragging);
+    }
+    
+    // Boss选择状态记录触摸位置用于滚动
+    if (state === GAME_STATE.BOSS_SELECT) {
+        bossSelectTouchStartY = touches[0].clientY;
+        bossSelectIsDragging = false;
+    }
+    
+    // 赛季选择状态记录触摸位置用于滚动
+    if (state === GAME_STATE.SEASON_SELECT) {
+        uiScrollState.seasonSelectLastTouchY = touches[0].clientY;
+        uiScrollState.seasonSelectIsDragging = false;
+        seasonSelectTotalDragDistance = 0;  // 重置累计拖拽距离
+        uiScrollState.seasonSelectScrollY = uiScrollState.seasonSelectScrollY || 0;  // 确保滚动位置存在
+        _log('赛季选择触摸开始: Y=', touches[0].clientY);
+    }
+    
+    // 爬塔模式记录触摸位置
+    if (state === GAME_STATE.TOWER) {
+        towerSystem.touchStartX = touches[0].clientX;
+        towerSystem.touchStartY = touches[0].clientY;
+        towerSystem.isDragging = false;
+    }
+    
+    // 抽卡动画状态处理
+    if (state === GAME_STATE.GACHA_ANIMATION) {
+        var touch = touches[0];
+        handleGachaAnimationClick(touch.clientX, touch.clientY);
+        return;
+    }
+    
+    // 爬塔战斗模式处理（走共享触摸路径，胜利弹窗仍在此处理）
+    if (state === GAME_STATE.TOWER_COMBAT) {
+        // 如果有胜利弹窗，点击关闭
+        if (towerSystem.victoryPopup) {
+            towerSystem.victoryPopup = null;
+            if (towerSystem.victoryPopupTimer) {
+                clearTimeout(towerSystem.victoryPopupTimer);
+                towerSystem.victoryPopupTimer = null;
+            }
+            // 返回爬塔地图
+            stateMachine.transitionTo(GAME_STATE.TOWER);
+            towerSystem.saveProgress();
+            return;
+        }
+        // 塔战斗技能栏和灵韵攻击走共享路径
+    }
+    
+    // 编队系统记录触摸位置用于滚动
+    if (state === GAME_STATE.SQUAD && squadRenderer) {
+        squadRenderer.handleScrollStart(touches);
+    }
+    
+    // 记录触摸开始时的状态（用于防止跨界面点击）
+    touchStartState = state;
+
+    // 冷却期保护：游戏结束1.5秒内禁止点击
+        if (state === GAME_STATE.GAMEOVER && gameEndTime > 0) {
+            var timeSinceEnd = Date.now() - gameEndTime;
+            if (timeSinceEnd < 1500) {  // 1.5秒冷却期
+                _log('冷却期中，忽略点击，剩余时间:', (1500 - timeSinceEnd), 'ms');
+                return;
+            }
+        }
+    
+        // 响应式缩放比例（已在函数开头声明）
+        // const scale = getScreenScale();
+        
+        // 只用第一个触点检测暂停按钮（已在函数开头获取 x, y）
+        // var firstTouch = touches[0];
+        // var x = firstTouch.clientX;
+        // var y = firstTouch.clientY;
+    
+        // 检查是否点击暂停按钮（仅在游戏中，包括赛季模式、Boss、塔）
+        if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT) {
+            const pauseBtnSize = Math.floor(50 * scale);
+            if (x >= 15 && x <= 15 + pauseBtnSize && y >= 15 && y <= 15 + pauseBtnSize) {
+                _log('点击暂停按钮');
+                if (pauseAnimations) pauseAnimations();
+                if (state === GAME_STATE.STAGE_PLAYING) {
+                    stageModeSystem.togglePause();
+                } else if (state === GAME_STATE.BOSS_BATTLE) {
+                    bossBattleSystem.togglePause();
+                } else if (state === GAME_STATE.TOWER_COMBAT) {
+                    modeLifecycle.syncActiveMode();
+                    modeLifecycle.pauseActive();
+                    stateMachine.transitionTo(GAME_STATE.PAUSED);
+                } else {
+                    modeLifecycle.syncActiveMode();
+                    modeLifecycle.pauseActive();
+                    pauseGame();
+                }
+                return;
+            }
+            
+            // 检查道具按钮点击（赛季模式禁用道具，Boss/塔无道具按钮）
+            if (state !== GAME_STATE.SEASON_PLAYING && getCombatFeatures().itemButtons) {
+            const itemBtnSize = Math.floor(45 * scale);
+            const itemBtnY = 75;
+
+            // 治疗药水按钮
+            if (x >= 15 && x <= 15 + itemBtnSize && y >= itemBtnY && y <= itemBtnY + itemBtnSize) {
+                if (gameItems.healPotion > 0) {
+                    // 有道具时使用道具
+                    _log('点击治疗药水按钮');
+                    useItem('healPotion');
+                } else {
+                    wx.showToast({ title: '治疗药水已用完', icon: 'none', duration: 1500 });
+                }
+                return;
+            }
+
+            // 时间药水按钮
+            const timeBtnY = itemBtnY + itemBtnSize + Math.floor(8 * scale);
+            if (x >= 15 && x <= 15 + itemBtnSize && y >= timeBtnY && y <= timeBtnY + itemBtnSize) {
+                if (gameItems.timePotion > 0) {
+                    // 有道具时使用道具
+                    _log('点击时间药水按钮');
+                    useItem('timePotion');
+                } else {
+                    wx.showToast({ title: '时间药水已用完', icon: 'none', duration: 1500 });
+                }
+                return;
+            }
+            } // 结束赛季模式道具按钮点击条件
+            
+            // 时间灵韵主动技能按钮点击检测（需要解锁且装备到编队）
+            const hasTimeStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('time') !== -1;
+            const hasTimeStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('time') !== -1;
+            const hasTimeStar = hasTimeStarUnlocked && hasTimeStarEquipped;
+            if (hasTimeStar && monster.active && state !== GAME_STATE.SEASON_PLAYING) {
+                const skillBtnSize = Math.floor(45 * scale);
+                const skillBtnY = 75 + (Math.floor(45 * scale) + 5) * 2 + 5; // 在道具按钮下方
+                
+                if (x >= 15 && x <= 15 + skillBtnSize && y >= skillBtnY && y <= skillBtnY + skillBtnSize) {
+                    // 计算可消耗的时间（总时间 - 30秒）
+                    const consumableTime = Math.max(0, timeLeft - TIME_STAR_MIN_TIME);
+                    
+                    if (consumableTime > 0) {
+                        // 计算基础伤害：每秒×2
+                        let damage = consumableTime * 2;
+                        
+                        // ===== 暴击判定 =====
+                        // 获取角色暴击率和暴击伤害
+                        var currentCharId = playerData.currentCharacterId;
+                        var charStats = currentCharId ? getCharacterFullStats(currentCharId) : null;
+                        var totalCritRate = (charStats ? charStats.critRate : 0) + (playerData.extraCritRate || 0) + (activeBuffs.critRateBonus || 0);
+                        var baseCritDamage = charStats ? charStats.critDamage : 2.0;
+                        baseCritDamage += (playerData.extraCritDamage || 0);
+                        
+                        // 暴击判定
+                        var isCritical = Math.random() * 100 < totalCritRate;
+                        var critText = '';
+                        
+                        if (isCritical) {
+                            damage = Math.floor(damage * baseCritDamage);
+                            critText = ' 💥暴击!';
+                            _log('⏰ 时间灵韵技能暴击! 倍率:', baseCritDamage);
+                            
+                            // 创建暴击动画
+                            createCritAnimation(screenWidth / 2, screenHeight / 3, damage, 0);
+                        }
+                        
+                        _log('⏰ 时间灵韵技能! 消耗时间:', consumableTime, '秒, 造成伤害:', damage, '暴击:', isCritical);
+                        
+                        // 扣除时间（保留最低时间）
+                        timeLeft = TIME_STAR_MIN_TIME;
+                        
+                        // 对怪物造成伤害
+                        monster.hp -= damage;
+                        _log('时间灵韵技能命中! 怪物HP:', monster.hp, '伤害:', damage);
+                        
+                        // 显示提示
+                        addGameMessage('⏰ 时间爆发!' + critText + ' -' + damage, '#00ccff');
+                        
+                        // 震动反馈（暴击震动更强）
+                        wx.vibrateShort({ type: isCritical ? 'heavy' : 'medium' });
+                        
+                        // 检查怪物是否死亡
+                        if (monster.hp <= 0) {
+                            onMonsterKilled();
+                            return;
+                        }
+                    } else {
+                        addGameMessage('时间不足30秒', '#ff6b6b');
+                    }
+                    return;
+                }
+            }
+            
+            // 贪婪技能按钮点击检测（需要解锁且装备到编队）
+            const hasGreedyStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('greedy') !== -1;
+            const hasGreedyStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('greedy') !== -1;
+            const hasGreedyStar = hasGreedyStarUnlocked && hasGreedyStarEquipped;
+            if (hasGreedyStar && state !== GAME_STATE.SEASON_PLAYING) {
+                const greedyBtnSize = Math.floor(45 * scale);
+                const greedyBtnY = 75 + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时间灵韵技能按钮下方
+                
+                if (x >= 15 && x <= 15 + greedyBtnSize && y >= greedyBtnY && y <= greedyBtnY + greedyBtnSize) {
+                    // 尝试使用贪婪技能
+                    useGreedySkill();
+                    return;
+                }
+            }
+            
+            // ==================== 技能栏点击检测 ====================
+            // 非赛季模式下检测技能栏点击（圆形标签），Boss/塔通过 skillBar 特性控制
+            if (state !== GAME_STATE.SEASON_PLAYING && getCombatFeatures().skillBar && playerData.skills && playerData.skills.equipped) {
+                const equippedSkills = playerData.skills.equipped;
+                // 过滤出主动技能
+                const activeSkills = equippedSkills.filter(skillId => {
+                    const skill = Skills[skillId];
+                    return skill && (skill.type === SkillTypes.ATTACK || skill.type === SkillTypes.SUPPORT);
+                });
+                
+                if (activeSkills.length > 0) {
+                    // 圆形标签配置（与渲染一致）
+                    const circleRadius = Math.floor(22 * scale);
+                    const circleGap = Math.floor(8 * scale);
+                    const startX = screenWidth - circleRadius - Math.floor(5 * scale);
+                    // 从下方开始计算位置（向上排列）
+                    const totalHeight = activeSkills.length * (circleRadius * 2) + (activeSkills.length - 1) * circleGap;
+                    const startY = screenHeight - totalHeight - Math.floor(100 * scale);
+                    
+                    // 检测每个圆形技能点击
+                    for (let i = 0; i < activeSkills.length; i++) {
+                        const skillId = activeSkills[i];
+                        const centerX = startX;
+                        const centerY = startY + i * (circleRadius * 2 + circleGap) + circleRadius;
+                        
+                        // 计算点击位置与圆心的距离
+                        const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+                        
+                        if (distance <= circleRadius) {
+                            _log('点击技能:', skillId);
+                            useSkill(skillId);
+                            return;  // 处理完一个技能后退出
+                        }
+                    }
+                }
+            }
+
+            // 塔模式技能栏点击检测
+            if (state === GAME_STATE.TOWER_COMBAT && towerSystem) {
+                var towerActSkills = towerSystem.getActiveSkills();
+                if (towerActSkills.length > 0) {
+                    var tSkR = Math.floor(22 * scale);
+                    var tSkGap = Math.floor(8 * scale);
+                    var tSkStartX = screenWidth - tSkR - Math.floor(5 * scale);
+                    var tSkTotalH = towerActSkills.length * (tSkR * 2) + (towerActSkills.length - 1) * tSkGap;
+                    var tSkStartY = screenHeight - tSkTotalH - Math.floor(100 * scale);
+                    for (var tski = 0; tski < towerActSkills.length; tski++) {
+                        var tSkCX = tSkStartX;
+                        var tSkCY = tSkStartY + tski * (tSkR * 2 + tSkGap) + tSkR;
+                        var tSkDist = Math.sqrt(Math.pow(x - tSkCX, 2) + Math.pow(y - tSkCY, 2));
+                        if (tSkDist <= tSkR) {
+                            towerSystem.useSkillInCombat(towerActSkills[tski]);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        if (state === GAME_STATE.PAUSED || (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem && bossBattleSystem.getIsPaused && bossBattleSystem.getIsPaused())) {
+            const btnWidth = Math.floor(200 * scale);
+            const btnHeight = Math.floor(60 * scale);
+
+            // 返回菜单按钮
+            const menuBtnY = screenHeight * 0.60;
+            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+                y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
+                _log('点击返回菜单');
+                if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) {
+                    // Boss 暂停不走 ModeLifecycle，直接清理
+                    BossBattleMode.cleanup();
+                } else {
+                    var exitMode = modeLifecycle.getPreviousMode() || modeLifecycle.getActiveMode();
+                    modeLifecycle.cleanupMode(exitMode);
+                }
+                stateMachine.transitionTo(GAME_STATE.MENU);
+                return;
+            }
+
+            // 重新开始按钮
+            const restartBtnY = screenHeight * 0.70;
+            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+                y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
+                _log('点击重新开始');
+                if (resumeAnimations) resumeAnimations();
+                if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) {
+                    // Boss 暂停直接重新开始 Boss
+                    bossBattleSystem.togglePause();
+                    BossBattleMode.cleanup();
+                    BossBattleMode.init(BossBattleMode.bossLevel);
+                    BossBattleMode.start();
+                } else {
+                    var rMode = modeLifecycle.getPreviousMode();
+                    if (rMode === 'boss') {
+                        BossBattleMode.cleanup();
+                        BossBattleMode.init(BossBattleMode.bossLevel);
+                        BossBattleMode.start();
+                    } else if (rMode === 'stage') {
+                        stageModeSystem.end(false);
+                        startStage(StageMode.currentStage);
+                    } else if (rMode === 'tower') {
+                        towerSystem.restartCurrentCombat();
+                    } else if (rMode === 'season') {
+                        startSeasonGame();
+                    } else {
+                        startGame();
+                    }
+                }
+                return;
+            }
+
+            // 继续游戏按钮 — 统一通过 ModeLifecycleManager
+            const resumeBtnY = screenHeight * 0.80;
+            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+                y >= resumeBtnY - btnHeight/2 && y <= resumeBtnY + btnHeight/2) {
+                _log('点击继续游戏');
+                if (resumeAnimations) resumeAnimations();
+                // Boss 暂停是自己管理的（不走 ModeLifecycle），恢复也直接走 togglePause
+                if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) {
+                    bossBattleSystem.togglePause();
+                } else if (state === GAME_STATE.TOWER_COMBAT) {
+                    modeLifecycle.resumeActive();
+                    stateMachine.transitionTo(GAME_STATE.TOWER_COMBAT);
+                } else {
+                    modeLifecycle.resumeActive();
+                    var resumeMode = modeLifecycle.getActiveMode();
+                    if (resumeMode === 'stage') {
+                        // stage togglePause 自己管理状态
+                    } else {
+                        resumeGame();
+                    }
+                }
+                return;
+            }
+    
+            return; // 暂停状态下，点击其他区域无效
+        }
+    
+        if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT) {
+            // 检查玩家是否被打断状态
+            if (playerEffects.stunned) {
+                // 检查打断是否结束
+                if (Date.now() >= playerEffects.stunEndTime) {
+                    playerEffects.stunned = false;
+                    _log('打断结束，恢复操作');
+                } else {
+                    // 仍在打断中，无法操作
+                    _log('玩家被打断中，无法操作');
+                    return;
+                }
+            }
+
+            // 多点触控：遍历所有触点
+            for (let t = 0; t < touches.length; t++) {
+                var touch = touches[t];
+                var touchX = touch.clientX;
+                var touchY = touch.clientY;
+
+                // 普通/赛季/闯关/塔/Boss模式：通过 NormalBattleAdapter 统一处理灵韵点击
+                if (normalBattleAdapter) {
+                    if (normalBattleAdapter.handleStarClick(touchX, touchY)) continue;
+                }
+
+                // 灵韵点击已由 NormalBattleAdapter + BattleEngine 完整覆盖
+                // 包括：偷灵/毒灵/毒液滩（onBeforeStarClick 扩展）+ 所有特殊灵韵 + 攻击灵韵
+                // 仅当 normalBattleAdapter 不存在或返回 false 时才到达此处
+                // 不做 fallback splice — 若引擎未处理（如阶段切换），灵韵留在屏幕可再次点击
+
+                // 检查毒灵点击（毒液滩系统独立灵韵数组）
+                for (let pi = poisonPuddleSystem.poisonStars.length - 1; pi >= 0; pi--) {
+                var ps = poisonPuddleSystem.poisonStars[pi];
+                var psDx = touchX - ps.x;
+                var psDy = touchY - ps.y;
+                if (psDx * psDx + psDy * psDy < ps.size * ps.size) {
+                    var pDmg = _COMBAT_SPEC.STATUS.POISON_STAR_DAMAGE;
+                    // 创建飞向玩家血条的反向流星动画
+                    createMeteorAnimation(
+                        ps.x, ps.y,
+                        pDmg,
+                        false,
+                        'poison',
+                        0,
+                        1,
+                        null,
+                        { x: screenWidth / 2, y: screenHeight - 50 * getScreenScale() }
+                    );
+                    applyPoisonStarEffect(pDmg);
+                    poisonPuddleSystem.removePoisonStar(pi);
+                    }
+                }
+            }
+        } else if (state === GAME_STATE.MENU) {
+        // 响应式按钮尺寸（缩小一半）
+        const btnWidth = Math.floor(100 * scale);
+        const btnHeight = Math.floor(40 * scale);
+
+        // 检查是否已解锁青铜小鼎（达到50分）
+        const hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+
+        // 开始按钮位置
+        var startBtnOv = uiConfig ? uiConfig.get('menu_start_btn') : { dx: 0, dy: 0 };
+        var btnY = screenHeight * 0.66 + startBtnOv.dy * scale;
+        var btnCenterX = screenWidth / 2 + startBtnOv.dx * scale;
+
+        // 开始按钮点击检测（需要同时检查X和Y坐标）
+        if (x >= btnCenterX - btnWidth/2 && x <= btnCenterX + btnWidth/2 &&
+            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
+            _log('点击开始按钮');
+            startGame();
+            return;
+        }
+
+        // 闯关模式按钮（开始游戏下方）
+        var stageBtnOv = uiConfig ? uiConfig.get('menu_stage_btn') : { dx: 0, dy: 0 };
+        var stageBtnY = screenHeight * 0.74 + stageBtnOv.dy * scale;
+        var stageBtnCenterX = screenWidth / 2 + stageBtnOv.dx * scale;
+        if (x >= stageBtnCenterX - btnWidth/2 && x <= stageBtnCenterX + btnWidth/2 &&
+            y >= stageBtnY - btnHeight/2 && y <= stageBtnY + btnHeight/2) {
+            _log('点击闯关模式按钮');
+            selectedChapter = 1;
+            stateMachine.transitionTo(GAME_STATE.STAGE_SELECT);
+            return;
+        }
+
+        // 以下按钮只有解锁后才响应点击
+        if (hasUnlockedStarter) {
+            // 左下角展开菜单
+            var menuBtnSize = Math.floor(50 * scale);
+            var menuBtnX = Math.floor(15 * scale);
+            var menuBtnY = screenHeight - Math.floor(65 * scale);
+            var menuItemHeight = Math.floor(40 * scale);
+            var menuItemWidth = Math.floor(100 * scale);
+            var menuGap = Math.floor(8 * scale);
+
+            // 展开的菜单项点击检测
+            if (uiScrollState.menuExpanded) {
+                var menuItems = [
+                    { id: 'backpack', action: () => { if (audioSystem) audioSystem.playBackpack(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
+                    { id: 'shop', action: () => { stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
+                    { id: 'leaderboard', action: () => { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
+                    { id: 'season', action: () => { 
+                        try {
+                            initSeasonContent(); 
+                            seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
+                                                        stateMachine.transitionTo(GAME_STATE.SEASON_MENU);                        } catch (e) {
+                            console.error('进入赛季模式失败:', e);
+                            wx.showToast({ title: '赛季暂不可用', icon: 'none' });
+                        }
+                    } },
+                    { id: 'boss', action: () => { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
+                    { id: 'tower', action: () => {
+                        if (audioSystem) audioSystem.playTowerClick();
+                        try {
+                            // 检查是否有暂停的进度
+                            if (playerData.infiniteTower && playerData.infiniteTower.isPaused) {
+                                stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); // 显示选择界面
+                            } else {
+                                towerSystem.init();
+                                stateMachine.transitionTo(GAME_STATE.TOWER);
+                            }
+                        } catch (e) {
+                            console.error('进入无尽之塔失败:', e);
+                            wx.showToast({ title: '进入失败，请重试', icon: 'none' });
+                        }
+                    } },
+                    { id: 'fusion', action: () => { state = GAME_STATE.FUSION; } },
+                    { id: 'upgrade', action: () => { state = GAME_STATE.UPGRADE; } }
+                ];
+
+                for (let mi = 0; mi < menuItems.length; mi++) {
+                    var itemY = menuBtnY - (mi + 1) * (menuItemHeight + menuGap);
+                    // 点击区域与渲染区域匹配（图标向左偏移了30*scale，所以点击区域也要调整）
+                    var itemX = menuBtnX - Math.floor(30 * scale);
+                    if (x >= itemX && x <= itemX + menuItemWidth &&
+                        y >= itemY && y <= itemY + menuItemHeight) {
+                        uiScrollState.menuExpanded = false;
+                        var unlockCheck = isModeUnlocked(menuItems[mi].id, playerData, bestScore);
+                        if (!unlockCheck.unlocked) {
+                            wx.showToast({ title: unlockCheck.hint, icon: 'none', duration: 1500 });
+                            return;
+                        }
+                        _log('点击菜单项:', menuItems[mi].id);
+                        menuItems[mi].action();
+                        return;
+                    }
+                }
+            }
+
+            // 主菜单按钮点击（收起状态应用UI编辑器偏移）
+            var touchBtnX = menuBtnX;
+            var touchBtnY = menuBtnY;
+            var touchBtnSize = menuBtnSize;
+            if (!uiScrollState.menuExpanded) {
+                touchBtnX = menuBtnX - Math.floor(20 * scale);
+                touchBtnSize = Math.floor(menuBtnSize * 0.8);
+                if (uiConfig) {
+                    var menuBtnOv = uiConfig.get('menu_btn');
+                    touchBtnX += menuBtnOv.dx * scale;
+                    touchBtnY += menuBtnOv.dy * scale;
+                }
+            }
+            if (x >= touchBtnX && x <= touchBtnX + touchBtnSize &&
+                y >= touchBtnY && y <= touchBtnY + touchBtnSize) {
+                _log('点击展开菜单按钮');
+                if (audioSystem) audioSystem.playMenuClick();
+                uiScrollState.menuExpanded = !uiScrollState.menuExpanded;
+                return;
+            }
+
+            // 如果菜单展开，点击其他区域收起菜单
+            if (uiScrollState.menuExpanded) {
+                uiScrollState.menuExpanded = false;
+                return;
+            }
+
+            // 设置按钮位置（左上角图标）
+            const settingIconSize = Math.floor(32 * scale);
+            var settingsOv = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
+            var settingsTapX = Math.floor(18 * scale) + settingsOv.dx * scale;
+            var settingsTapY = Math.floor(15 * scale) + settingsOv.dy * scale;
+            if (x >= settingsTapX && x <= settingsTapX + settingIconSize &&
+                y >= settingsTapY && y <= settingsTapY + settingIconSize) {
+                _log('点击设置按钮');
+                stateMachine.transitionTo(GAME_STATE.SETTINGS);
+            }
+
+            // 任务按钮位置（设置图标下方）
+            const taskIconSize = Math.floor(40 * scale);
+            const taskIconY = Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
+            if (x >= Math.floor(15 * scale) && x <= Math.floor(15 * scale) + taskIconSize &&
+                y >= taskIconY && y <= taskIconY + taskIconSize) {
+                _log('点击任务按钮');
+                stateMachine.transitionTo(GAME_STATE.TASKS);
+                tasksTab = 'guide';
+            }
+
+            // 角色图标点击（进入编队系统）
+            var baseX = screenWidth - Math.floor(180 * scale);
+            var baseY = screenHeight - Math.floor(92 * scale);
+            var rightX = baseX + Math.floor(90 * scale);
+            var rightY = baseY - Math.floor(2 * scale);
+            var iconSize = Math.floor(50 * scale);
+
+            if (x >= rightX && x <= rightX + iconSize &&
+                y >= rightY && y <= rightY + iconSize) {
+                _log('点击角色图标，进入编队系统');
+                stateMachine.transitionTo(GAME_STATE.SQUAD);
+            }
+        }
+    } else if (state === GAME_STATE.BACKPACK) {
+        // 背包点击检测统一在 handleTouchEnd 中处理
+        // 这里不做任何处理，避免 touchstart 和 touchend 同时触发
+    } else if (state === GAME_STATE.SHOP) {
+        // 返回按钮（左下角）- 适用于所有标签页
+        if (isBackButtonClicked(x, y)) {
+            _log('点击商城返回按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+            return;
+        }
+        
+        // 商城页面点击处理（单行6个标签）
+        var tabWidth = Math.floor(50 * scale);
+        var tabHeight = Math.floor(30 * scale);
+        var tabGap = Math.floor(5 * scale);
+        var startX = (screenWidth - (tabWidth * 6 + tabGap * 5)) / 2;
+        var tabY = Math.floor(110 * scale);
+
+        // 材料标签按钮
+        if (x >= startX && x <= startX + tabWidth &&
+            y >= tabY && y <= tabY + tabHeight) {
+            _log('点击材料标签');
+            uiScrollState.shopTab = 'materials';
+            uiScrollState.shopScrollY = 0;
+            return;
+        }
+
+        // 增益标签按钮
+        if (x >= startX + tabWidth + tabGap && x <= startX + tabWidth * 2 + tabGap &&
+            y >= tabY && y <= tabY + tabHeight) {
+            _log('点击增益标签');
+            uiScrollState.shopTab = 'buffs';
+            uiScrollState.shopScrollY = 0;
+            return;
+        }
+        
+        // 道具标签按钮
+        if (x >= startX + (tabWidth + tabGap) * 2 && x <= startX + tabWidth * 3 + tabGap * 2 &&
+            y >= tabY && y <= tabY + tabHeight) {
+            _log('点击道具标签');
+            uiScrollState.shopTab = 'items';
+            uiScrollState.shopScrollY = 0;
+            return;
+        }
+        
+        // 抽卡标签按钮
+        if (x >= startX + (tabWidth + tabGap) * 3 && x <= startX + tabWidth * 4 + tabGap * 3 &&
+            y >= tabY && y <= tabY + tabHeight) {
+            _log('点击抽卡标签');
+            uiScrollState.shopTab = 'gacha';
+            uiScrollState.shopScrollY = 0;
+            return;
+        }
+        
+        // 宠物标签按钮
+        if (x >= startX + (tabWidth + tabGap) * 4 && x <= startX + tabWidth * 5 + tabGap * 4 &&
+            y >= tabY && y <= tabY + tabHeight) {
+            _log('点击宠物标签');
+            uiScrollState.shopTab = 'pets';
+            uiScrollState.shopScrollY = 0;
+            return;
+        }
+        
+        // 月卡标签按钮
+        if (x >= startX + (tabWidth + tabGap) * 5 && x <= startX + tabWidth * 6 + tabGap * 5 &&
+            y >= tabY && y <= tabY + tabHeight) {
+            _log('点击月卡标签');
+            uiScrollState.shopTab = 'monthly';
+            uiScrollState.shopScrollY = 0;
+            return;
+        }
+        
+        // ===== 月卡界面特殊处理 =====
+        if (uiScrollState.shopTab === 'monthly') {
+            handleMonthlyCardClick(x, y, scale);
+            return;
+        }
+        
+        // ===== 抽卡界面特殊处理 =====
+        if (uiScrollState.shopTab === 'gacha') {
+            handleGachaClick(x, y, scale);
+            return;
+        }
+        
+        // 商品购买处理
+        var startY = Math.floor(160 * scale);
+        var itemHeight = Math.floor(80 * scale);
+        var padding = Math.floor(10 * scale);
+        var btnW = Math.floor(80 * scale);
+        var btnH = Math.floor(35 * scale);
+        
+        var items;
+        if (uiScrollState.shopTab === 'materials') {
+            items = ShopItems.materials;
+        } else if (uiScrollState.shopTab === 'buffs') {
+            items = ShopItems.buffs;
+        } else if (uiScrollState.shopTab === 'items') {
+            items = ShopItems.items;
+        } else if (uiScrollState.shopTab === 'gacha') {
+            items = ShopItems.gacha;
+            startY += Math.floor(60 * scale);
+            itemHeight = Math.floor(100 * scale);
+            padding = Math.floor(15 * scale);
+        } else if (uiScrollState.shopTab === 'pets') {
+            var _purchasedPets = (playerData && playerData.purchasedShopPets) || [];
+            items = ShopItems.pets.filter(function(p) { return _purchasedPets.indexOf(p.id) === -1; });
+            startY += Math.floor(20 * scale);
+            itemHeight = Math.floor(85 * scale);
+        }
+        
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                var item = items[i];
+                var itemY = startY + i * (itemHeight + padding) - uiScrollState.shopScrollY;
+                var btnX = screenWidth - Math.floor(100 * scale);
+                var btnY = itemY + (uiScrollState.shopTab === 'gacha' ? Math.floor(30 * scale) : Math.floor(20 * scale));
+                
+                if (x >= btnX && x <= btnX + btnW &&
+                    y >= btnY && y <= btnY + btnH) {
+                    _log('点击购买按钮:', item.name);
+                    purchaseShopItem(item);
+                    return;
+                }
+            }
+        }
+        
+        // 时间结晶商品点击检测（只有解锁后且在材料标签页才检测）
+        if (uiScrollState.shopTab === 'materials' && combatState.timeCrystalUnlocked) {
+            var tcItemY = startY + ShopItems.materials.length * (itemHeight + padding) - uiScrollState.shopScrollY;
+            var tcBtnX = screenWidth - Math.floor(120 * scale);
+            var tcBtnY = tcItemY + Math.floor(20 * scale);
+            var tcBtnW = Math.floor(80 * scale);
+            var tcBtnH = Math.floor(35 * scale);
+            
+            if (x >= tcBtnX && x <= tcBtnX + tcBtnW &&
+                y >= tcBtnY && y <= tcBtnY + tcBtnH) {
+                wx.showToast({ title: '比赛版本暂不开放', icon: 'none', duration: 1500 });
+                return;
+            }
+        }
+        
+        // 返回按钮位置（左下角）
+        if (isBackButtonClicked(x, y)) {
+            _log('点击返回按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+        }
+    } else if (state === GAME_STATE.LEADERBOARD) {
+        // 排行榜页面点击处理
+        const scale = getScreenScale();
+        
+        // 返回按钮（左下角）
+        if (isBackButtonClicked(x, y)) {
+            _log('点击排行榜返回按钮');
+            sendLeaderboardMessage('hide');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+            return;
+        }
+
+        // 排行榜标签页点击检测
+        const tabWidth = Math.floor(100 * scale);
+        const tabHeight = Math.floor(40 * scale);
+        const tabGap = Math.floor(10 * scale);
+        const tabY = Math.floor(80 * scale);
+        const totalTabWidth = tabWidth * 3 + tabGap * 2;
+        const tabStartX = (screenWidth - totalTabWidth) / 2;
+
+        // 最高分标签
+        if (x >= tabStartX && x <= tabStartX + tabWidth &&
+            y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
+            _log('点击最高分标签');
+            currentLeaderboardTab = 'best_score';
+            currentLeaderboardTab = 'best_score';
+            sendLeaderboardMessage('switchTab', 'best_score');
+            return;
+        }
+
+        // 击杀数标签
+        const killsTabX = tabStartX + tabWidth + tabGap;
+        if (x >= killsTabX && x <= killsTabX + tabWidth &&
+            y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
+            _log('点击击杀数标签');
+            currentLeaderboardTab = 'total_kills';
+            currentLeaderboardTab = 'total_kills';
+            sendLeaderboardMessage('switchTab', 'total_kills');
+            return;
+        }
+
+        // 赛季分标签
+        const seasonTabX = tabStartX + (tabWidth + tabGap) * 2;
+        if (x >= seasonTabX && x <= seasonTabX + tabWidth &&
+            y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
+            _log('点击赛季分标签');
+            currentLeaderboardTab = 'season_score';
+            currentLeaderboardTab = 'season_score';
+            sendLeaderboardMessage('switchTab', 'season_score');
+            return;
+        }
+    } else if (state === GAME_STATE.SETTINGS) {
+        // 设置界面点击处理
+        const scale = getScreenScale();
+        
+        // 返回按钮（左下角）
+        if (isBackButtonClicked(x, y)) {
+            _log('点击设置返回按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+            return;
+        }
+        
+        const settingBtnWidth = Math.floor(140 * scale);
+        const settingBtnHeight = Math.floor(40 * scale);
+        const settingStartY = Math.floor(160 * scale);
+        const randomBtnY = settingStartY + Math.floor(40 * scale);
+        const btnGap = Math.floor(20 * scale);
+
+        // 随机模式按钮
+        const randomBtnX = screenWidth/2 - settingBtnWidth/2 - btnGap/2;
+        if (x >= randomBtnX - settingBtnWidth/2 && x <= randomBtnX + settingBtnWidth/2 &&
+            y >= randomBtnY - settingBtnHeight/2 && y <= randomBtnY + settingBtnHeight/2) {
+            _log('选择随机模式');
+            starMode = STAR_MODE.RANDOM;
+            playerData.starMode = starMode;
+            if (starSystem) starSystem.setStarMode(starMode);
+            savePlayerData();
+            // 任务：切换游戏模式
+            updateTaskProgress('switch_mode', 1);
+            updateTaskStats('modeSwitched', 1);
+            wx.showToast({
+                title: '已切换到随机生成模式',
+                icon: 'none',
+                duration: 1500
+            });
+            return;
+        }
+
+        // 下落模式按钮
+        const fallingBtnX = screenWidth/2 + settingBtnWidth/2 + btnGap/2;
+        if (x >= fallingBtnX - settingBtnWidth/2 && x <= fallingBtnX + settingBtnWidth/2 &&
+            y >= randomBtnY - settingBtnHeight/2 && y <= randomBtnY + settingBtnHeight/2) {
+            _log('选择下落模式');
+            starMode = STAR_MODE.FALLING;
+            playerData.starMode = starMode;
+            if (starSystem) starSystem.setStarMode(starMode);
+            savePlayerData();
+            // 任务：切换游戏模式
+            updateTaskProgress('switch_mode', 1);
+            updateTaskStats('modeSwitched', 1);
+            wx.showToast({
+                title: '已切换到下落模式',
+                icon: 'none',
+                duration: 1500
+            });
+            return;
+        }
+
+    } else if (state === GAME_STATE.TASKS) {
+        // 任务界面触摸处理
+        const scale = getScreenScale();
+        const tabY = Math.floor(100 * scale);
+        const tabWidth = Math.floor(100 * scale);
+        const tabHeight = Math.floor(36 * scale);
+        const tabGap = Math.floor(10 * scale);
+        const totalTabWidth = tabWidth * 3 + tabGap * 2;
+        const tabStartX = (screenWidth - totalTabWidth) / 2;
+
+        // 引导任务标签
+        const guideTabX = tabStartX;
+        if (x >= guideTabX && x <= guideTabX + tabWidth &&
+            y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
+            _log('切换到引导任务');
+            tasksTab = 'guide';
+            return;
+        }
+
+        // 每日任务标签
+        const dailyTabX = tabStartX + tabWidth + tabGap;
+        if (x >= dailyTabX && x <= dailyTabX + tabWidth &&
+            y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
+            _log('切换到每日任务');
+            tasksTab = 'daily';
+            return;
+        }
+
+        // 成就任务标签
+        const achievementTabX = tabStartX + (tabWidth + tabGap) * 2;
+        if (x >= achievementTabX && x <= achievementTabX + tabWidth &&
+            y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
+            _log('切换到成就任务');
+            tasksTab = 'achievements';
+            return;
+        }
+
+        // 任务列表点击处理
+        const tasks = getTasksWithProgress(tasksTab);
+        const listStartY = Math.floor(150 * scale);
+        const itemHeight = tasksTab === 'guide' ? Math.floor(95 * scale) : Math.floor(85 * scale);
+
+        tasks.forEach((task, index) => {
+            const itemY = listStartY + index * itemHeight - tasksScrollY;
+            if (itemY + itemHeight > screenHeight - Math.floor(80 * scale) || itemY < listStartY) return;
+
+            // 引导任务：未解锁的不可点击
+            const isLocked = tasksTab === 'guide' && !task.unlocked;
+            if (isLocked) return;
+
+            // 领取按钮区域（与渲染位置匹配）
+            const btnX = screenWidth - Math.floor(60 * scale);
+            const btnY = itemY + Math.floor(52 * scale);
+            const btnW = Math.floor(65 * scale);
+            const btnH = Math.floor(28 * scale);
+
+            if (x >= btnX - btnW/2 && x <= btnX + btnW/2 &&
+                y >= btnY - btnH/2 && y <= btnY + btnH/2) {
+                if (!task.claimed && task.completed) {
+                    claimTaskReward(task.id, tasksTab);
+                }
+            }
+        });
+
+        // 返回按钮
+        if (isBackButtonClicked(x, y)) {
+            _log('点击任务返回按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+            return;
+        }
+    } else if (state === GAME_STATE.STAGE_SELECT) {
+        // ===== 闯关模式选择界面点击处理 =====
+        const scale = getScreenScale();
+        const btnWidth = Math.floor(100 * scale);
+        const btnHeight = Math.floor(40 * scale);
+        
+        // 返回按钮
+        if (isBackButtonClicked(x, y)) {
+            _log('点击返回按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+            return;
+        }
+
+        // 章节切换
+        var leftBtnX = Math.floor(30 * scale);
+        var rightBtnX = screenWidth - Math.floor(70 * scale);
+        var btnY = Math.floor(85 * scale);
+        var navBtnSize = Math.floor(40 * scale);
+        
+        if (selectedChapter > 1 && x >= leftBtnX && x <= leftBtnX + navBtnSize && y >= btnY && y <= btnY + Math.floor(40 * scale)) {
+            selectedChapter--;
+            _log('切换到章节:', selectedChapter);
+            return;
+        }
+        if (selectedChapter < Object.keys(CHAPTERS).length && x >= rightBtnX && x <= rightBtnX + navBtnSize && y >= btnY && y <= btnY + Math.floor(40 * scale)) {
+            selectedChapter++;
+            _log('切换到章节:', selectedChapter);
+            return;
+        }
+        
+        // 关卡点击
+        var chapter = CHAPTERS[selectedChapter];
+        var startY = Math.floor(150 * scale);
+        var stageHeight = Math.floor(120 * scale);
+        var padding = Math.floor(15 * scale);
+        
+        for (let i = 0; i < chapter.stages.length; i++) {
+            var stageId = chapter.stages[i];
+            var itemY = startY + i * (stageHeight + padding);
+            
+            if (x >= Math.floor(20 * scale) && x <= screenWidth - Math.floor(20 * scale) &&
+                y >= itemY && y <= itemY + stageHeight) {
+                if (isStageUnlocked(stageId)) {
+                    _log('选择关卡:', stageId);
+                    startStage(stageId);
+                } else {
+                    wx.showToast({ title: '关卡未解锁', icon: 'none' });
+                }
+                return;
+            }
+        }
+    } else if (state === GAME_STATE.STAGE_RESULT) {
+        // ===== 闯关结算界面点击处理 =====
+        const scale = getScreenScale();
+        var btnWidth = Math.floor(120 * scale);
+        var btnHeight = Math.floor(45 * scale);
+        var btnY = screenHeight - Math.floor(100 * scale);
+        
+        // 重试按钮（居中）
+        if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
+            _log('点击重试按钮');
+            startStage(StageMode.currentStage);
+            return;
+        }
+        
+        // 返回按钮
+        if (isBackButtonClicked(x, y)) {
+            _log('点击返回按钮');
+            stateMachine.transitionTo(GAME_STATE.STAGE_SELECT);
+            return;
+        }
+    } else if (state === GAME_STATE.SEASON_MENU) {
+        // ===== 赛季模式入口点击处理 =====
+        const scale = getScreenScale();
+        const btnWidth = Math.floor(140 * scale);
+        const btnHeight = Math.floor(45 * scale);
+        
+        // 开始赛季按钮
+        const startBtnY = screenHeight * 0.75;
+        if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+            y >= startBtnY - btnHeight/2 && y <= startBtnY + btnHeight/2) {
+            _log('点击开始赛季按钮');
+            stateMachine.transitionTo(GAME_STATE.SEASON_SELECT);
+            // 恢复上次选择的入局方案
+            restoreSeasonSelection();
+            return;
+        }
+        
+        // 赛季排行榜按钮
+        const leaderboardBtnY = screenHeight * 0.84;
+        if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+            y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
+            _log('点击赛季排行榜按钮');
+            stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
+            currentLeaderboardTab = 'season_score';
+            if (!openDataContext) initOpenDataContext();
+            currentLeaderboardTab = 'season_score';
+            sendLeaderboardMessage('show', 'season_score');
+            return;
+        }
+        
+        // 返回按钮
+        if (isBackButtonClicked(x, y)) {
+            _log('点击返回按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+            return;
+        }
+    } else if (state === GAME_STATE.SQUAD) {
+        // ===== 编队系统点击处理 =====
+        handleSquadClick(x, y);
+        return;
+    } else if (state === GAME_STATE.BOSS_BATTLE) {
+        // Boss战走共享触摸路径（不再提前return）
+    } else if (state === GAME_STATE.BOSS_BATTLE_RESULT) {
+        // ===== Boss战结算点击处理 =====
+        handleBossBattleResultTouch(x, y);
+        return;
+    } else if (state === GAME_STATE.BOSS_SELECT) {
+        // ===== Boss选择点击处理 =====
+        handleBossSelectTouch(x, y);
+        return;
+    } else if (state === GAME_STATE.TOWER) {
+        // ===== 爬塔模式点击处理 =====
+        handleTowerTouchEnd(x, y);
+        return;
+    } else if (state === GAME_STATE.TOWER_RESULT) {
+        // ===== 爬塔结算界面点击处理 =====
+        handleTowerResultTouch(x, y);
+        return;
+    } else if (state === GAME_STATE.TOWER_RESUME) {
+        // ===== 爬塔继续/放弃选择界面点击处理 =====
+        handleTowerResumeTouch(x, y);
+        return;
+    } else if (state === GAME_STATE.SEASON_SELECT) {
+        // ===== 赛季选择界面点击处理 =====
+        // 如果正在拖拽，不处理点击
+        if (uiScrollState.seasonSelectIsDragging) {
+            _log('赛季选择拖拽中，忽略点击');
+            uiScrollState.seasonSelectIsDragging = false;
+            return;
+        }
+        
+        const scale = getScreenScale();
+        
+        // ===== 返回按钮检测（最高优先级）=====
+        if (isBackButtonClicked(x, y)) {
+            _log('点击返回按钮');
+            stateMachine.transitionTo(GAME_STATE.SEASON_MENU);
+            return;
+        }
+        
+        // ===== 底部按钮检测（第二优先级）=====
+        const btnY = screenHeight - Math.floor(70 * scale);
+        const btnWidth = Math.floor(100 * scale);
+        const btnHeight = Math.floor(40 * scale);
+        
+        // 重置按钮
+        if (x >= screenWidth/2 + Math.floor(130 * scale) - btnWidth/2 && 
+            x <= screenWidth/2 + Math.floor(130 * scale) + btnWidth/2 &&
+            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
+            _log('点击重置按钮');
+            seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
+            // 同步清除持久化记忆
+            if (playerData && playerData.seasonData) {
+                playerData.seasonData.selection = { character: null, skills: [], pet: null, starTypes: [] };
+                savePlayerData(true);
+            }
+            return;
+        }
+        
+        // 开始游戏按钮
+        const canStart = seasonSelection.character && seasonSelection.skills.length > 0 && seasonSelection.starTypes.length > 0;
+        if (canStart && x >= screenWidth/2 - Math.floor(60 * scale) && 
+            x <= screenWidth/2 + Math.floor(60 * scale) &&
+            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
+            _log('开始赛季游戏');
+            startSeasonGame();
+            return;
+        }
+        
+        // ===== 内容区域点击检测 =====
+        let currentY = Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;  // 添加滚动偏移，与渲染函数一致
+        
+        // 角色选择
+        currentY += Math.floor(25 * scale);
+        const charItemX = Math.floor(30 * scale);
+        const charItemWidth = screenWidth - Math.floor(60 * scale);
+        const charItemHeight = Math.floor(60 * scale);
+        
+        if (x >= charItemX && x <= charItemX + charItemWidth &&
+            y >= currentY && y <= currentY + charItemHeight) {
+            seasonSelection.character = seasonContent.character;
+            _log('选择角色:', seasonContent.character);
+            return;
+        }
+        currentY += Math.floor(75 * scale);
+        
+        // 技能选择（使用 for 循环以便正确 return）
+        currentY += Math.floor(25 * scale);
+        for (let i = 0; i < seasonContent.skills.length; i++) {
+            const skillId = seasonContent.skills[i];
+            const itemHeight = Math.floor(50 * scale);
+            const itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
+            
+            if (x >= charItemX && x <= charItemX + charItemWidth &&
+                y >= itemY && y <= itemY + itemHeight) {
+                // 切换技能选择（最多2个）
+                const idx = seasonSelection.skills.indexOf(skillId);
+                if (idx !== -1) {
+                    seasonSelection.skills.splice(idx, 1);
+                    _log('取消选择技能:', skillId);
+                } else if (seasonSelection.skills.length < 2) {
+                    seasonSelection.skills.push(skillId);
+                    _log('选择技能:', skillId);
+                }
+                return;
+            }
+        }
+        currentY += Math.floor(180 * scale);
+        
+        // 宠物选择（使用 for 循环以便正确 return）
+        currentY += Math.floor(25 * scale);
+        for (let i = 0; i < seasonContent.pets.length; i++) {
+            const petId = seasonContent.pets[i];
+            const itemHeight = Math.floor(50 * scale);
+            const itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
+            
+            if (x >= charItemX && x <= charItemX + charItemWidth &&
+                y >= itemY && y <= itemY + itemHeight) {
+                // 切换宠物选择
+                seasonSelection.pet = seasonSelection.pet === petId ? null : petId;
+                _log(seasonSelection.pet ? '选择宠物:' : '取消选择宠物:', petId);
+                return;
+            }
+        }
+        currentY += Math.floor(180 * scale);
+        
+        // 灵韵类型选择（使用 for 循环以便正确 return）- 多选最多3个
+        currentY += Math.floor(25 * scale);
+        for (let i = 0; i < seasonContent.starTypes.length; i++) {
+            const starTypeId = seasonContent.starTypes[i];
+            const itemHeight = Math.floor(45 * scale);
+            const itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
+            
+            if (x >= charItemX && x <= charItemX + charItemWidth &&
+                y >= itemY && y <= itemY + itemHeight) {
+                // 切换灵韵类型选择（多选，最多3个）
+                const idx = seasonSelection.starTypes.indexOf(starTypeId);
+                if (idx !== -1) {
+                    // 已选中，取消选择
+                    seasonSelection.starTypes.splice(idx, 1);
+                    _log('取消选择灵韵类型:', starTypeId);
+                } else if (seasonSelection.starTypes.length < 3) {
+                    // 未选中且未满3个，添加选择
+                    seasonSelection.starTypes.push(starTypeId);
+                    _log('选择灵韵类型:', starTypeId, '当前已选:', seasonSelection.starTypes.length);
+                } else {
+                    // 已选满3个，提示
+                    wx.showToast({ title: '最多选择3个灵韵', icon: 'none', duration: 1000 });
+                }
+                return;
+            }
+        }
+        // 返回按钮和其他按钮已在前面处理
+    } else if (state === GAME_STATE.GAMEOVER) {
+        // 判断是否是赛季模式
+        const isSeasonMode = seasonSelection.character !== null;
+        
+        if (isSeasonMode) {
+            // ===== 赛季模式结束按钮 =====
+            const btnWidth = Math.floor(160 * scale);
+            const btnHeight = Math.floor(50 * scale);
+            
+            // 再来一局按钮
+            const restartBtnY = screenHeight * 0.68;
+            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+                y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
+                _log('点击再来一局按钮');
+                startSeasonGame();
+                return;
+            }
+            
+            // 查看排行榜按钮
+            const leaderboardBtnY = screenHeight * 0.76;
+            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+                y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
+                _log('点击查看排行榜按钮');
+                stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
+                currentLeaderboardTab = 'season_score';
+                if (!openDataContext) initOpenDataContext();
+                currentLeaderboardTab = 'season_score';
+                sendLeaderboardMessage('show', 'season_score');
+                return;
+            }
+            
+            // 返回菜单按钮
+            const menuBtnY = screenHeight * 0.84;
+            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+                y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
+                _log('点击返回菜单按钮');
+                seasonSelection = { character: null, skills: [], pet: null };
+                stateMachine.transitionTo(GAME_STATE.MENU);
+                return;
+            }
+        } else {
+            // ===== 普通模式结束按钮 =====
+            // 重新开始按钮
+            var restartBtnY = screenHeight * 0.70;
+            var btnHeight = Math.floor(60 * scale);
+
+            if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
+                _log('点击重新开始按钮');
+                startGame();
+            }
+
+            // 返回菜单按钮
+        var menuBtnY = screenHeight * 0.78;
+
+        if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
+            _log('点击返回菜单按钮');
+            stateMachine.transitionTo(GAME_STATE.MENU);
+        }
+
+        }
+    }
+}
+
+
+// 攻击怪物
+// starType: 'normal', 'ice', 'fire'
+// targetMonster: 可选，指定攻击的怪物对象，不指定则攻击第一个激活的怪物
+// 返回: { success: boolean, isElementalCombo: boolean, comboMultiplier: number, dodged: boolean, reflected: number }
+
+
+// 更新毒素效果
+
+
+// 开始游戏
+// ========== startGame, startSeasonGame, endSeasonGame, pauseGame, resumeGame, restartGame, endGame ==========
+
+// 显示激励视频广告
+
+// 播放广告获取道具
+
+// 处理广告播放完成（道具广告）
+
+// 播放广告获取时间结晶（商城专用）
+
+
+// 获取屏幕缩放比例（保留 — init() 中多系统初始化依赖）
+function getScreenScale() {
+    var baseWidth = 375;
+    return Math.max(0.7, Math.min(1.0, screenWidth / baseWidth));
+}
+
+
+// 渲染排行榜（好友排行榜 - 开放数据域）
+var openDataContext = null;
+var leaderboardSharedCanvas = null;
+var currentLeaderboardTab = 'best_score';
+
+function initOpenDataContext() {
+    try {
+        openDataContext = wx.getOpenDataContext();
+        if (!openDataContext) return;
+        leaderboardSharedCanvas = openDataContext.canvas;
+        // 设置 sharedCanvas 尺寸（只能在主域设置）
+        if (leaderboardSharedCanvas) {
+            var scale = getScreenScale();
+            var listStartY = Math.floor(140 * scale);
+            leaderboardSharedCanvas.width = screenWidth;
+            leaderboardSharedCanvas.height = screenHeight - listStartY;
+        }
+        _log('开放数据域初始化完成');
+    } catch (e) {
+        console.error('初始化开放数据域失败:', e);
+    }
+}
+
+function sendLeaderboardMessage(type, tab) {
+    if (!openDataContext) return;
+    var scale = getScreenScale();
+    var listStartY = Math.floor(140 * scale);
+    var listH = screenHeight - listStartY;
+    openDataContext.postMessage({
+        type: type,
+        tab: tab || currentLeaderboardTab,
+        width: screenWidth,
+        height: listH
+    });
+}
+
+
+// ==================== 赛季模式渲染函数 ====================
+
+// ==================== 赛季模式渲染函数 ====================
+
+
+// 通用圆角矩形绘制函数（替换 fillRect/strokeRect）
+// radius: 数字或对象 {tl: 0, tr: 0, br: 0, bl: 0}
+
+
+// 清除游戏数据（用于测试）
+
+
+// 升级系统临时渲染
+
+// 主渲染循环
+function render() {
+    // 更新视觉屏幕震动
+    updateScreenShake();
+    var shakeOffset = getScreenShakeOffset();
+    if (shakeOffset.offsetX !== 0 || shakeOffset.offsetY !== 0) {
+        ctx.save();
+        ctx.translate(shakeOffset.offsetX, shakeOffset.offsetY);
+    }
+    try {
+        // 渲染分发表 — 替代 25 分支 if/else
+        if (!render._dispatch) {
+            render._dispatch = {};
+            render._dispatch[GAME_STATE.MENU] = renderMenu;
+            render._dispatch[GAME_STATE.PLAYING] = renderGame;
+            render._dispatch[GAME_STATE.PAUSED] = function() { renderGame(); renderPausedMenu(); };
+            render._dispatch[GAME_STATE.GAMEOVER] = renderGameOver;
+            render._dispatch[GAME_STATE.BACKPACK] = renderBackpack;
+            render._dispatch[GAME_STATE.SHOP] = renderShop;
+            render._dispatch[GAME_STATE.FUSION] = function() { if (fusionRenderer) fusionRenderer.renderFusion(); };
+            render._dispatch[GAME_STATE.UPGRADE] = function() { if (upgradeRenderer) upgradeRenderer.renderUpgrade(); };
+            render._dispatch[GAME_STATE.LEADERBOARD] = renderLeaderboard;
+            render._dispatch[GAME_STATE.SETTINGS] = renderSettings;
+            render._dispatch[GAME_STATE.TASKS] = renderTasks;
+            render._dispatch[GAME_STATE.SEASON_MENU] = renderSeasonMenu;
+            render._dispatch[GAME_STATE.SEASON_SELECT] = renderSeasonSelect;
+            render._dispatch[GAME_STATE.SEASON_PLAYING] = renderGame;
+            render._dispatch[GAME_STATE.STAGE_SELECT] = renderStageSelect;
+            render._dispatch[GAME_STATE.STAGE_PLAYING] = renderGame;
+            render._dispatch[GAME_STATE.STAGE_RESULT] = renderStageResult;
+            render._dispatch[GAME_STATE.SQUAD] = renderSquad;
+            render._dispatch[GAME_STATE.BOSS_BATTLE] = renderGame;
+            render._dispatch[GAME_STATE.BOSS_BATTLE_RESULT] = renderBossBattleResult;
+            render._dispatch[GAME_STATE.BOSS_SELECT] = renderBossSelect;
+            render._dispatch[GAME_STATE.TOWER] = renderTower;
+            render._dispatch[GAME_STATE.TOWER_COMBAT] = renderGame;
+            render._dispatch[GAME_STATE.TOWER_RESULT] = renderTowerResult;
+            render._dispatch[GAME_STATE.TOWER_RESUME] = renderTowerResume;
+            render._dispatch[GAME_STATE.GACHA_ANIMATION] = renderGachaAnimation;
+        }
+        var _renderer = render._dispatch[state];
+        if (_renderer) _renderer();
+        
+        // 主界面显示挂机按钮（Boss首杀后解锁）
+        if (state === GAME_STATE.MENU && playerData.firstBossKilled) {
+            renderAfkButton();
+        }
+        
+        // 挂机界面弹窗
+        if (afkSystem.popupVisible) {
+            renderAfkPopup();
+        }
+        
+        // 挂机奖励结果弹窗
+        if (afkSystem.resultVisible) {
+            renderAfkResultPopup();
+        }
+
+        // 战斗动画：仅在战斗状态执行，非战斗状态清理残留
+        var isCombat = state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED ||
+            state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT ||
+            state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING ||
+            state === GAME_STATE.TOWER;
+
+        if (isCombat) {
+            // BattleEngine 每帧 tick（处理 pendingDeaths、攻击者、时间倒计时等）
+            if (normalBattleAdapter) normalBattleAdapter.update();
+
+            // 运行时不变量检查（仅调试模式）
+            if (invariantChecker) invariantChecker.check();
+
+            // 灵韵点击粒子爆发
+            updateStarBurstAnimations();
+            drawStarBurstAnimations(getScreenScale());
+
+            // 灵韵合成聚拢动画
+            updateMergeAnimations();
+            drawMergeAnimations(getScreenScale());
+
+            // 点击得分飘字
+            updateScorePopupAnimations();
+            drawScorePopupAnimations(getScreenScale());
+        } else {
+            // 非战斗状态：一次性清理所有战斗动画残留
+            clearBattleAnimations();
+        }
+
+        // 点击波纹动画（全局，所有状态可见）
+        updateTapRippleAnimations();
+        drawTapRippleAnimations(getScreenScale());
+
+        // 新手提示
+        tipUpdateTip();
+        tipRenderTip(getScreenScale());
+
+        // 调试面板覆盖层（在所有界面上显示）
+        if (debugPanelOpen) {
+            renderDebugPanel();
+        }
+
+        // UI编辑器覆盖层（在所有界面上显示）
+        if (uiEditorSystem && uiEditorSystem.isActive()) {
+            uiEditorSystem.render();
+        }
+
+        // 战斗中 DevBattle 浮动按钮（左下角，面板未打开时显示）
+        if (devBattleSystem && (state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING)) {
+            if (!devBattleSystem.isVisible()) {
+                var dbtnScale = getScreenScale();
+                var dbtnSize = Math.floor(36 * dbtnScale);
+                var dbtnX = Math.floor(12 * dbtnScale);
+                var dbtnY = screenHeight - Math.floor(56 * dbtnScale);
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
+                ctx.fillRect(dbtnX, dbtnY, dbtnSize, dbtnSize);
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(dbtnX, dbtnY, dbtnSize, dbtnSize);
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold ' + Math.floor(16 * dbtnScale) + 'px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('D', Math.floor(dbtnX + dbtnSize / 2), Math.floor(dbtnY + dbtnSize / 2));
+                ctx.restore();
+            }
+        }
+
+        // 开发者战斗调参工具覆盖层
+        if (devBattleSystem && devBattleSystem.isVisible()) {
+            devBattleSystem.render(ctx);
+        }
+    } catch (error) {
+        console.error('Render error:', error);
+    }
+    // 恢复屏幕震动偏移
+    if (shakeOffset.offsetX !== 0 || shakeOffset.offsetY !== 0) {
+        ctx.restore();
+    }
+}
+
+// ==================== 闯关模式独立模块 ====================
+// 渲染复用普通模式 renderGame()，触摸复用普通模式 handleTouchStart()
+
+const StageMode = {
+    // 逻辑代理
+    init(stageId) { return stageModeSystem.init(stageId); },
+    start() { stageModeSystem.start(); },
+    togglePause() { stageModeSystem.togglePause(); },
+    end(success) { stageModeSystem.end(success); },
+
+    // 状态访问器（供结算界面等使用）
+    get currentStage() { return stageModeSystem.getCurrentStage(); },
+    get currentStageData() { return stageModeSystem.getCurrentStageData(); },
+    get score() { return stageModeSystem.getScore(); },
+    get timeLeft() { return stageModeSystem.getTimeLeft(); },
+    get monstersKilled() { return stageModeSystem.getMonstersKilled(); },
+    get maxCombo() { return stageModeSystem.getMaxCombo(); },
+    get isPaused() { return stageModeSystem.getIsPaused(); },
+    get result() { return stageModeSystem.getResult(); },
+    get rewardsObtained() { return stageModeSystem.getRewardsObtained(); },
+    checkCondition(condition) { return stageModeSystem.checkCondition(condition); },
+
+    // 渲染和触摸已复用普通模式，以下方法已移除：
+    // render/renderMonster/renderStar/renderUI/renderPlayerHpBar/renderPauseMenu
+    // handleTouch/attackMonster/onMonsterDefeated/handleStarClick
+};
+
+// ==================== 闯关模式核心函数 ====================
+
+// 渲染关卡选择界面
+// 检查关卡是否解锁
+// 检查星级条件是否达成
+// 计算获得的星级
+// 获取难度对应的颜色
+// 开始闯关
+
+_log('Game loading...');
+init();
+
+// 触摸移动处理（背包滚动）
+// 拖拽阈值：移动距离超过此值才认为是拖拽（单位：像素）
+// 注意：阈值设为5像素，轻微移动不会被认为是拖拽，便于标签点击
+const DRAG_THRESHOLD = 5;  // 拖拽阈值（像素），超过此距离才认为是拖拽
+let backpackTotalDragDistance = 0;  // 累计拖拽距离
+let seasonSelectTotalDragDistance = 0;  // 赛季选择累计拖拽距离
+
+function handleTouchMove(res) {
+    // 更新长按波纹动画位置（支持多指）
+    var moveTouches = res.touches;
+    if (moveTouches) {
+        for (let mi = 0; mi < moveTouches.length; mi++) {
+            moveTapRipple(moveTouches[mi].identifier, moveTouches[mi].clientX, moveTouches[mi].clientY);
+        }
+    }
+    
+    // 挂机弹窗显示时阻止触摸穿透
+    if (afkSystem.popupVisible || afkSystem.resultVisible) return;
+
+    // UI编辑器拖拽
+    if (uiEditorSystem && uiEditorSystem.isActive()) {
+        if (res.touches && res.touches[0]) {
+            uiEditorSystem.handleTouchMove(res.touches[0].clientX, res.touches[0].clientY);
+        }
+        return;
+    }
+
+    // 开发者调参工具显示时阻止触摸穿透
+    if (devBattleSystem && devBattleSystem.isVisible()) return;
+
+    // 背包滑动
+    if (state === GAME_STATE.BACKPACK) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+        
+        var touch = touches[0];
+        var currentY = touch.clientY;
+        
+        if (uiScrollState.backpackLastTouchY > 0) {
+            var deltaY = uiScrollState.backpackLastTouchY - currentY;
+            uiScrollState.backpackScrollY += deltaY;
+            
+            // 累计拖拽距离，只有超过阈值才认为是拖拽
+            backpackTotalDragDistance += Math.abs(deltaY);
+            if (backpackTotalDragDistance > DRAG_THRESHOLD) {
+                uiScrollState.backpackIsDragging = true;
+            }
+            
+            // 实时限制滚动范围，避免弹簧回弹
+            var scale = getScreenScale();
+            var startY = Math.floor(100 * scale);
+            var clipOffset = Math.floor(30 * scale); // contentTop(20) + contentBottom(10)
+            var visibleHeight = screenHeight - startY - clipOffset;
+            var maxScroll = 0;
+
+            if (uiScrollState.backpackTab === 'characters') {
+                var ownedCharacters = playerData.ownedCharacters || [];
+                var uniqueCharIds = [...new Set(ownedCharacters)];
+                var charItemHeight = Math.floor(100 * scale);
+                var charPadding = Math.floor(15 * scale);
+                var totalHeight = uniqueCharIds.length * (charItemHeight + charPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'materials') {
+                var materialIds = Object.keys(playerData.materials);
+                var matItemHeight = Math.floor(80 * scale);
+                var matPadding = Math.floor(10 * scale);
+                var visibleCount = 0;
+                for (let j = 0; j < materialIds.length; j++) {
+                    if (playerData.materials[materialIds[j]].quantity > 0) visibleCount++;
+                }
+                var totalHeight = visibleCount * (matItemHeight + matPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'stars') {
+                var starItemHeight = Math.floor(80 * scale);
+                var starPadding = Math.floor(10 * scale);
+                // 计算已解锁灵韵数量（与渲染函数一致）
+                var starCount = 1; // 灵韵始终解锁
+                if (playerData.unlockedStarTypes) {
+                    for (let s = 0; s < playerData.unlockedStarTypes.length; s++) {
+                        // 排除 normal，因为已经计算了
+                        if (playerData.unlockedStarTypes[s] !== 'normal') {
+                            starCount++;
+                        }
+                    }
+                }
+                var totalHeight = starCount * (starItemHeight + starPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'items') {
+                var itemsItemHeight = Math.floor(80 * scale);
+                var itemsPadding = Math.floor(10 * scale);
+                var itemsConfigArr = ['starChest', 'healPotion', 'timePotion', 'expPotionSmall', 'expPotionMedium', 'expPotionLarge'];
+                var itemCount = 0;
+                for (let k = 0; k < itemsConfigArr.length; k++) {
+                    if (playerData.items && playerData.items[itemsConfigArr[k]] && playerData.items[itemsConfigArr[k]].quantity > 0) {
+                        itemCount++;
+                    }
+                }
+                var totalHeight = itemCount * (itemsItemHeight + itemsPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'equipments') {
+                var ownedEquipments = playerData.equipments ? playerData.equipments.owned : [];
+                var equipItemHeight = Math.floor(85 * scale);
+                var equipPadding = Math.floor(10 * scale);
+                // 只计算有效装备数量（排除Equipments中找不到的）
+                var validEquipCount = 0;
+                for (let ei = 0; ei < ownedEquipments.length; ei++) {
+                    var eKey = typeof ownedEquipments[ei] === 'string' ? ownedEquipments[ei] : (ownedEquipments[ei].id || ownedEquipments[ei]);
+                    if (Equipments[eKey]) validEquipCount++;
+                }
+                var totalHeight = validEquipCount * (equipItemHeight + equipPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'skills') {
+                var ownedSkills = playerData.skills ? playerData.skills.owned : [];
+                var skillItemHeight = Math.floor(85 * scale);
+                var skillPadding = Math.floor(10 * scale);
+                var totalHeight = ownedSkills.length * (skillItemHeight + skillPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'pets') {
+                var ownedPets = playerData.pets ? playerData.pets.owned : [];
+                var petItemHeight = Math.floor(85 * scale);
+                var petPadding = Math.floor(10 * scale);
+                var totalHeight = ownedPets.length * (petItemHeight + petPadding);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            } else if (uiScrollState.backpackTab === 'faith') {
+                var totalHeight = Math.floor(400 * scale);
+                maxScroll = Math.max(0, totalHeight - visibleHeight);
+            }
+            
+            // 实时限制
+            if (uiScrollState.backpackScrollY < 0) uiScrollState.backpackScrollY = 0;
+            if (uiScrollState.backpackScrollY > maxScroll) uiScrollState.backpackScrollY = maxScroll;
+        }
+        
+        uiScrollState.backpackLastTouchY = currentY;
+    }
+    
+    // 任务列表滑动
+    if (state === GAME_STATE.TASKS) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+        
+        var touch = touches[0];
+        var currentY = touch.clientY;
+        
+        if (typeof tasksLastTouchY !== 'undefined' && tasksLastTouchY > 0) {
+            var deltaY = tasksLastTouchY - currentY;
+            tasksScrollY += deltaY;
+        }
+        
+        tasksLastTouchY = currentY;
+    }
+
+    // 融合界面滚动处理
+    if (state === GAME_STATE.FUSION) {
+        var touches = res.touches;
+        if (fusionRenderer && touches && touches.length > 0) {
+            fusionRenderer.handleFusionTouchMove(touches[0].clientY);
+        }
+        return;
+    }
+
+    // 升级界面滚动处理
+    if (state === GAME_STATE.UPGRADE) {
+        var touches = res.touches;
+        if (upgradeRenderer && touches && touches.length > 0) {
+            upgradeRenderer.handleUpgradeTouchMove(touches[0].clientY);
+        }
+        return;
+    }
+
+    // 商城滑动
+    if (state === GAME_STATE.SHOP) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+        
+        var touch = touches[0];
+        var currentY = touch.clientY;
+        
+        if (uiScrollState.shopLastTouchY > 0) {
+            var deltaY = uiScrollState.shopLastTouchY - currentY;
+            uiScrollState.shopScrollY += deltaY;
+        }
+        
+        uiScrollState.shopLastTouchY = currentY;
+    }
+    
+    // 排行榜滑动
+    if (state === GAME_STATE.LEADERBOARD) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+        
+        var touch = touches[0];
+        var currentY = touch.clientY;
+        
+        if (uiScrollState.leaderboardLastTouchY > 0) {
+            var deltaY = uiScrollState.leaderboardLastTouchY - currentY;
+            uiScrollState.leaderboardScrollY += deltaY;
+        }
+        
+        uiScrollState.leaderboardLastTouchY = currentY;
+    }
+    
+    // 编队系统滑动
+    if (state === GAME_STATE.SQUAD && squadRenderer) {
+        if (res.touches.length > 0) squadRenderer.handleScrollMove(res.touches);
+    }
+
+    // 闯关选择滑动
+    if (state === GAME_STATE.STAGE_SELECT) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+
+        var touch = touches[0];
+        var currentY = touch.clientY;
+
+        if (uiScrollState.stageSelectLastTouchY > 0) {
+            var deltaY = uiScrollState.stageSelectLastTouchY - currentY;
+            uiScrollState.stageSelectScrollY += deltaY;
+        }
+
+        uiScrollState.stageSelectLastTouchY = currentY;
+    }
+
+    // 赛季选择滑动
+    if (state === GAME_STATE.SEASON_SELECT) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+        
+        var touch = touches[0];
+        var currentY = touch.clientY;
+        
+        if (uiScrollState.seasonSelectLastTouchY > 0) {
+            var deltaY = uiScrollState.seasonSelectLastTouchY - currentY;
+            uiScrollState.seasonSelectScrollY += deltaY;
+            
+            // 累积拖拽距离，超过阈值才认为是拖拽
+            seasonSelectTotalDragDistance += Math.abs(deltaY);
+            if (seasonSelectTotalDragDistance > DRAG_THRESHOLD) {
+                uiScrollState.seasonSelectIsDragging = true;
+            }
+
+            // 实时限制滚动范围
+            clampSeasonSelectScroll();
+        }
+        
+        uiScrollState.seasonSelectLastTouchY = currentY;
+    }
+    
+    // Boss选择滑动
+    if (state === GAME_STATE.BOSS_SELECT) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+
+        var touch = touches[0];
+        var currentY = touch.clientY;
+
+        if (bossSelectTouchStartY > 0) {
+            var deltaY = bossSelectTouchStartY - currentY;
+            bossSelectScrollY += deltaY;
+            // 边界检查：不能滚到负数（列表顶部）
+            if (bossSelectScrollY < 0) bossSelectScrollY = 0;
+            bossSelectIsDragging = true;
+        }
+        
+        bossSelectTouchStartY = currentY;
+    }
+    
+    // 爬塔模式触摸移动
+    if (state === GAME_STATE.TOWER) {
+        var touches = res.touches;
+        if (touches.length === 0) return;
+        
+        var touch = touches[0];
+        handleTowerTouchMove(touch.clientX, touch.clientY);
+    }
+}
+
+// 触摸结束处理
+function handleTouchEnd(res) {
+    _log('handleTouchEnd 触发, 当前状态:', state);
+    
+    // 松手时释放对应触点的长按波纹动画（支持多指）
+    var endTouches = res.changedTouches;
+    if (endTouches) {
+        for (let ei = 0; ei < endTouches.length; ei++) {
+            releaseTapRipple(endTouches[ei].identifier);
+        }
+    }
+    
+    var touch = res.changedTouches && res.changedTouches[0];
+    if (touch) {
+        var x = touch.clientX;
+        var y = touch.clientY;
+
+        // UI编辑器触摸结束
+        if (uiEditorSystem && uiEditorSystem.isActive()) {
+            uiEditorSystem.handleTouchEnd();
+            return;
+        }
+
+        // 挂机界面触摸处理（最高优先级，Boss首杀后解锁）
+        if (playerData.firstBossKilled && afkSystem.popupVisible && handleAfkPopupTouch(x, y)) {
+            return;
+        }
+
+        // 开发者调参工具显示时阻止触摸穿透
+        if (devBattleSystem && devBattleSystem.isVisible()) return;
+
+        // 挂机奖励结果弹窗触摸处理
+        if (playerData.firstBossKilled && afkSystem.resultVisible && handleAfkResultTouch(x, y)) {
+            return;
+        }
+
+        // 主界面挂机按钮触摸
+        if (state === GAME_STATE.MENU && playerData.firstBossKilled && handleAfkButtonTouch(x, y)) {
+            return;
+        }
+
+        // 融合界面点击处理（松手时判断，拖拽中不触发点击）
+        if (state === GAME_STATE.FUSION) {
+            if (fusionRenderer && !fusionRenderer.getIsDragging()) {
+                var fResult = fusionRenderer.handleFusionTouch(x, y);
+                _log('[融合] x=', Math.floor(x), 'y=', Math.floor(y), 'result=', fResult, 'selectedCount=', fusionRenderer.getSelectedCount ? fusionRenderer.getSelectedCount() : '?');
+                if (fResult === 'back') {
+                    state = GAME_STATE.MENU;
+                }
+            }
+            return;
+        }
+
+        // 升级界面点击处理
+        if (state === GAME_STATE.UPGRADE) {
+            if (upgradeRenderer && !upgradeRenderer.getIsDragging()) {
+                var uResult = upgradeRenderer.handleUpgradeTouch(x, y);
+                if (uResult === 'back') {
+                    state = GAME_STATE.MENU;
+                }
+            }
+            return;
+        }
+    }
+    
+    // ===== 爬塔模式触摸结束处理（优先处理） =====
+    if (state === GAME_STATE.TOWER) {
+        var endTouch = res.changedTouches && res.changedTouches[0];
+        if (endTouch) {
+            handleTowerTouchEnd(endTouch.clientX, endTouch.clientY);
+        }
+        return;
+    }
+    
+    // ===== 抽卡动画状态触摸处理 =====
+    if (state === GAME_STATE.GACHA_ANIMATION) {
+        return;
+    }
+    
+    // ===== 爬塔结算界面触摸处理 =====
+    if (state === GAME_STATE.TOWER_RESULT) {
+        var endTouch = res.changedTouches && res.changedTouches[0];
+        if (endTouch) {
+            handleTowerResultTouch(endTouch.clientX, endTouch.clientY);
+        }
+        return;
+    }
+    
+    // ===== 爬塔继续/放弃选择界面触摸处理 =====
+    if (state === GAME_STATE.TOWER_RESUME) {
+        var endTouch = res.changedTouches && res.changedTouches[0];
+        if (endTouch) {
+            handleTowerResumeTouch(endTouch.clientX, endTouch.clientY);
+        }
+        return;
+    }
+    
+    if (state === GAME_STATE.BACKPACK) {
+        // 检查是否是点击（非拖拽）
+        var wasDragging = uiScrollState.backpackIsDragging;
+        uiScrollState.backpackLastTouchY = 0;
+        uiScrollState.backpackIsDragging = false;
+        backpackTotalDragDistance = 0;  // 重置累计拖拽距离
+        
+        // 获取触摸结束位置（用于点击检测）
+        var endTouch = res.changedTouches && res.changedTouches[0];
+        var endX = endTouch ? endTouch.clientX : 0;
+        var endY = endTouch ? endTouch.clientY : 0;
+        
+        // 只有触摸开始时就在背包状态，才处理物品点击（防止从其他界面切换过来时误触发）
+        var wasInBackpackAtStart = (touchStartState === GAME_STATE.BACKPACK);
+        
+        _log('背包触摸结束: wasDragging=', wasDragging, 'wasInBackpackAtStart=', wasInBackpackAtStart, 'endX=', endX, 'endY=', endY);
+        
+        // ===== 标签点击检测（最高优先级，不受拖拽影响）=====
+        if (endTouch && wasInBackpackAtStart) {
+            var scale = getScreenScale();
+            var tabWidth = Math.floor(50 * scale);
+            var tabHeight = Math.floor(45 * scale);
+            var tabGap = Math.floor(5 * scale);
+            var tabX = screenWidth - tabWidth;
+            var startTabY = Math.floor(100 * scale);
+            var tabLabels = ['materials', 'characters', 'stars', 'items', 'equipments', 'skills', 'pets', 'faith'];
+            var tabNames = ['材料', '角色', '灵韵', '道具', '装备', '技能', '宠物', '信仰'];
+            
+            _log('标签点击检测: endX=' + endX + ', endY=' + endY + ', tabX=' + tabX + ', screenWidth=' + screenWidth);
+            
+            for (let t = 0; t < tabLabels.length; t++) {
+                var tabY = startTabY + t * (tabHeight + tabGap);
+                if (endX >= tabX && endX <= screenWidth && endY >= tabY && endY <= tabY + tabHeight) {
+                    _log('点击' + tabNames[t] + '标签');
+                    uiScrollState.backpackTab = tabLabels[t];
+                    uiScrollState.backpackScrollY = 0;
+                    return;  // 标签点击后直接返回，不执行物品检测
+                }
+            }
+            
+            // ===== 返回按钮检测（不受拖拽影响）=====
+            if (isBackButtonClicked(endX, endY)) {
+                _log('点击返回按钮');
+                if (audioSystem) audioSystem.playBackpack();
+                stateMachine.transitionTo(previousState || GAME_STATE.MENU);
+                return;
+            }
+        }
+        
+        // ===== 物品点击检测（标签检测之后，需要检查是否拖拽）=====
+        
+        // 材料使用按钮点击检测
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'materials' && endTouch) {
+            var scale = getScreenScale();
+            var startY = Math.floor(100 * scale);
+            var contentTop = startY + Math.floor(20 * scale);
+            var materialItemHeight = Math.floor(80 * scale);
+            var padding = Math.floor(10 * scale);
+            var tabAreaWidth = Math.floor(60 * scale);
+            
+            var useBtnW = Math.floor(50 * scale);
+            var useBtnH = Math.floor(25 * scale);
+            var useBtnX = screenWidth - tabAreaWidth - useBtnW - Math.floor(50 * scale);
+            
+            var materialIds = Object.keys(playerData.materials);
+            var displayIndex = 0;
+            
+            for (let i = 0; i < materialIds.length; i++) {
+                var materialId = materialIds[i];
+                var material = Materials[materialId];
+                var materialData = playerData.materials[materialId];
+                
+                // 与渲染函数一致的过滤条件
+                if (!material || !material.name || !material.emoji) {
+                    continue;
+                }
+                if (!materialData || materialData.quantity <= 0) {
+                    continue;
+                }
+                
+                var itemY = contentTop + displayIndex * (materialItemHeight + padding) - uiScrollState.backpackScrollY;
+                var useBtnY = itemY + Math.floor(12 * scale);
+                displayIndex++;  // 与渲染函数一致：在计算位置后增加索引
+                
+                // 检查是否点击了使用按钮
+                if (endX >= useBtnX && endX <= useBtnX + useBtnW && endY >= useBtnY && endY <= useBtnY + useBtnH) {
+                    _log('点击材料使用按钮:', materialId);
+                    useMaterial(materialId);
+                    return;
+                }
+            }
+        }
+        
+        // 道具点击检测（灵韵宝箱等）
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'items' && endTouch) {
+            var scale = getScreenScale();
+            var startY = Math.floor(100 * scale);
+            var contentTop = startY + Math.floor(20 * scale);
+            var itemHeight = Math.floor(80 * scale);
+            var padding = Math.floor(10 * scale);
+            
+            var itemsConfig = [
+                { id: 'starChest', name: '灵韵宝箱', emoji: '🎁', description: '开启随机获得抽卡券' },
+                { id: 'healPotion', name: '治疗药水', emoji: '🧪', description: '恢复50点HP' },
+                { id: 'timePotion', name: '时间药水', emoji: '⏳', description: '增加10秒时间' },
+                { id: 'expPotionSmall', name: '经验药水(小)', emoji: '📜', description: '+50经验' },
+                { id: 'expPotionMedium', name: '经验药水(中)', emoji: '📔', description: '+100经验' },
+                { id: 'expPotionLarge', name: '经验药水(大)', emoji: '📖', description: '+150经验' }
+            ];
+            
+            var displayIndex = 0;
+            for (let i = 0; i < itemsConfig.length; i++) {
+                var itemConfig = itemsConfig[i];
+                var itemData = playerData.items ? playerData.items[itemConfig.id] : null;
+                
+                if (!itemData || itemData.quantity <= 0) continue;
+                
+                var itemY = contentTop + displayIndex * (itemHeight + padding) - uiScrollState.backpackScrollY;
+                displayIndex++;
+                
+                // 检查是否点击了道具项
+                if (endY >= itemY && endY <= itemY + itemHeight) {
+                    // 使用道具
+                    if (itemConfig.id === 'starChest') {
+                        useItem('starChest');
+                    } else if (itemConfig.id.startsWith('expPotion')) {
+                        useItem(itemConfig.id);
+                    }
+                    return;
+                }
+            }
+        }
+        
+        // 灵韵升级按钮点击检测
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'stars' && endTouch) {
+            var scale = getScreenScale();
+            var startY = Math.floor(100 * scale);
+            var contentTop = startY + Math.floor(20 * scale);
+            var starItemHeight = Math.floor(80 * scale);
+            var padding = Math.floor(10 * scale);
+            var tabAreaWidth = Math.floor(60 * scale);
+            
+            var upgradeBtnW = Math.floor(50 * scale);
+            var upgradeBtnH = Math.floor(25 * scale);
+            var upgradeBtnX = screenWidth - tabAreaWidth - upgradeBtnW - Math.floor(50 * scale);
+            
+            // 构建灵韵列表（与渲染函数一致）
+            var allStarTypes = SEASON_STAR_TYPES.map(function(s) {
+                return { id: s.id, name: s.name };
+            });
+            
+            var unlockedStars = [];
+            for (let j = 0; j < allStarTypes.length; j++) {
+                var starId = allStarTypes[j].id;
+                if (starId === 'normal') {
+                    unlockedStars.push(allStarTypes[j]);
+                } else if (playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf(starId) !== -1) {
+                    unlockedStars.push(allStarTypes[j]);
+                }
+            }
+            
+            for (let i = 0; i < unlockedStars.length; i++) {
+                var starType = unlockedStars[i];
+                var isIceStar = (starType.id === 'ice');
+                var isFireStar = (starType.id === 'fire');
+                
+                if (!isIceStar && !isFireStar) continue;
+                
+                var starLevel = isIceStar ? (playerData.iceStarLevel || 0) : (playerData.fireStarLevel || 0);
+                var maxLevel = isIceStar ? (playerData.maxIceStarLevel || 10) : (playerData.maxFireStarLevel || 10);
+                
+                if (starLevel >= maxLevel) continue; // 已满级，没有升级按钮
+                
+                var itemY = contentTop + i * (starItemHeight + padding) - uiScrollState.backpackScrollY;
+                var upgradeBtnY = itemY + Math.floor(12 * scale);
+                
+                // 检查是否点击了升级按钮
+                if (endX >= upgradeBtnX && endX <= upgradeBtnX + upgradeBtnW && endY >= upgradeBtnY && endY <= upgradeBtnY + upgradeBtnH) {
+                    _log('点击灵韵升级按钮:', starType.id);
+                    if (isIceStar) {
+                        upgradeIceStar();
+                    } else {
+                        upgradeFireStar();
+                    }
+                    return;
+                }
+            }
+        }
+        
+        // 角色点击检测（仅在非拖拽状态下，且触摸开始时就在背包）
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'characters' && endTouch) {
+            var scale = getScreenScale();
+            var startY = Math.floor(100 * scale);
+            var contentTop = startY + Math.floor(20 * scale);
+            var characterItemHeight = Math.floor(100 * scale);
+            var padding = Math.floor(15 * scale);
+
+            if (playerData.ownedCharacters && playerData.ownedCharacters.length > 0) {
+                var clickCharIds = [...new Set(playerData.ownedCharacters)];
+                for (let i = 0; i < clickCharIds.length; i++) {
+                    var currentCharId = clickCharIds[i];
+                    var itemY = contentTop + i * (characterItemHeight + padding) - uiScrollState.backpackScrollY;
+
+                    // 检查是否点击了角色项
+                    if (endY >= itemY && endY <= itemY + characterItemHeight) {
+                        // 切换到该角色
+                        _log('切换角色到:', currentCharId);
+                        playerData.currentCharacterId = currentCharId;
+                        savePlayerData();
+
+                        // 显示提示
+                        var mappedCharId = getCharacterKey(currentCharId);
+                        var character = Characters[mappedCharId];
+
+                        if (character) {
+                            wx.showToast({
+                                title: '已切换到：' + character.name,
+                                icon: 'none',
+                                duration: 1500
+                            });
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // ===== 装备点击检测 =====
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'equipments' && endTouch) {
+            if (backpackRenderer && backpackRenderer.handleEquipClick(endX, endY)) return;
+        }
+        
+        // ===== 技能点击检测 =====
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'skills' && endTouch) {
+            if (backpackRenderer && backpackRenderer.handleSkillClick(endX, endY)) return;
+        }
+
+        // ===== 宠物点击检测 =====
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'pets' && endTouch) {
+            if (backpackRenderer && backpackRenderer.handlePetClick(endX, endY)) return;
+        }
+
+        // 信仰标签页点击检测
+        if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'faith' && endTouch) {
+            var scale = getScreenScale();
+            var btnY = Math.floor(100 * scale) + Math.floor(130 * scale) + Math.floor(130 * scale);
+            var contentWidth = screenWidth - Math.floor(60 * scale);
+            
+            var currentCharId = playerData.currentCharacterId;
+            if (!currentCharId) {
+                wx.showToast({ title: '请先选择角色', icon: 'none', duration: 1500 });
+                return;
+            }
+            
+            // 投入虔诚印记按钮
+            if (endX >= Math.floor(20 * scale) && endX <= Math.floor(140 * scale) &&
+                endY >= btnY && endY <= btnY + Math.floor(35 * scale)) {
+                if (useFaithResource(currentCharId, 'devoutMark', 10)) {
+                    wx.showToast({ title: '投入虔诚印记×10', icon: 'none', duration: 1500 });
+                } else {
+                    wx.showToast({ title: '虔诚印记不足', icon: 'none', duration: 1500 });
+                }
+                return;
+            }
+            
+            // 投入神恩精华按钮
+            if (endX >= Math.floor(160 * scale) && endX <= Math.floor(280 * scale) &&
+                endY >= btnY && endY <= btnY + Math.floor(35 * scale)) {
+                if (useFaithResource(currentCharId, 'divineEssence', 5)) {
+                    wx.showToast({ title: '投入神恩精华×5', icon: 'none', duration: 1500 });
+                } else {
+                    wx.showToast({ title: '神恩精华不足', icon: 'none', duration: 1500 });
+                }
+                return;
+            }
+            
+            // 专精路线按钮（50级解锁）
+            var faithData = getCharacterFaithData(currentCharId);
+            if (faithData.level >= FAITH_CONFIG.SPECIALIZATION_LEVEL) {
+                var specY = btnY + Math.floor(50 * scale);
+                var specs = ['offense', 'survival', 'support', 'balance'];
+                
+                for (let s = 0; s < specs.length; s++) {
+                    var specBtnX = Math.floor(100 * scale) + s * Math.floor(70 * scale);
+                    if (endX >= specBtnX && endX <= specBtnX + Math.floor(60 * scale) &&
+                        endY >= specY + Math.floor(10 * scale) && endY <= specY + Math.floor(40 * scale)) {
+                        
+                        if (faithData.specializationUnlocked && faithData.specialization === specs[s]) {
+                            wx.showToast({ title: '已选择该专精', icon: 'none', duration: 1500 });
+                        } else if (!faithData.specializationUnlocked) {
+                            if (unlockSpecialization(currentCharId, specs[s])) {
+                                wx.showToast({ title: '解锁专精成功！', icon: 'none', duration: 1500 });
+                            } else {
+                                wx.showToast({ title: '本源结晶不足', icon: 'none', duration: 1500 });
+                            }
+                        } else {
+                            // 切换专精（需要重置券或消耗资源）
+                            wx.showToast({ title: '请购买专精重置券', icon: 'none', duration: 1500 });
+                        }
+                        return;
+                    }
+                }
+            }
+            
+            // 破格技能按钮（100级解锁）
+            if (faithData.level >= FAITH_CONFIG.BREAKTHROUGH_LEVEL) {
+                var skillY = btnY + Math.floor(120 * scale);
+                var skills = Object.keys(FAITH_CONFIG.breakthroughSkills);
+                
+                for (let sk = 0; sk < Math.min(skills.length, 4); sk++) {
+                    var skillId = skills[sk];
+                    var skillBtnX = Math.floor(20 * scale) + sk * Math.floor(75 * scale);
+                    
+                    if (endX >= skillBtnX && endX <= skillBtnX + Math.floor(70 * scale) &&
+                        endY >= skillY + Math.floor(10 * scale) && endY <= skillY + Math.floor(50 * scale)) {
+                        
+                        if (faithData.breakthroughSkills.includes(skillId)) {
+                            wx.showToast({ title: '已拥有该技能', icon: 'none', duration: 1500 });
+                        } else {
+                            if (unlockBreakthroughSkill(currentCharId, skillId)) {
+                                wx.showToast({ title: '解锁技能成功！', icon: 'none', duration: 1500 });
+                            } else {
+                                wx.showToast({ title: '本源结晶不足', icon: 'none', duration: 1500 });
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
+            
+            // 传承按钮（500级解锁）
+            if (faithData.level >= FAITH_CONFIG.INHERIT_LEVEL && !faithData.inherited) {
+                var inheritY = btnY + Math.floor(200 * scale);
+                
+                if (endX >= contentWidth - Math.floor(85 * scale) && endX <= contentWidth - Math.floor(35 * scale) &&
+                    endY >= inheritY + Math.floor(12 * scale) && endY <= inheritY + Math.floor(38 * scale)) {
+                    
+                    if (performInheritance(currentCharId)) {
+                        wx.showToast({ title: '传承成功！全队获得永久加成！', icon: 'none', duration: 2000 });
+                    }
+                    return;
+                }
+            }
+        }
+        
+        // 限制滚动范围
+        var scale = getScreenScale();
+        var startY = Math.floor(100 * scale);
+        var itemHeight = Math.floor(85 * scale);
+        var padding = Math.floor(10 * scale);
+        var clipOffset = Math.floor(30 * scale);
+        var visibleHeight = screenHeight - startY - clipOffset;
+        var maxScroll = 0;
+
+        // 计算最大滚动量
+        if (uiScrollState.backpackTab === 'characters') {
+            var ownedCharacters = playerData.ownedCharacters || [];
+            var uniqueCharIds = [...new Set(ownedCharacters)];
+            var charItemHeight = Math.floor(100 * scale);
+            var charPadding = Math.floor(15 * scale);
+            var totalHeight = uniqueCharIds.length * (charItemHeight + charPadding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'materials') {
+            var materialIds = Object.keys(playerData.materials);
+            var matItemHeight = Math.floor(80 * scale);
+            var matPadding = Math.floor(10 * scale);
+            var visibleCount = 0;
+            for (let j = 0; j < materialIds.length; j++) {
+                if (playerData.materials[materialIds[j]].quantity > 0) visibleCount++;
+            }
+            var totalHeight = visibleCount * (matItemHeight + matPadding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'stars') {
+            var starItemHeight = Math.floor(80 * scale);
+            var starPadding = Math.floor(10 * scale);
+            var starCount = 1;
+            if (playerData.unlockedStarTypes) {
+                for (let s = 0; s < playerData.unlockedStarTypes.length; s++) {
+                    if (playerData.unlockedStarTypes[s] !== 'normal') {
+                        starCount++;
+                    }
+                }
+            }
+            var totalHeight = starCount * (starItemHeight + starPadding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'items') {
+            var itemsItemHeight = Math.floor(80 * scale);
+            var itemsPadding = Math.floor(10 * scale);
+            var itemsConfig = ['starChest', 'healPotion', 'timePotion', 'expPotionSmall', 'expPotionMedium', 'expPotionLarge'];
+            var itemCount = 0;
+            for (let k = 0; k < itemsConfig.length; k++) {
+                if (playerData.items && playerData.items[itemsConfig[k]] && playerData.items[itemsConfig[k]].quantity > 0) {
+                    itemCount++;
+                }
+            }
+            var totalHeight = itemCount * (itemsItemHeight + itemsPadding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'equipments') {
+            var ownedEquipments = playerData.equipments ? playerData.equipments.owned : [];
+            var totalHeight = ownedEquipments.length * (itemHeight + padding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'skills') {
+            var ownedSkills = playerData.skills ? playerData.skills.owned : [];
+            var totalHeight = ownedSkills.length * (itemHeight + padding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'pets') {
+            var ownedPets = playerData.pets ? playerData.pets.owned : [];
+            var totalHeight = ownedPets.length * (itemHeight + padding);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        } else if (uiScrollState.backpackTab === 'faith') {
+            var totalHeight = Math.floor(400 * scale);
+            maxScroll = Math.max(0, totalHeight - visibleHeight);
+        }
+        
+        // 限制滚动范围
+        if (uiScrollState.backpackScrollY < 0) uiScrollState.backpackScrollY = 0;
+        if (uiScrollState.backpackScrollY > maxScroll) uiScrollState.backpackScrollY = maxScroll;
+    }
+    
+    // 任务列表滚动限制
+    if (state === GAME_STATE.TASKS) {
+        tasksLastTouchY = 0;
+        
+        var scale = getScreenScale();
+        var tasks = getTasksWithProgress(tasksTab);
+        var listStartY = Math.floor(150 * scale);
+        var itemHeight = tasksTab === 'guide' ? Math.floor(95 * scale) : Math.floor(85 * scale);
+        var totalHeight = tasks.length * itemHeight;
+        var visibleHeight = screenHeight - listStartY - Math.floor(80 * scale);
+        var maxScroll = Math.max(0, totalHeight - visibleHeight);
+        
+        if (tasksScrollY < 0) tasksScrollY = 0;
+        if (tasksScrollY > maxScroll) tasksScrollY = maxScroll;
+    }
+    
+    // 商城滚动限制
+    if (state === GAME_STATE.SHOP) {
+        uiScrollState.shopLastTouchY = 0;
+        
+        var scale = getScreenScale();
+        var startY = Math.floor(160 * scale);
+        var itemHeight = Math.floor(80 * scale);
+        var padding = Math.floor(10 * scale);
+        var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
+        
+        var items;
+        if (uiScrollState.shopTab === 'materials') items = ShopItems.materials;
+        else if (uiScrollState.shopTab === 'buffs') items = ShopItems.buffs;
+        else if (uiScrollState.shopTab === 'items') items = ShopItems.items;
+        else if (uiScrollState.shopTab === 'pets') items = ShopItems.pets;
+        else items = [];
+        
+        var totalHeight = items.length * (itemHeight + padding);
+        var maxScroll = Math.max(0, totalHeight - visibleHeight);
+        
+        if (uiScrollState.shopScrollY < 0) uiScrollState.shopScrollY = 0;
+        if (uiScrollState.shopScrollY > maxScroll) uiScrollState.shopScrollY = maxScroll;
+    }
+    
+    // 排行榜滚动限制
+    if (state === GAME_STATE.LEADERBOARD) {
+        uiScrollState.leaderboardLastTouchY = 0;
+        
+        var scale = getScreenScale();
+        var startY = Math.floor(120 * scale);
+        var itemHeight = Math.floor(50 * scale);
+        var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
+        var totalHeight = 10 * itemHeight;  // 10条记录
+        var maxScroll = Math.max(0, totalHeight - visibleHeight);
+        
+        if (uiScrollState.leaderboardScrollY < 0) uiScrollState.leaderboardScrollY = 0;
+        if (uiScrollState.leaderboardScrollY > maxScroll) uiScrollState.leaderboardScrollY = maxScroll;
+    }
+    
+    // 编队系统滚动限制
+    if (state === GAME_STATE.SQUAD && squadRenderer) {
+        squadRenderer.handleScrollEnd();
+    }
+
+    // 闯关选择滚动限制
+    if (state === GAME_STATE.STAGE_SELECT) {
+        uiScrollState.stageSelectLastTouchY = 0;
+        
+        var scale = getScreenScale();
+        var startY = Math.floor(100 * scale);
+        var itemHeight = Math.floor(80 * scale);
+        var visibleHeight = screenHeight - startY - Math.floor(100 * scale);
+        var totalHeight = 9 * itemHeight;  // 9个关卡
+        var maxScroll = Math.max(0, totalHeight - visibleHeight);
+        
+        if (uiScrollState.stageSelectScrollY < 0) uiScrollState.stageSelectScrollY = 0;
+        if (uiScrollState.stageSelectScrollY > maxScroll) uiScrollState.stageSelectScrollY = maxScroll;
+    }
+    
+    // 赛季选择滚动限制
+    if (state === GAME_STATE.SEASON_SELECT) {
+        uiScrollState.seasonSelectLastTouchY = 0;
+        uiScrollState.seasonSelectIsDragging = false;
+
+        clampSeasonSelectScroll();
+    }
+}
+
+function clampSeasonSelectScroll() {
+    var scale = getScreenScale();
+    var roleHeight = Math.floor(100 * scale);
+    var skillsHeight = Math.floor(190 * scale);
+    var petsHeight = Math.floor(190 * scale);
+    var starsHeight = Math.floor(275 * scale);
+    var totalHeight = roleHeight + skillsHeight + petsHeight + starsHeight;
+    var startY = Math.floor(80 * scale);
+    var bottomBtnHeight = Math.floor(80 * scale);
+    var visibleHeight = screenHeight - startY - bottomBtnHeight;
+    var maxScroll = Math.max(0, totalHeight - visibleHeight + Math.floor(50 * scale));
+    if (uiScrollState.seasonSelectScrollY < 0) uiScrollState.seasonSelectScrollY = 0;
+    if (uiScrollState.seasonSelectScrollY > maxScroll) uiScrollState.seasonSelectScrollY = maxScroll;
+}
+
+// 处理编队系统点击（委托给 SquadRenderer）
+function handleSquadClick(x, y) {
+    squadRenderer.handleClick(x, y);
+}
+
+// ==================== 编队系统 ====================
+
+// 编队系统当前标签页
+let squadTab = 'character'; // 'character', 'equipment', 'skills', 'pets', 'stars'
+let showPortraitLarge = false; // 是否显示立绘大图
+
+// ==================== Boss战模式独立模块 ====================
+// 设计思路：复用普通模式的全局变量和渲染逻辑，只改变怪物生成逻辑
+
+const BossBattleMode = {
+    init(bossLevel) { return bossBattleSystem.init(bossLevel); },
+    start() { bossBattleSystem.start(); },
+    end(success) { bossBattleSystem.end(success); },
+    cleanup() { bossBattleSystem.cleanup(); },
+    attackBoss(damage) { bossBattleSystem.dealDamage(damage); },
+    togglePause() { bossBattleSystem.togglePause(); },
+    calculateRewards(success) { return bossBattleSystem.calculateRewards(success); },
+    setBossHp(val) { bossBattleSystem.setBossHp(val); },
+    update() { bossBattleSystem.update(); },
+
+    // 状态访问器（供渲染和触摸处理使用）
+    get currentBoss() { return bossBattleSystem.getCurrentBoss(); },
+    get bossHp() { return bossBattleSystem.getBossHp(); },
+    get bossMaxHp() { return bossBattleSystem.getBossMaxHp(); },
+    get maxCombo() { return bossBattleSystem.getMaxCombo(); },
+    get isPaused() { return bossBattleSystem.getIsPaused(); },
+    get result() { return bossBattleSystem.getResult(); },
+    get rewardsObtained() { return bossBattleSystem.getRewardsObtained(); },
+    get bossLevel() { return bossBattleSystem.getBossLevel(); },
+
+    // Boss选择界面滚动偏移（渲染和触摸共用同一数据源）
+    get bossSelectScrollY() { return bossSelectScrollY; },
+    set bossSelectScrollY(v) { bossSelectScrollY = v; },
+
+    // handleTouch 已统一到 handleTouchStart() 共享路径
+    // render/renderBoss/renderComboUI/renderPlayerHP/renderPauseMenu 已统一到 renderGame()
+};
+// 获取灵韵基础分数（辅助函数）
+
+
+function handleBossBattleResultTouch(x, y) {
+    var scale = getScreenScale();
+    var panelWidth = Math.floor(320 * scale);
+    var panelHeight = Math.floor(450 * scale);
+    var panelX = (screenWidth - panelWidth) / 2;
+    var panelY = (screenHeight - panelHeight) / 2;
+    
+    var btnWidth = Math.floor(140 * scale);
+    var btnHeight = Math.floor(45 * scale);
+    var btnY = panelY + panelHeight - Math.floor(70 * scale);
+    
+    // 返回按钮
+    if (isBackButtonClicked(x, y)) {
+        BossBattleMode.cleanup();
+        stateMachine.transitionTo(GAME_STATE.MENU);
+        return true;
+    }
+    
+    // 再战一次按钮
+    if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
+        y >= btnY && y <= btnY + btnHeight) {
+        BossBattleMode.cleanup();
+        BossBattleMode.init(BossBattleMode.bossLevel);
+        BossBattleMode.start();
+        return true;
+    }
+    
+    return false;
+}
+
+// Boss选择界面滚动变量
+let bossSelectScrollY = 0;
+let bossSelectTouchStartY = 0;
+let bossSelectIsDragging = false;
+
+// Boss选择界面渲染
+
+function handleBossSelectTouch(x, y) {
+    // 如果是拖拽状态，不响应点击
+    if (bossSelectIsDragging) {
+        bossSelectIsDragging = false;
+        return false;
+    }
+
+    var scale = getScreenScale();
+
+    // 返回按钮（左下角统一）
+    if (isBackButtonClicked(x, y)) {
+        bossSelectScrollY = 0; // 重置滚动
+        stateMachine.transitionTo(GAME_STATE.MENU);
+        return true;
+    }
+
+    // Boss列表点击（坐标与 renderBossSelect 对齐：listTop=85*scale）
+    var startY = Math.floor(85 * scale) - bossSelectScrollY;
+    var itemHeight = Math.floor(100 * scale);
+    var itemWidth = screenWidth - Math.floor(40 * scale);
+    var itemX = Math.floor(20 * scale);
+    var itemGap = Math.floor(10 * scale);
+
+    for (let i = 0; i < BOSS_LIST.length; i++) {
+        var itemY = startY + i * (itemHeight + itemGap);
+        var btnW = Math.floor(70 * scale);
+        var btnH = Math.floor(35 * scale);
+        var btnX = itemX + itemWidth - btnW - Math.floor(15 * scale);
+        var btnY = itemY + (itemHeight - btnH) / 2;
+
+        if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+            var boss = BOSS_LIST[i];
+            BossBattleMode.init(boss.level);
+            BossBattleMode.start();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// 渲染爬塔界面
+
+// 渲染隐藏之路弹窗
+
+// 共享战斗渲染（塔模式 / 普通模式共用）
+
+// 渲染爬塔战斗界面
+// renderTowerCombat 已统一到 renderGame()
+
+// 爬塔点击处理
+function handleTowerClick(x, y) {
+    _log('handleTowerClick 触发, x:', x, 'y:', y, 'towerSystem.grid:', towerSystem.grid.length);
+    
+    const scale = getScreenScale();
+    
+    // 隐藏之路弹窗处理（优先处理）
+    if (towerSystem.hiddenPathDialog) {
+        const boxWidth = Math.floor(320 * scale);
+        const boxHeight = Math.floor(280 * scale);
+        const boxX = (screenWidth - boxWidth) / 2;
+        const boxY = (screenHeight - boxHeight) / 2;
+        
+        // 三个跳层选项按钮
+        const options = towerSystem.hiddenPathDialog.options;
+        const optBtnWidth = Math.floor(90 * scale);
+        const optBtnHeight = Math.floor(50 * scale);
+        const optBtnY = boxY + Math.floor(120 * scale);
+        const optSpacing = Math.floor(15 * scale);
+        const totalOptWidth = options.length * optBtnWidth + (options.length - 1) * optSpacing;
+        let optStartX = (screenWidth - totalOptWidth) / 2;
+        
+        // 检查是否点击了跳层选项
+        for (let i = 0; i < options.length; i++) {
+            const btnX = optStartX + i * (optBtnWidth + optSpacing);
+            if (x >= btnX && x <= btnX + optBtnWidth &&
+                y >= optBtnY && y <= optBtnY + optBtnHeight) {
+                _log('点击跳层选项:', options[i].skip, '目标层数:', options[i].targetFloor);
+                towerSystem.enterHiddenPath(options[i].targetFloor);
+                towerSystem.hiddenPathDialog = null;
+                return;
+            }
+        }
+        
+        // 离开按钮
+        const waitBtnWidth = Math.floor(120 * scale);
+        const waitBtnHeight = Math.floor(40 * scale);
+        const waitBtnX = (screenWidth - waitBtnWidth) / 2;
+        const waitBtnY = boxY + boxHeight - Math.floor(55 * scale);
+        
+        if (x >= waitBtnX && x <= waitBtnX + waitBtnWidth &&
+            y >= waitBtnY && y <= waitBtnY + waitBtnHeight) {
+            _log('点击离开隐藏之路');
+            towerSystem.hiddenPathDialog = null;
+            return;
+        }
+        
+        // 点击弹窗外不关闭（保持弹窗显示）
+        return;
+    }
+    
+    // 如果在战斗中
+    if (towerSystem.inCombat) {
+        _log('在战斗中');
+        // 攻击按钮
+        const btnWidth = Math.floor(120 * scale);
+        const btnHeight = Math.floor(45 * scale);
+        const btnY = (screenHeight - Math.floor(350 * scale)) / 2 + Math.floor(350 * scale) - Math.floor(100 * scale);
+        
+        if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+            y >= btnY && y <= btnY + btnHeight) {
+            towerSystem.attackMonster();
+            return;
+        }
+        
+        // 逃跑按钮
+        const fleeBtnY = btnY + btnHeight + Math.floor(15 * scale);
+        if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+            y >= fleeBtnY && y <= fleeBtnY + Math.floor(35 * scale)) {
+            // 逃跑：扣除一定血量
+            towerSystem.playerHp -= Math.floor(towerSystem.playerMaxHp * 0.1);
+            towerSystem.inCombat = false;
+            towerSystem.combatMonster = null;
+            towerSystem.currentCell = null;
+            
+            if (towerSystem.playerHp <= 0) {
+                towerSystem.playerDeath();
+            }
+            return;
+        }
+        return;
+    }
+    
+    // 返回按钮
+    if (isBackButtonClicked(x, y)) {
+        towerSystem.pauseTower(); // 改为暂停而非退出
+        return;
+    }
+    
+    // 点击地图格子移动
+    const mapTop = Math.floor(70 * scale);
+    const mapBottom = screenHeight - Math.floor(80 * scale);
+    const cellSize = Math.floor(30 * scale);
+    const mapLeft = Math.floor(20 * scale);
+    
+    _log('地图区域: mapTop=', mapTop, 'mapBottom=', mapBottom, 'cellSize=', cellSize);
+    
+    // 检查是否点击在地图区域内
+    if (x >= mapLeft && x <= screenWidth - mapLeft && y >= mapTop && y <= mapBottom) {
+        // 计算点击的格子坐标
+        const clickCellX = Math.floor((x - mapLeft - towerSystem.viewOffsetX) / cellSize);
+        const clickCellY = Math.floor((y - mapTop - towerSystem.viewOffsetY) / cellSize);
+        
+        _log('点击格子:', clickCellX, clickCellY, '玩家位置:', towerSystem.playerX, towerSystem.playerY, '偏移:', towerSystem.viewOffsetX, towerSystem.viewOffsetY);
+        
+        // 检查是否是相邻格子（上下左右）
+        const dx = clickCellX - towerSystem.playerX;
+        const dy = clickCellY - towerSystem.playerY;
+        
+        _log('距离: dx=', dx, 'dy=', dy, 'abs=', Math.abs(dx) + Math.abs(dy));
+        
+        if (Math.abs(dx) + Math.abs(dy) === 1) {
+            // 相邻格子，移动
+            _log('移动到相邻格子');
+            towerSystem.movePlayer(dx, dy);
+            return;
+        }
+    } else {
+        _log('点击不在地图区域内');
+    }
+    
+    // 检查当前格子是否是隐藏之路（现在通过对话框处理）
+    // 已由 showHiddenPathDialog 和对话框点击处理
+}
+
+// 爬塔触摸结束处理
+function handleTowerTouchEnd(x, y) {
+    // 返回按钮检测（优先处理，不受滑动状态影响）
+    if (isBackButtonClicked(x, y)) {
+        towerSystem.touchStartX = 0;
+        towerSystem.touchStartY = 0;
+        if (audioSystem) audioSystem.playTowerExit();
+        towerSystem.pauseTower(); // 改为暂停而非退出
+        return;
+    }
+    
+    // 如果触摸位置被重置（说明已经通过滑动处理了），不再处理
+    if (towerSystem.touchStartX === 0 && towerSystem.touchStartY === 0) {
+        return;
+    }
+    
+    // 重置触摸起始位置
+    towerSystem.touchStartX = 0;
+    towerSystem.touchStartY = 0;
+    
+    // 没有滑动，处理点击移动
+    handleTowerClick(x, y);
+}
+
+// 爬塔触摸移动处理
+function handleTowerTouchMove(x, y) {
+    if (towerSystem.inCombat) return;
+    
+    if (towerSystem.touchStartX > 0 && towerSystem.touchStartY > 0) {
+        const dx = x - towerSystem.touchStartX;
+        const dy = y - towerSystem.touchStartY;
+        
+        // 移动阈值
+        const threshold = 30;
+        
+        if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+            if (Math.abs(dx) > Math.abs(dy)) {
+                // 水平移动
+                towerSystem.movePlayer(dx > 0 ? 1 : -1, 0);
+            } else {
+                // 垂直移动
+                towerSystem.movePlayer(0, dy > 0 ? 1 : -1);
+            }
+            // 标记已经通过滑动处理了移动
+            towerSystem.isDragging = true;
+            towerSystem.touchStartX = 0;
+            towerSystem.touchStartY = 0;
+        }
+    }
+}
+
+// 渲染爬塔结算界面
+
+// 爬塔结算界面触摸处理
+function handleTowerResultTouch(x, y) {
+    _log('handleTowerResultTouch 触发, x:', x, 'y:', y);
+    
+    // 冷却期保护：结算界面显示1.5秒内禁止点击
+    if (towerSystem.resultEndTime > 0) {
+        const timeSinceEnd = Date.now() - towerSystem.resultEndTime;
+        if (timeSinceEnd < 1500) {
+            _log('结算界面冷却期中，忽略点击，剩余时间:', (1500 - timeSinceEnd), 'ms');
+            return false;
+        }
+    }
+    
+    const scale = getScreenScale();
+    const btnWidth = Math.floor(200 * scale);
+    const btnHeight = Math.floor(50 * scale);
+    const panelHeight = Math.floor(300 * scale);
+    const panelY = Math.floor(120 * scale);
+    const btnY = panelY + panelHeight + Math.floor(30 * scale);
+    
+    _log('btnWidth:', btnWidth, 'btnHeight:', btnHeight, 'btnY:', btnY);
+    
+    // 重新开始按钮
+    const restartBtnY = btnY;
+    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+        y >= restartBtnY && y <= restartBtnY + btnHeight) {
+        _log('点击重新开始');
+        towerSystem.restartTower();
+        return true;
+    }
+    
+    // 退出无尽按钮
+    const exitBtnY = restartBtnY + btnHeight + Math.floor(15 * scale);
+    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+        y >= exitBtnY && y <= exitBtnY + btnHeight) {
+        _log('点击退出无尽');
+        towerSystem.resultData = null;
+        if (audioSystem) audioSystem.playTowerExit();
+        stateMachine.transitionTo(GAME_STATE.MENU);
+        return true;
+    }
+    
+    return false;
+}
+
+// 渲染爬塔继续/放弃选择界面
+
+// 爬塔继续/放弃选择界面触摸处理
+function handleTowerResumeTouch(x, y) {
+    const scale = getScreenScale();
+    const btnWidth = Math.floor(200 * scale);
+    const btnHeight = Math.floor(50 * scale);
+    const panelHeight = Math.floor(180 * scale);
+    const panelY = Math.floor(160 * scale);
+    const btnY = panelY + panelHeight + Math.floor(30 * scale);
+    
+    // 继续挑战按钮
+    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+        y >= btnY && y <= btnY + btnHeight) {
+        _log('选择继续挑战');
+        towerSystem.init(); // 恢复进度
+        stateMachine.transitionTo(GAME_STATE.TOWER);
+        return true;
+    }
+    
+    // 放弃进度按钮
+    const giveUpBtnY = btnY + btnHeight + Math.floor(15 * scale);
+    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+        y >= giveUpBtnY && y <= giveUpBtnY + btnHeight) {
+        _log('选择放弃进度');
+        if (audioSystem) audioSystem.playTowerExit();
+        // 先恢复数据以便结算
+        towerSystem.currentFloor = playerData.infiniteTower.currentFloor || 1;
+        towerSystem.collectedRewards = JSON.parse(JSON.stringify(playerData.infiniteTower.collectedRewards || []));
+        towerSystem.playerMaxHp = playerData.infiniteTower.maxHp || 100;
+        // 放弃并结算
+        towerSystem.giveUp();
+        return true;
+    }
+
+    return false;
+}
+
+// Simulator 环境条件导出（Node.js only，浏览器环境无 module 对象）
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        // 状态
+        getState: function() { return state; },
+        getScore: function() { return score; },
+        getSeasonScore: function() { return typeof seasonScore !== 'undefined' ? seasonScore : 0; },
+        getTimeLeft: function() { return timeLeft; },
+        getStars: function() { return stars; },
+        getMonsters: function() { return monsters; },
+        getPlayerData: function() { return playerData; },
+        getPlayerHp: function() { return playerData.playerHp; },
+        getBestScore: function() { return bestScore; },
+        getMonstersKilled: function() { return monstersKilled; },
+        getPauseStartTime: function() { return pauseStartTime; },
+        getGameEndTime: function() { return gameEndTime; },
+        getCurrentMonster: function() { return currentMonster; },
+        getGAME_STATE: function() { return GAME_STATE; },
+        getScreenScale: function() { return getScreenScale(); },
+        getScreenWidth: function() { return screenWidth; },
+        getScreenHeight: function() { return screenHeight; },
+
+        // 控制
+        startGame: function() { if (startGame) startGame(); },
+        endGame: function() { if (endGame) endGame(); },
+        pauseGame: function() { if (pauseGame) pauseGame(); },
+        resumeGame: function() { if (resumeGame) resumeGame(); },
+        startSeasonGame: function() { if (startSeasonGame) startSeasonGame(); },
+        initSeasonContent: function() { if (initSeasonContent) initSeasonContent(); },
+        setSeasonSelection: function(val) { seasonSelection = val; },
+        getSeasonSelection: function() { return seasonSelection; },
+
+        // 系统
+        getStarSystem: function() { return starSystem; },
+        getBattleEngine: function() { return battleEngine; },
+        getNormalBattleAdapter: function() { return normalBattleAdapter; },
+        getBossBattleSystem: function() { return bossBattleSystem; },
+        getBossBattleMode: function() { return BossBattleMode; },
+        getTowerSystem: function() { return towerSystem; },
+        getComboSystem: function() { return comboSystem; },
+        getSkillSystem: function() { return skillSystem; },
+        getCharacterSystem: function() { return characterSystem; },
+        getGameStateMachine: function() { return stateMachine; },
+        getUpgradeEngine: function() { return upgradeEngine; },
+        getFusionEngine: function() { return fusionEngine; },
+
+        // UI编辑器
+        getUIConfig: function() { return uiConfig; },
+        getUIEditorSystem: function() { return uiEditorSystem; },
+
+        // 桥接变量（让 simulator 可以直接操作）
+        _executeDebugAction: function() { return executeDebugAction; }
+    };
+}
+

@@ -1,0 +1,30 @@
+# 游戏项目忽略文件
+node_modules/
+.DS_Store
+*.log
+
+# 开发者工具生成的文件
+miniprogram_npm/
+private/
+.sourcemap/
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.tmp
+*.temp
+
+# 构建输出（由构建工具自动生成）
+dist/
+
+# 备份文件
+*.backup_*
+
+# 系统文件
+Thumbs.db
+Desktop.ini

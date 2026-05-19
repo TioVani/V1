@@ -1,0 +1,29 @@
+{
+  "name": "qi-luo-shan-he",
+  "version": "1.0.0",
+  "description": "",
+  "main": "game.js",
+  "scripts": {
+    "convert": "node scripts/convert.js",
+    "convert:xls": "node scripts/convert.js --to-xls",
+    "build": "npm run convert && rollup -c",
+    "build:only": "rollup -c",
+    "build:prod": "NODE_ENV=production rollup -c",
+    "watch": "rollup -c -w",
+    "dev": "node scripts/ui-sync-server.js & rollup -c -w",
+    "test": "node --test tests/utils/*.test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@rollup/plugin-terser": "^1.0.0",
+    "miniprogram-automator": "^0.12.1",
+    "playwright": "^1.60.0",
+    "puppeteer-core": "^25.0.2",
+    "rollup": "^4.60.2",
+    "sharp": "^0.34.5",
+    "xlsx": "^0.18.5"
+  }
+}
