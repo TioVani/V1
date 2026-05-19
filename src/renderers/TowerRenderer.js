@@ -1,6 +1,7 @@
 /**
  * TowerRenderer — 无尽之塔渲染（主界面、隐藏之路弹窗、战斗渲染、结算、恢复提示）
  */
+import Logger from '../utils/Logger.js';
 import { createDelayedHpTracker } from '../utils/DelayedHpTracker.js';
 var _towerHpTracker = createDelayedHpTracker();
 function createTowerRenderer(deps) {
@@ -9,6 +10,7 @@ function createTowerRenderer(deps) {
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
     var uiCore = deps.uiCore;
+    var isBackButtonClicked = deps.isBackButtonClicked || (uiCore && uiCore.isBackButtonClicked);
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
@@ -20,6 +22,8 @@ function createTowerRenderer(deps) {
     var getGameState = deps.getGameState;
     var getCombatFeatures = deps.getCombatFeatures;
     var getCurrentCharacterConfig = deps.getCurrentCharacterConfig;
+    var transitionTo = deps.transitionTo;
+    var getAudioSystem = deps.getAudioSystem || function() { return null; };
     // 动画系统桥接函数
     var getUpdateCritAnimations = deps.getUpdateCritAnimations;
     var getDrawCritAnimations = deps.getDrawCritAnimations;
@@ -812,12 +816,237 @@ function createTowerRenderer(deps) {
         ctx.fillText('放弃进度将结算已收集的奖励', screenWidth / 2, giveUpBtnY + btnHeight + Math.floor(25 * scale));
     }
 
+    // ==================== 触摸处理 ====================
+
+    function handleTowerClick(x, y) {
+        Logger.info('handleTowerClick', x, y, getTowerSystem().grid.length);
+
+        var scale = getScreenScale();
+        var towerSystem = getTowerSystem();
+        var screenWidth = getScreenWidth();
+        var screenHeight = getScreenHeight();
+        var playerData = getPlayerData();
+        var GAME_STATE = getGameState();
+
+        // 隐藏之路弹窗处理（优先处理）
+        if (towerSystem.hiddenPathDialog) {
+            var boxWidth = Math.floor(320 * scale);
+            var boxHeight = Math.floor(280 * scale);
+            var boxX = (screenWidth - boxWidth) / 2;
+            var boxY = (screenHeight - boxHeight) / 2;
+
+            var options = towerSystem.hiddenPathDialog.options;
+            var optBtnWidth = Math.floor(90 * scale);
+            var optBtnHeight = Math.floor(50 * scale);
+            var optBtnY = boxY + Math.floor(120 * scale);
+            var optSpacing = Math.floor(15 * scale);
+            var totalOptWidth = options.length * optBtnWidth + (options.length - 1) * optSpacing;
+            var optStartX = (screenWidth - totalOptWidth) / 2;
+
+            for (var i = 0; i < options.length; i++) {
+                var btnX = optStartX + i * (optBtnWidth + optSpacing);
+                if (x >= btnX && x <= btnX + optBtnWidth &&
+                    y >= optBtnY && y <= optBtnY + optBtnHeight) {
+                    towerSystem.enterHiddenPath(options[i].targetFloor);
+                    towerSystem.hiddenPathDialog = null;
+                    return;
+                }
+            }
+
+            var waitBtnWidth = Math.floor(120 * scale);
+            var waitBtnHeight = Math.floor(40 * scale);
+            var waitBtnX = (screenWidth - waitBtnWidth) / 2;
+            var waitBtnY = boxY + boxHeight - Math.floor(55 * scale);
+
+            if (x >= waitBtnX && x <= waitBtnX + waitBtnWidth &&
+                y >= waitBtnY && y <= waitBtnY + waitBtnHeight) {
+                towerSystem.hiddenPathDialog = null;
+                return;
+            }
+            return;
+        }
+
+        // 如果在战斗中
+        if (towerSystem.inCombat) {
+            var btnWidth = Math.floor(120 * scale);
+            var btnHeight = Math.floor(45 * scale);
+            var btnY = (screenHeight - Math.floor(350 * scale)) / 2 + Math.floor(350 * scale) - Math.floor(100 * scale);
+
+            if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+                y >= btnY && y <= btnY + btnHeight) {
+                towerSystem.attackMonster();
+                return;
+            }
+
+            var fleeBtnY = btnY + btnHeight + Math.floor(15 * scale);
+            if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+                y >= fleeBtnY && y <= fleeBtnY + Math.floor(35 * scale)) {
+                towerSystem.playerHp -= Math.floor(towerSystem.playerMaxHp * 0.1);
+                towerSystem.inCombat = false;
+                towerSystem.combatMonster = null;
+                towerSystem.currentCell = null;
+
+                if (towerSystem.playerHp <= 0) {
+                    towerSystem.playerDeath();
+                }
+                return;
+            }
+            return;
+        }
+
+        if (isBackButtonClicked(x, y)) {
+            towerSystem.pauseTower();
+            return;
+        }
+
+        var mapTop = Math.floor(70 * scale);
+        var mapBottom = screenHeight - Math.floor(80 * scale);
+        var cellSize = Math.floor(30 * scale);
+        var mapLeft = Math.floor(20 * scale);
+
+        if (x >= mapLeft && x <= screenWidth - mapLeft && y >= mapTop && y <= mapBottom) {
+            var clickCellX = Math.floor((x - mapLeft - towerSystem.viewOffsetX) / cellSize);
+            var clickCellY = Math.floor((y - mapTop - towerSystem.viewOffsetY) / cellSize);
+
+            var dx = clickCellX - towerSystem.playerX;
+            var dy = clickCellY - towerSystem.playerY;
+
+            if (Math.abs(dx) + Math.abs(dy) === 1) {
+                towerSystem.movePlayer(dx, dy);
+                return;
+            }
+        }
+    }
+
+    function handleTowerTouchEnd(x, y) {
+        var towerSystem = getTowerSystem();
+        var audioSystem = getAudioSystem();
+
+        if (isBackButtonClicked(x, y)) {
+            towerSystem.touchStartX = 0;
+            towerSystem.touchStartY = 0;
+            if (audioSystem) audioSystem.playTowerExit();
+            towerSystem.pauseTower();
+            return;
+        }
+
+        if (towerSystem.touchStartX === 0 && towerSystem.touchStartY === 0) {
+            return;
+        }
+
+        towerSystem.touchStartX = 0;
+        towerSystem.touchStartY = 0;
+
+        handleTowerClick(x, y);
+    }
+
+    function handleTowerTouchMove(x, y) {
+        var towerSystem = getTowerSystem();
+        if (towerSystem.inCombat) return;
+
+        if (towerSystem.touchStartX > 0 && towerSystem.touchStartY > 0) {
+            var dx = x - towerSystem.touchStartX;
+            var dy = y - towerSystem.touchStartY;
+            var threshold = 30;
+
+            if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    towerSystem.movePlayer(dx > 0 ? 1 : -1, 0);
+                } else {
+                    towerSystem.movePlayer(0, dy > 0 ? 1 : -1);
+                }
+                towerSystem.isDragging = true;
+                towerSystem.touchStartX = 0;
+                towerSystem.touchStartY = 0;
+            }
+        }
+    }
+
+    function handleTowerResultTouch(x, y) {
+        var towerSystem = getTowerSystem();
+        var audioSystem = getAudioSystem();
+        var GAME_STATE = getGameState();
+
+        if (towerSystem.resultEndTime > 0) {
+            var timeSinceEnd = Date.now() - towerSystem.resultEndTime;
+            if (timeSinceEnd < 1500) {
+                return false;
+            }
+        }
+
+        var scale = getScreenScale();
+        var screenWidth = getScreenWidth();
+        var btnWidth = Math.floor(200 * scale);
+        var btnHeight = Math.floor(50 * scale);
+        var panelHeight = Math.floor(300 * scale);
+        var panelY = Math.floor(120 * scale);
+        var btnY = panelY + panelHeight + Math.floor(30 * scale);
+
+        var restartBtnY = btnY;
+        if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+            y >= restartBtnY && y <= restartBtnY + btnHeight) {
+            towerSystem.restartTower();
+            return true;
+        }
+
+        var exitBtnY = restartBtnY + btnHeight + Math.floor(15 * scale);
+        if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+            y >= exitBtnY && y <= exitBtnY + btnHeight) {
+            towerSystem.resultData = null;
+            if (audioSystem) audioSystem.playTowerExit();
+            transitionTo(GAME_STATE.MENU);
+            return true;
+        }
+
+        return false;
+    }
+
+    function handleTowerResumeTouch(x, y) {
+        var towerSystem = getTowerSystem();
+        var playerData = getPlayerData();
+        var audioSystem = getAudioSystem();
+        var GAME_STATE = getGameState();
+
+        var scale = getScreenScale();
+        var screenWidth = getScreenWidth();
+        var btnWidth = Math.floor(200 * scale);
+        var btnHeight = Math.floor(50 * scale);
+        var panelHeight = Math.floor(180 * scale);
+        var panelY = Math.floor(160 * scale);
+        var btnY = panelY + panelHeight + Math.floor(30 * scale);
+
+        if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+            y >= btnY && y <= btnY + btnHeight) {
+            towerSystem.init();
+            transitionTo(GAME_STATE.TOWER);
+            return true;
+        }
+
+        var giveUpBtnY = btnY + btnHeight + Math.floor(15 * scale);
+        if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
+            y >= giveUpBtnY && y <= giveUpBtnY + btnHeight) {
+            if (audioSystem) audioSystem.playTowerExit();
+            towerSystem.currentFloor = playerData.infiniteTower.currentFloor || 1;
+            towerSystem.collectedRewards = JSON.parse(JSON.stringify(playerData.infiniteTower.collectedRewards || []));
+            towerSystem.playerMaxHp = playerData.infiniteTower.maxHp || 100;
+            towerSystem.giveUp();
+            return true;
+        }
+
+        return false;
+    }
+
     return {
         renderTower: renderTower,
         renderHiddenPathDialog: renderHiddenPathDialog,
         renderBattle: renderBattle,
         renderTowerResult: renderTowerResult,
-        renderTowerResume: renderTowerResume
+        renderTowerResume: renderTowerResume,
+        handleTowerClick: handleTowerClick,
+        handleTowerTouchEnd: handleTowerTouchEnd,
+        handleTowerTouchMove: handleTowerTouchMove,
+        handleTowerResultTouch: handleTowerResultTouch,
+        handleTowerResumeTouch: handleTowerResumeTouch
     };
 }
 

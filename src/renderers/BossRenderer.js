@@ -17,6 +17,11 @@ function createBossRenderer(deps) {
     var getBossBattleMode = deps.getBossBattleMode;
     var getMaterials = deps.getMaterials;
     var getSkills = deps.getSkills;
+    var isBackButtonClicked = deps.isBackButtonClicked || (uiCore && uiCore.isBackButtonClicked);
+    var transitionTo = deps.transitionTo;
+    var GAME_STATE = deps.GAME_STATE;
+    var getBossSelectIsDragging = deps.getBossSelectIsDragging || function() { return false; };
+    var setBossSelectScrollY = deps.setBossSelectScrollY || function() {};
 
     function renderBossBattleResult() {
         var ctx = getCtx();
@@ -244,6 +249,81 @@ function createBossRenderer(deps) {
         uiCore.drawBackButton();
     }
 
-    return { renderBossBattleResult, renderBossSelect };
+    // ==================== 触摸处理 ====================
+
+    function handleBossBattleResultTouch(x, y) {
+        var scale = getScreenScale();
+        var panelWidth = Math.floor(320 * scale);
+        var panelHeight = Math.floor(450 * scale);
+        var panelX = (getScreenWidth() - panelWidth) / 2;
+        var panelY = (getScreenHeight() - panelHeight) / 2;
+
+        var btnWidth = Math.floor(140 * scale);
+        var btnHeight = Math.floor(45 * scale);
+        var btnY = panelY + panelHeight - Math.floor(70 * scale);
+
+        if (isBackButtonClicked(x, y)) {
+            var bbm = getBossBattleMode();
+            bbm.cleanup();
+            transitionTo(GAME_STATE.MENU);
+            return true;
+        }
+
+        if (x >= getScreenWidth()/2 - btnWidth/2 && x <= getScreenWidth()/2 + btnWidth/2 &&
+            y >= btnY && y <= btnY + btnHeight) {
+            var bbm2 = getBossBattleMode();
+            bbm2.cleanup();
+            bbm2.init(bbm2.bossLevel);
+            bbm2.start();
+            return true;
+        }
+
+        return false;
+    }
+
+    function handleBossSelectTouch(x, y) {
+        if (getBossSelectIsDragging()) {
+            return false;
+        }
+
+        var scale = getScreenScale();
+
+        if (isBackButtonClicked(x, y)) {
+            setBossSelectScrollY(0);
+            transitionTo(GAME_STATE.MENU);
+            return true;
+        }
+
+        var bbm = getBossBattleMode();
+        var startY = Math.floor(85 * scale) - bbm.bossSelectScrollY;
+        var itemHeight = Math.floor(100 * scale);
+        var itemWidth = getScreenWidth() - Math.floor(40 * scale);
+        var itemX = Math.floor(20 * scale);
+        var itemGap = Math.floor(10 * scale);
+
+        for (var i = 0; i < BOSS_LIST.length; i++) {
+            var itemY = startY + i * (itemHeight + itemGap);
+            var btnW = Math.floor(70 * scale);
+            var btnH = Math.floor(35 * scale);
+            var btnX = itemX + itemWidth - btnW - Math.floor(15 * scale);
+            var btnY = itemY + (itemHeight - btnH) / 2;
+
+            if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
+                var boss = BOSS_LIST[i];
+                bbm.init(boss.level);
+                bbm.start();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    return {
+        renderBossBattleResult: renderBossBattleResult,
+        renderBossSelect: renderBossSelect,
+        handleBossBattleResultTouch: handleBossBattleResultTouch,
+        handleBossSelectTouch: handleBossSelectTouch
+    };
 }
 export { createBossRenderer };

@@ -7,7 +7,7 @@ function createSeasonRenderer(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
-    var uiCore = deps.uiCore;  // has drawText, drawButton, drawBackButton
+    var uiCore = deps.uiCore;
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
@@ -16,6 +16,7 @@ function createSeasonRenderer(deps) {
     var getPets = deps.getPets;
     var getSeasonContent = deps.getSeasonContent;
     var getSeasonSelection = deps.getSeasonSelection;
+    var setSeasonSelection = deps.setSeasonSelection;
     var getUiScrollState = deps.getUiScrollState;
     var getSeasonBestScore = deps.getSeasonBestScore;
     var getSeasonRank = deps.getSeasonRank;
@@ -24,6 +25,8 @@ function createSeasonRenderer(deps) {
     var getMAX_CHARACTER_LEVEL = deps.getMAX_CHARACTER_LEVEL;
     var getCharacterStatsAtLevel = deps.getCharacterStatsAtLevel;
     var initSeasonContent = deps.initSeasonContent;
+    var getPlayerData = deps.getPlayerData;
+    var getLog = deps.getLog || function() {};
 
     // shorthand for uiCore methods
     var drawText = uiCore.drawText;
@@ -592,10 +595,72 @@ function createSeasonRenderer(deps) {
         drawBackButton();
     }
 
+    // ==================== 赛季记忆恢复 & 滚动限制 ====================
+
+    function restoreSeasonSelection() {
+        var _log = getLog();
+        _log('[赛季记忆] restoreSeasonSelection called');
+        var seasonContent = getSeasonContent();
+        var playerData = getPlayerData();
+        if (!seasonContent || !playerData || !playerData.seasonData || !playerData.seasonData.selection) {
+            _log('[赛季记忆] 条件不满足，跳过恢复');
+            return;
+        }
+        var saved = playerData.seasonData.selection;
+        if (!saved || (!saved.character && (!saved.skills || saved.skills.length === 0) && !saved.pet && (!saved.starTypes || saved.starTypes.length === 0))) {
+            _log('[赛季记忆] saved为空，跳过恢复');
+            return;
+        }
+        var restored = { character: null, skills: [], pet: null, starTypes: [] };
+        if (saved.character && seasonContent.character === saved.character) {
+            restored.character = saved.character;
+        }
+        if (saved.skills && Array.isArray(saved.skills)) {
+            for (var i = 0; i < saved.skills.length; i++) {
+                if (seasonContent.skills && seasonContent.skills.indexOf(saved.skills[i]) !== -1 && restored.skills.length < 2) {
+                    restored.skills.push(saved.skills[i]);
+                }
+            }
+        }
+        if (saved.pet && seasonContent.pets && seasonContent.pets.indexOf(saved.pet) !== -1) {
+            restored.pet = saved.pet;
+        }
+        if (saved.starTypes && Array.isArray(saved.starTypes)) {
+            for (var j = 0; j < saved.starTypes.length; j++) {
+                if (seasonContent.starTypes && seasonContent.starTypes.indexOf(saved.starTypes[j]) !== -1 && restored.starTypes.length < 3) {
+                    restored.starTypes.push(saved.starTypes[j]);
+                }
+            }
+        }
+        if (setSeasonSelection) {
+            setSeasonSelection(restored);
+        }
+        _log('恢复上次赛季选择:', JSON.stringify(restored));
+    }
+
+    function clampSeasonSelectScroll() {
+        var scale = getScreenScale();
+        var screenHeight = getScreenHeight();
+        var uiScrollState = getUiScrollState();
+        var roleHeight = Math.floor(100 * scale);
+        var skillsHeight = Math.floor(190 * scale);
+        var petsHeight = Math.floor(190 * scale);
+        var starsHeight = Math.floor(275 * scale);
+        var totalHeight = roleHeight + skillsHeight + petsHeight + starsHeight;
+        var startY = Math.floor(80 * scale);
+        var bottomBtnHeight = Math.floor(80 * scale);
+        var visibleHeight = screenHeight - startY - bottomBtnHeight;
+        var maxScroll = Math.max(0, totalHeight - visibleHeight + Math.floor(50 * scale));
+        if (uiScrollState.seasonSelectScrollY < 0) uiScrollState.seasonSelectScrollY = 0;
+        if (uiScrollState.seasonSelectScrollY > maxScroll) uiScrollState.seasonSelectScrollY = maxScroll;
+    }
+
     return {
         renderSeasonMenu: renderSeasonMenu,
         renderSeasonSelect: renderSeasonSelect,
-        renderSeasonLeaderboard: renderSeasonLeaderboard
+        renderSeasonLeaderboard: renderSeasonLeaderboard,
+        restoreSeasonSelection: restoreSeasonSelection,
+        clampSeasonSelectScroll: clampSeasonSelectScroll
     };
 }
 

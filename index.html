@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>器落山河</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: #0a0a15;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #game-container {
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #game-canvas {
+            display: block;
+            image-rendering: auto;
+        }
+        #wx-toast {
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- 基础全局变量 -->
+    <script>
+        var __wxConfig = { envVersion: 'develop' };
+    </script>
+
+    <!-- 游戏模块 (IIFE 打包 → window.GameModules) -->
+    <script src="dist/game-modules.js"></script>
+
+    <!-- 微信 API 浏览器适配 -->
+    <script src="browser/wx-polyfill.js"></script>
+
+    <script>
+        // require() 适配 — game.js 用 require('./dist/game-modules.js') 加载模块
+        var _requireCache = {
+            './dist/game-modules.js': window.GameModules
+        };
+        function require(path) {
+            if (_requireCache[path]) return _requireCache[path];
+            console.warn('[require] 未知模块:', path);
+            return {};
+        }
+    </script>
+
+    <!-- Canvas 预初始化：必须在 game.js init() 之前设置好尺寸 -->
+    <script>
+        function resizeCanvas() {
+            var canvas = document.getElementById('game-canvas');
+            var container = document.getElementById('game-container');
+            var maxW = container.clientWidth;
+            var maxH = container.clientHeight;
+            var baseW = 375;
+            var scale = Math.min(maxW / baseW, maxH / 667);
+            scale = Math.max(0.7, Math.min(1.5, scale));
+            canvas.style.width = Math.floor(baseW * scale) + 'px';
+            canvas.style.height = Math.floor(maxH) + 'px';
+            canvas.width = Math.floor(baseW * scale) * (window.devicePixelRatio || 1);
+            canvas.height = Math.floor(maxH) * (window.devicePixelRatio || 1);
+            var ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.setTransform(
+                    (window.devicePixelRatio || 1), 0,
+                    0, (window.devicePixelRatio || 1),
+                    0, 0
+                );
+            }
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+
+    <!-- 主游戏逻辑 -->
+    <script src="game.js"></script>
+</body>
+</html>

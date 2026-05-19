@@ -290,3 +290,8 @@ var GameModules = {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = GameModules;
 }
+
+// 浏览器环境 - 全局挂载
+if (typeof window !== 'undefined') {
+    window.GameModules = GameModules;
+}

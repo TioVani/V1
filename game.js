@@ -741,50 +741,6 @@ let seasonScore = 0;
 let seasonBestScore = 0;
 let seasonLeaderboard = [];
 
-// 赛季选择记忆：从上次保存的方案中恢复选择，验证选项在当前赛季池中有效
-function restoreSeasonSelection() {
-    _log('[赛季记忆] restoreSeasonSelection called');
-    _log('[赛季记忆] seasonContent:', seasonContent ? 'exists' : 'null');
-    _log('[赛季记忆] playerData:', playerData ? 'exists' : 'null');
-    _log('[赛季记忆] seasonData:', playerData && playerData.seasonData ? 'exists' : 'null');
-    _log('[赛季记忆] selection:', playerData && playerData.seasonData && playerData.seasonData.selection ? JSON.stringify(playerData.seasonData.selection) : 'null');
-    if (!seasonContent || !playerData || !playerData.seasonData || !playerData.seasonData.selection) {
-        _log('[赛季记忆] 条件不满足，跳过恢复');
-        return;
-    }
-    const saved = playerData.seasonData.selection;
-    if (!saved || (!saved.character && (!saved.skills || saved.skills.length === 0) && !saved.pet && (!saved.starTypes || saved.starTypes.length === 0))) {
-        _log('[赛季记忆] saved为空，跳过恢复');
-        return;
-    }
-    // 验证并恢复角色
-    let restored = { character: null, skills: [], pet: null, starTypes: [] };
-    if (saved.character && seasonContent.character === saved.character) {
-        restored.character = saved.character;
-    }
-    // 验证并恢复技能（只保留当前池中存在的）
-    if (saved.skills && Array.isArray(saved.skills)) {
-        for (let i = 0; i < saved.skills.length; i++) {
-            if (seasonContent.skills && seasonContent.skills.indexOf(saved.skills[i]) !== -1 && restored.skills.length < 2) {
-                restored.skills.push(saved.skills[i]);
-            }
-        }
-    }
-    // 验证并恢复宠物
-    if (saved.pet && seasonContent.pets && seasonContent.pets.indexOf(saved.pet) !== -1) {
-        restored.pet = saved.pet;
-    }
-    // 验证并恢复灵韵类型（只保留当前池中存在的）
-    if (saved.starTypes && Array.isArray(saved.starTypes)) {
-        for (let i = 0; i < saved.starTypes.length; i++) {
-            if (seasonContent.starTypes && seasonContent.starTypes.indexOf(saved.starTypes[i]) !== -1 && restored.starTypes.length < 3) {
-                restored.starTypes.push(saved.starTypes[i]);
-            }
-        }
-    }
-    seasonSelection = restored;
-    _log('恢复上次赛季选择:', JSON.stringify(restored));
-}
 
 
 // 当前激活的增益效果（单局生效）
@@ -2035,6 +1991,7 @@ function init() {
             getPets: function() { return Pets; },
             getSeasonContent: function() { return seasonContent; },
             getSeasonSelection: function() { return seasonSelection; },
+            setSeasonSelection: function(v) { seasonSelection = v; },
             getUiScrollState: function() { return uiScrollState; },
             getSeasonBestScore: function() { return seasonBestScore; },
             getSeasonRank: function() { return getSeasonRank(); },
@@ -2042,7 +1999,9 @@ function init() {
             getSEASON_STAR_TYPES: function() { return SEASON_STAR_TYPES; },
             getMAX_CHARACTER_LEVEL: function() { return MAX_CHARACTER_LEVEL; },
             getCharacterStatsAtLevel: function(cid, lv) { return getCharacterStatsAtLevel(cid, lv); },
-            initSeasonContent: function() { initSeasonContent(); }
+            initSeasonContent: function() { initSeasonContent(); },
+            getPlayerData: function() { return playerData; },
+            getLog: function() { return _log; }
         });
         renderSeasonMenu = function() { seasonRenderer.renderSeasonMenu(); };
         renderSeasonSelect = function() { seasonRenderer.renderSeasonSelect(); };
@@ -2406,6 +2365,9 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             uiCore: uiCoreRenderer,
+            isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
+            transitionTo: function(s) { stateMachine.transitionTo(s); },
+            GAME_STATE: GAME_STATE,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getPlayerData: function() { return playerData; },
@@ -2416,7 +2378,9 @@ function init() {
             BOSS_LIST: BOSS_LIST,
             getBossBattleMode: function() { return BossBattleMode; },
             getMaterials: function() { return Materials; },
-            getSkills: function() { return Skills; }
+            getSkills: function() { return Skills; },
+            getBossSelectIsDragging: function() { return bossSelectIsDragging; },
+            setBossSelectScrollY: function(v) { bossSelectScrollY = v; }
         });
         renderBossBattleResult = function() { bossRenderer.renderBossBattleResult(); };
         renderBossSelect = function() { bossRenderer.renderBossSelect(); };
@@ -2427,6 +2391,9 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             uiCore: uiCoreRenderer,
+            isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
+            transitionTo: function(s) { stateMachine.transitionTo(s); },
+            getAudioSystem: function() { return audioSystem; },
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
@@ -4327,7 +4294,7 @@ function handleTouchStart(res) {
             _log('点击开始赛季按钮');
             stateMachine.transitionTo(GAME_STATE.SEASON_SELECT);
             // 恢复上次选择的入局方案
-            restoreSeasonSelection();
+            seasonRenderer.restoreSeasonSelection();
             return;
         }
         
@@ -4352,29 +4319,29 @@ function handleTouchStart(res) {
         }
     } else if (state === GAME_STATE.SQUAD) {
         // ===== 编队系统点击处理 =====
-        handleSquadClick(x, y);
+        squadRenderer.handleClick(x, y);
         return;
     } else if (state === GAME_STATE.BOSS_BATTLE) {
         // Boss战走共享触摸路径（不再提前return）
     } else if (state === GAME_STATE.BOSS_BATTLE_RESULT) {
         // ===== Boss战结算点击处理 =====
-        handleBossBattleResultTouch(x, y);
+        bossRenderer.handleBossBattleResultTouch(x, y);
         return;
     } else if (state === GAME_STATE.BOSS_SELECT) {
         // ===== Boss选择点击处理 =====
-        handleBossSelectTouch(x, y);
+        bossRenderer.handleBossSelectTouch(x, y);
         return;
     } else if (state === GAME_STATE.TOWER) {
         // ===== 爬塔模式点击处理 =====
-        handleTowerTouchEnd(x, y);
+        towerRenderer.handleTowerTouchEnd(x, y);
         return;
     } else if (state === GAME_STATE.TOWER_RESULT) {
         // ===== 爬塔结算界面点击处理 =====
-        handleTowerResultTouch(x, y);
+        towerRenderer.handleTowerResultTouch(x, y);
         return;
     } else if (state === GAME_STATE.TOWER_RESUME) {
         // ===== 爬塔继续/放弃选择界面点击处理 =====
-        handleTowerResumeTouch(x, y);
+        towerRenderer.handleTowerResumeTouch(x, y);
         return;
     } else if (state === GAME_STATE.SEASON_SELECT) {
         // ===== 赛季选择界面点击处理 =====
@@ -5071,7 +5038,7 @@ function handleTouchMove(res) {
             }
 
             // 实时限制滚动范围
-            clampSeasonSelectScroll();
+            seasonRenderer.clampSeasonSelectScroll();
         }
         
         uiScrollState.seasonSelectLastTouchY = currentY;
@@ -5102,7 +5069,7 @@ function handleTouchMove(res) {
         if (touches.length === 0) return;
         
         var touch = touches[0];
-        handleTowerTouchMove(touch.clientX, touch.clientY);
+        towerRenderer.handleTowerTouchMove(touch.clientX, touch.clientY);
     }
 }
 
@@ -5175,30 +5142,30 @@ function handleTouchEnd(res) {
     if (state === GAME_STATE.TOWER) {
         var endTouch = res.changedTouches && res.changedTouches[0];
         if (endTouch) {
-            handleTowerTouchEnd(endTouch.clientX, endTouch.clientY);
+            towerRenderer.handleTowerTouchEnd(endTouch.clientX, endTouch.clientY);
         }
         return;
     }
-    
+
     // ===== 抽卡动画状态触摸处理 =====
     if (state === GAME_STATE.GACHA_ANIMATION) {
         return;
     }
-    
+
     // ===== 爬塔结算界面触摸处理 =====
     if (state === GAME_STATE.TOWER_RESULT) {
         var endTouch = res.changedTouches && res.changedTouches[0];
         if (endTouch) {
-            handleTowerResultTouch(endTouch.clientX, endTouch.clientY);
+            towerRenderer.handleTowerResultTouch(endTouch.clientX, endTouch.clientY);
         }
         return;
     }
-    
+
     // ===== 爬塔继续/放弃选择界面触摸处理 =====
     if (state === GAME_STATE.TOWER_RESUME) {
         var endTouch = res.changedTouches && res.changedTouches[0];
         if (endTouch) {
-            handleTowerResumeTouch(endTouch.clientX, endTouch.clientY);
+            towerRenderer.handleTowerResumeTouch(endTouch.clientX, endTouch.clientY);
         }
         return;
     }
@@ -5702,29 +5669,10 @@ function handleTouchEnd(res) {
         uiScrollState.seasonSelectLastTouchY = 0;
         uiScrollState.seasonSelectIsDragging = false;
 
-        clampSeasonSelectScroll();
+        seasonRenderer.clampSeasonSelectScroll();
     }
 }
 
-function clampSeasonSelectScroll() {
-    var scale = getScreenScale();
-    var roleHeight = Math.floor(100 * scale);
-    var skillsHeight = Math.floor(190 * scale);
-    var petsHeight = Math.floor(190 * scale);
-    var starsHeight = Math.floor(275 * scale);
-    var totalHeight = roleHeight + skillsHeight + petsHeight + starsHeight;
-    var startY = Math.floor(80 * scale);
-    var bottomBtnHeight = Math.floor(80 * scale);
-    var visibleHeight = screenHeight - startY - bottomBtnHeight;
-    var maxScroll = Math.max(0, totalHeight - visibleHeight + Math.floor(50 * scale));
-    if (uiScrollState.seasonSelectScrollY < 0) uiScrollState.seasonSelectScrollY = 0;
-    if (uiScrollState.seasonSelectScrollY > maxScroll) uiScrollState.seasonSelectScrollY = maxScroll;
-}
-
-// 处理编队系统点击（委托给 SquadRenderer）
-function handleSquadClick(x, y) {
-    squadRenderer.handleClick(x, y);
-}
 
 // ==================== 编队系统 ====================
 
@@ -5766,35 +5714,6 @@ const BossBattleMode = {
 // 获取灵韵基础分数（辅助函数）
 
 
-function handleBossBattleResultTouch(x, y) {
-    var scale = getScreenScale();
-    var panelWidth = Math.floor(320 * scale);
-    var panelHeight = Math.floor(450 * scale);
-    var panelX = (screenWidth - panelWidth) / 2;
-    var panelY = (screenHeight - panelHeight) / 2;
-    
-    var btnWidth = Math.floor(140 * scale);
-    var btnHeight = Math.floor(45 * scale);
-    var btnY = panelY + panelHeight - Math.floor(70 * scale);
-    
-    // 返回按钮
-    if (isBackButtonClicked(x, y)) {
-        BossBattleMode.cleanup();
-        stateMachine.transitionTo(GAME_STATE.MENU);
-        return true;
-    }
-    
-    // 再战一次按钮
-    if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-        y >= btnY && y <= btnY + btnHeight) {
-        BossBattleMode.cleanup();
-        BossBattleMode.init(BossBattleMode.bossLevel);
-        BossBattleMode.start();
-        return true;
-    }
-    
-    return false;
-}
 
 // Boss选择界面滚动变量
 let bossSelectScrollY = 0;
@@ -5803,46 +5722,6 @@ let bossSelectIsDragging = false;
 
 // Boss选择界面渲染
 
-function handleBossSelectTouch(x, y) {
-    // 如果是拖拽状态，不响应点击
-    if (bossSelectIsDragging) {
-        bossSelectIsDragging = false;
-        return false;
-    }
-
-    var scale = getScreenScale();
-
-    // 返回按钮（左下角统一）
-    if (isBackButtonClicked(x, y)) {
-        bossSelectScrollY = 0; // 重置滚动
-        stateMachine.transitionTo(GAME_STATE.MENU);
-        return true;
-    }
-
-    // Boss列表点击（坐标与 renderBossSelect 对齐：listTop=85*scale）
-    var startY = Math.floor(85 * scale) - bossSelectScrollY;
-    var itemHeight = Math.floor(100 * scale);
-    var itemWidth = screenWidth - Math.floor(40 * scale);
-    var itemX = Math.floor(20 * scale);
-    var itemGap = Math.floor(10 * scale);
-
-    for (let i = 0; i < BOSS_LIST.length; i++) {
-        var itemY = startY + i * (itemHeight + itemGap);
-        var btnW = Math.floor(70 * scale);
-        var btnH = Math.floor(35 * scale);
-        var btnX = itemX + itemWidth - btnW - Math.floor(15 * scale);
-        var btnY = itemY + (itemHeight - btnH) / 2;
-
-        if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
-            var boss = BOSS_LIST[i];
-            BossBattleMode.init(boss.level);
-            BossBattleMode.start();
-            return true;
-        }
-    }
-
-    return false;
-}
 
 // 渲染爬塔界面
 
@@ -5854,265 +5733,8 @@ function handleBossSelectTouch(x, y) {
 // renderTowerCombat 已统一到 renderGame()
 
 // 爬塔点击处理
-function handleTowerClick(x, y) {
-    _log('handleTowerClick 触发, x:', x, 'y:', y, 'towerSystem.grid:', towerSystem.grid.length);
-    
-    const scale = getScreenScale();
-    
-    // 隐藏之路弹窗处理（优先处理）
-    if (towerSystem.hiddenPathDialog) {
-        const boxWidth = Math.floor(320 * scale);
-        const boxHeight = Math.floor(280 * scale);
-        const boxX = (screenWidth - boxWidth) / 2;
-        const boxY = (screenHeight - boxHeight) / 2;
-        
-        // 三个跳层选项按钮
-        const options = towerSystem.hiddenPathDialog.options;
-        const optBtnWidth = Math.floor(90 * scale);
-        const optBtnHeight = Math.floor(50 * scale);
-        const optBtnY = boxY + Math.floor(120 * scale);
-        const optSpacing = Math.floor(15 * scale);
-        const totalOptWidth = options.length * optBtnWidth + (options.length - 1) * optSpacing;
-        let optStartX = (screenWidth - totalOptWidth) / 2;
-        
-        // 检查是否点击了跳层选项
-        for (let i = 0; i < options.length; i++) {
-            const btnX = optStartX + i * (optBtnWidth + optSpacing);
-            if (x >= btnX && x <= btnX + optBtnWidth &&
-                y >= optBtnY && y <= optBtnY + optBtnHeight) {
-                _log('点击跳层选项:', options[i].skip, '目标层数:', options[i].targetFloor);
-                towerSystem.enterHiddenPath(options[i].targetFloor);
-                towerSystem.hiddenPathDialog = null;
-                return;
-            }
-        }
-        
-        // 离开按钮
-        const waitBtnWidth = Math.floor(120 * scale);
-        const waitBtnHeight = Math.floor(40 * scale);
-        const waitBtnX = (screenWidth - waitBtnWidth) / 2;
-        const waitBtnY = boxY + boxHeight - Math.floor(55 * scale);
-        
-        if (x >= waitBtnX && x <= waitBtnX + waitBtnWidth &&
-            y >= waitBtnY && y <= waitBtnY + waitBtnHeight) {
-            _log('点击离开隐藏之路');
-            towerSystem.hiddenPathDialog = null;
-            return;
-        }
-        
-        // 点击弹窗外不关闭（保持弹窗显示）
-        return;
-    }
-    
-    // 如果在战斗中
-    if (towerSystem.inCombat) {
-        _log('在战斗中');
-        // 攻击按钮
-        const btnWidth = Math.floor(120 * scale);
-        const btnHeight = Math.floor(45 * scale);
-        const btnY = (screenHeight - Math.floor(350 * scale)) / 2 + Math.floor(350 * scale) - Math.floor(100 * scale);
-        
-        if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
-            y >= btnY && y <= btnY + btnHeight) {
-            towerSystem.attackMonster();
-            return;
-        }
-        
-        // 逃跑按钮
-        const fleeBtnY = btnY + btnHeight + Math.floor(15 * scale);
-        if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
-            y >= fleeBtnY && y <= fleeBtnY + Math.floor(35 * scale)) {
-            // 逃跑：扣除一定血量
-            towerSystem.playerHp -= Math.floor(towerSystem.playerMaxHp * 0.1);
-            towerSystem.inCombat = false;
-            towerSystem.combatMonster = null;
-            towerSystem.currentCell = null;
-            
-            if (towerSystem.playerHp <= 0) {
-                towerSystem.playerDeath();
-            }
-            return;
-        }
-        return;
-    }
-    
-    // 返回按钮
-    if (isBackButtonClicked(x, y)) {
-        towerSystem.pauseTower(); // 改为暂停而非退出
-        return;
-    }
-    
-    // 点击地图格子移动
-    const mapTop = Math.floor(70 * scale);
-    const mapBottom = screenHeight - Math.floor(80 * scale);
-    const cellSize = Math.floor(30 * scale);
-    const mapLeft = Math.floor(20 * scale);
-    
-    _log('地图区域: mapTop=', mapTop, 'mapBottom=', mapBottom, 'cellSize=', cellSize);
-    
-    // 检查是否点击在地图区域内
-    if (x >= mapLeft && x <= screenWidth - mapLeft && y >= mapTop && y <= mapBottom) {
-        // 计算点击的格子坐标
-        const clickCellX = Math.floor((x - mapLeft - towerSystem.viewOffsetX) / cellSize);
-        const clickCellY = Math.floor((y - mapTop - towerSystem.viewOffsetY) / cellSize);
-        
-        _log('点击格子:', clickCellX, clickCellY, '玩家位置:', towerSystem.playerX, towerSystem.playerY, '偏移:', towerSystem.viewOffsetX, towerSystem.viewOffsetY);
-        
-        // 检查是否是相邻格子（上下左右）
-        const dx = clickCellX - towerSystem.playerX;
-        const dy = clickCellY - towerSystem.playerY;
-        
-        _log('距离: dx=', dx, 'dy=', dy, 'abs=', Math.abs(dx) + Math.abs(dy));
-        
-        if (Math.abs(dx) + Math.abs(dy) === 1) {
-            // 相邻格子，移动
-            _log('移动到相邻格子');
-            towerSystem.movePlayer(dx, dy);
-            return;
-        }
-    } else {
-        _log('点击不在地图区域内');
-    }
-    
-    // 检查当前格子是否是隐藏之路（现在通过对话框处理）
-    // 已由 showHiddenPathDialog 和对话框点击处理
-}
 
 // 爬塔触摸结束处理
-function handleTowerTouchEnd(x, y) {
-    // 返回按钮检测（优先处理，不受滑动状态影响）
-    if (isBackButtonClicked(x, y)) {
-        towerSystem.touchStartX = 0;
-        towerSystem.touchStartY = 0;
-        if (audioSystem) audioSystem.playTowerExit();
-        towerSystem.pauseTower(); // 改为暂停而非退出
-        return;
-    }
-    
-    // 如果触摸位置被重置（说明已经通过滑动处理了），不再处理
-    if (towerSystem.touchStartX === 0 && towerSystem.touchStartY === 0) {
-        return;
-    }
-    
-    // 重置触摸起始位置
-    towerSystem.touchStartX = 0;
-    towerSystem.touchStartY = 0;
-    
-    // 没有滑动，处理点击移动
-    handleTowerClick(x, y);
-}
-
-// 爬塔触摸移动处理
-function handleTowerTouchMove(x, y) {
-    if (towerSystem.inCombat) return;
-    
-    if (towerSystem.touchStartX > 0 && towerSystem.touchStartY > 0) {
-        const dx = x - towerSystem.touchStartX;
-        const dy = y - towerSystem.touchStartY;
-        
-        // 移动阈值
-        const threshold = 30;
-        
-        if (Math.abs(dx) > threshold || Math.abs(dy) > threshold) {
-            if (Math.abs(dx) > Math.abs(dy)) {
-                // 水平移动
-                towerSystem.movePlayer(dx > 0 ? 1 : -1, 0);
-            } else {
-                // 垂直移动
-                towerSystem.movePlayer(0, dy > 0 ? 1 : -1);
-            }
-            // 标记已经通过滑动处理了移动
-            towerSystem.isDragging = true;
-            towerSystem.touchStartX = 0;
-            towerSystem.touchStartY = 0;
-        }
-    }
-}
-
-// 渲染爬塔结算界面
-
-// 爬塔结算界面触摸处理
-function handleTowerResultTouch(x, y) {
-    _log('handleTowerResultTouch 触发, x:', x, 'y:', y);
-    
-    // 冷却期保护：结算界面显示1.5秒内禁止点击
-    if (towerSystem.resultEndTime > 0) {
-        const timeSinceEnd = Date.now() - towerSystem.resultEndTime;
-        if (timeSinceEnd < 1500) {
-            _log('结算界面冷却期中，忽略点击，剩余时间:', (1500 - timeSinceEnd), 'ms');
-            return false;
-        }
-    }
-    
-    const scale = getScreenScale();
-    const btnWidth = Math.floor(200 * scale);
-    const btnHeight = Math.floor(50 * scale);
-    const panelHeight = Math.floor(300 * scale);
-    const panelY = Math.floor(120 * scale);
-    const btnY = panelY + panelHeight + Math.floor(30 * scale);
-    
-    _log('btnWidth:', btnWidth, 'btnHeight:', btnHeight, 'btnY:', btnY);
-    
-    // 重新开始按钮
-    const restartBtnY = btnY;
-    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
-        y >= restartBtnY && y <= restartBtnY + btnHeight) {
-        _log('点击重新开始');
-        towerSystem.restartTower();
-        return true;
-    }
-    
-    // 退出无尽按钮
-    const exitBtnY = restartBtnY + btnHeight + Math.floor(15 * scale);
-    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
-        y >= exitBtnY && y <= exitBtnY + btnHeight) {
-        _log('点击退出无尽');
-        towerSystem.resultData = null;
-        if (audioSystem) audioSystem.playTowerExit();
-        stateMachine.transitionTo(GAME_STATE.MENU);
-        return true;
-    }
-    
-    return false;
-}
-
-// 渲染爬塔继续/放弃选择界面
-
-// 爬塔继续/放弃选择界面触摸处理
-function handleTowerResumeTouch(x, y) {
-    const scale = getScreenScale();
-    const btnWidth = Math.floor(200 * scale);
-    const btnHeight = Math.floor(50 * scale);
-    const panelHeight = Math.floor(180 * scale);
-    const panelY = Math.floor(160 * scale);
-    const btnY = panelY + panelHeight + Math.floor(30 * scale);
-    
-    // 继续挑战按钮
-    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
-        y >= btnY && y <= btnY + btnHeight) {
-        _log('选择继续挑战');
-        towerSystem.init(); // 恢复进度
-        stateMachine.transitionTo(GAME_STATE.TOWER);
-        return true;
-    }
-    
-    // 放弃进度按钮
-    const giveUpBtnY = btnY + btnHeight + Math.floor(15 * scale);
-    if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
-        y >= giveUpBtnY && y <= giveUpBtnY + btnHeight) {
-        _log('选择放弃进度');
-        if (audioSystem) audioSystem.playTowerExit();
-        // 先恢复数据以便结算
-        towerSystem.currentFloor = playerData.infiniteTower.currentFloor || 1;
-        towerSystem.collectedRewards = JSON.parse(JSON.stringify(playerData.infiniteTower.collectedRewards || []));
-        towerSystem.playerMaxHp = playerData.infiniteTower.maxHp || 100;
-        // 放弃并结算
-        towerSystem.giveUp();
-        return true;
-    }
-
-    return false;
-}
 
 // Simulator 环境条件导出（Node.js only，浏览器环境无 module 对象）
 if (typeof module !== 'undefined' && module.exports) {
