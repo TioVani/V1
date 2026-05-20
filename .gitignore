@@ -5,10 +5,27 @@ node_modules/
 
 # 构建输出（由构建工具自动生成）
 dist/
+game.js
 
 # 备份文件
 *.backup_*
+*副本*
+* - 副本.*
 
 # 系统文件
 Thumbs.db
 Desktop.ini
+
+# AI 工具本地配置
+.iflow/
+.claude/
+.workbuddy/
+skill-creator-workspace/
+skills-lock.json
+code.fortify.config.json
+
+# 测试截图
+browser/test_*.png
+
+# 异常目录
+E:AIGameV1browser/
