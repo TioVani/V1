@@ -54,8 +54,8 @@ function createCharacterSystem(deps) {
     }
 
     function getExpForLevel(level) {
-        // 经验公式：100 * level
-        return 100 * level;
+        // 经验公式：100 + level × 50
+        return 100 + level * 50;
     }
 
     function addCharacterExperience(charId, exp) {

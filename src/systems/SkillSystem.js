@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { getSkillAttackRatio } from '../config/SkillConfig.js';
 /**
  * 技能系统（Skill System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -83,11 +84,13 @@ function createSkillSystem(deps) {
                 // 对所有怪物造成伤害
                 for (let mi = 0; mi < activeMonsters.length; mi++) {
                     var m = activeMonsters[mi];
-                    var damage = skill.damage;
 
                     // 暴击判定
                     var currentCharId = playerData.currentCharacterId;
                     var charStats = currentCharId ? getCharacterFullStats(currentCharId) : null;
+                    var attackRatio = getSkillAttackRatio(skill.rarity);
+                    var baseAtk = (charStats && charStats.attack) ? charStats.attack : 10;
+                    var damage = Math.floor(baseAtk * attackRatio);
                     var totalCritRate = (charStats ? charStats.critRate : 0) + (playerData.extraCritRate || 0);
                     var isCritical = Math.random() * 100 < totalCritRate;
 

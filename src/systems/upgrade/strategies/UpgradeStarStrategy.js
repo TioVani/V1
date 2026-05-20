@@ -147,6 +147,16 @@ function createUpgradeStarStrategy(deps) {
         }
     }
 
+    function refundStarMaterials(materials, playerData) {
+        var uid = _lastStarUid;
+        var map = STAR_FIELD_MAP[uid];
+        if (!map) return;
+        var refundQty = Math.floor(materials.length * 5);
+        if (refundQty > 0 && playerData.materials && playerData.materials[map.material]) {
+            playerData.materials[map.material].quantity = (playerData.materials[map.material].quantity || 0) + refundQty;
+        }
+    }
+
     return {
         type: type,
         resolveEntity: resolveEntity,
@@ -159,7 +169,8 @@ function createUpgradeStarStrategy(deps) {
         getMaxLevel: getMaxLevel,
         getAvailableEntities: getAvailableEntities,
         getStarMaterials: getStarMaterials,
-        consumeStarMaterials: consumeStarMaterials
+        consumeStarMaterials: consumeStarMaterials,
+        refundStarMaterials: refundStarMaterials
     };
 }
 

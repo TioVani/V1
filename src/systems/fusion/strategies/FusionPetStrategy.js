@@ -53,7 +53,7 @@ function createFusionPetStrategy(deps) {
     }
 
     function produce(materials, layer, greatSuccess) {
-        var newRarity = getNextRarity(materials[0].rarity);
+        var newRarity = getNextRarity(materials[0].rarity, layer);
         var evoType = _determineEvolution(materials);
         var stats = _calcStats(materials, layer);
         var resultId = 'fusion_pet_' + Date.now() + '_' + Math.floor(Math.random() * 10000);

@@ -140,6 +140,14 @@ function createUpgradeCharacterStrategy(deps) {
         }
     }
 
+    function refundStarMaterials(materials, playerData) {
+        var owned = playerData.ownedCharacters || [];
+        for (var i = 0; i < materials.length; i++) {
+            var uid = materials[i].uid || materials[i];
+            owned.push(uid);
+        }
+    }
+
     return {
         type: type,
         resolveEntity: resolveEntity,
@@ -152,7 +160,8 @@ function createUpgradeCharacterStrategy(deps) {
         getMaxLevel: getMaxLevel,
         getAvailableEntities: getAvailableEntities,
         getStarMaterials: getStarMaterials,
-        consumeStarMaterials: consumeStarMaterials
+        consumeStarMaterials: consumeStarMaterials,
+        refundStarMaterials: refundStarMaterials
     };
 }
 

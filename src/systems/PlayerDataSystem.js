@@ -157,7 +157,7 @@ function createPlayerDataSystem(deps) {
         afkData: {
             lastClaimTime: 0,
             maxOfflineHours: 8,
-            baseGoldPerMinute: 2,
+            baseGoldPerMinute: 10,
             baseExpPerMinute: 2,
             accumulatedRewards: { gold: 0, exp: 0, materials: {}, equipments: [] },
             accumulatedHours: 0

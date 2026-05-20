@@ -9,9 +9,10 @@
 
 // ==================== 基础配置 ====================
 
-var _isMocked = true;
+var _isMocked = typeof document === 'undefined';
 
 function getCanvas() {
+    if (typeof document === 'undefined') return null;
     return document.getElementById('game-canvas');
 }
 
@@ -146,13 +147,15 @@ function _bindTouchEvents() {
 }
 
 // 页面可见性
-document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-        _hideHandlers.forEach(function(fn) { fn(); });
-    } else {
-        _showHandlers.forEach(function(fn) { fn(); });
-    }
-});
+if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            _hideHandlers.forEach(function(fn) { fn(); });
+        } else {
+            _showHandlers.forEach(function(fn) { fn(); });
+        }
+    });
+}
 
 // ==================== 存储 ====================
 
@@ -298,6 +301,8 @@ export function request(opts) {
 
 // ==================== 初始化 ====================
 
-_bindTouchEvents();
+if (typeof document !== 'undefined') {
+    _bindTouchEvents();
+}
 
 console.log('[BrowserAPI] 浏览器平台 API 已就绪');

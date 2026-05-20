@@ -157,6 +157,20 @@ function createUpgradeSkillStrategy(deps) {
         }
     }
 
+    function refundStarMaterials(materials, playerData) {
+        if (!playerData.skills) playerData.skills = { owned: [], equipped: [] };
+        if (!playerData.skills.owned) playerData.skills.owned = [];
+        for (var i = 0; i < materials.length; i++) {
+            var m = materials[i];
+            playerData.skills.owned.push({
+                uid: m.uid,
+                id: m.id,
+                level: m.level || 1,
+                rarity: m.rarity || ''
+            });
+        }
+    }
+
     return {
         type: type,
         resolveEntity: resolveEntity,
@@ -169,7 +183,8 @@ function createUpgradeSkillStrategy(deps) {
         getMaxLevel: getMaxLevel,
         getAvailableEntities: getAvailableEntities,
         getStarMaterials: getStarMaterials,
-        consumeStarMaterials: consumeStarMaterials
+        consumeStarMaterials: consumeStarMaterials,
+        refundStarMaterials: refundStarMaterials
     };
 }
 

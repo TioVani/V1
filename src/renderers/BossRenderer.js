@@ -74,7 +74,7 @@ function createBossRenderer(deps) {
 
         ctx.fillText(`灵辉值: ${result.score}`, panelX + Math.floor(30 * scale), lineY);
         lineY += Math.floor(30 * scale);
-        ctx.fillText(`最高连击: ${result.maxCombo}`, panelX + Math.floor(30 * scale), lineY);
+        ctx.fillText(`最高连灵: ${result.maxCombo}`, panelX + Math.floor(30 * scale), lineY);
         lineY += Math.floor(30 * scale);
         ctx.fillText(`剩余时间: ${result.time}s`, panelX + Math.floor(30 * scale), lineY);
 

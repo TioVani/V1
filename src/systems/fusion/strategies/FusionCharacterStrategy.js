@@ -81,7 +81,7 @@ function createFusionCharacterStrategy(deps) {
     }
 
     function produce(materials, layer, greatSuccess) {
-        var newRarity = getNextRarity(materials[0].rarity);
+        var newRarity = getNextRarity(materials[0].rarity, layer);
         var mainEl = _getMainElement(materials);
         var stats = _calcStats(materials, mainEl, layer);
         var resultId = 'fusion_char_' + Date.now() + '_' + Math.floor(Math.random() * 10000);

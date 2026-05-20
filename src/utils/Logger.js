@@ -3,7 +3,7 @@
  * 生产环境自动静默，仅保留 error 输出
  */
 
-const isDev = true;
+const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : true;
 
 class Logger {
   static info(...args) {

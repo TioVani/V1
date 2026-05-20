@@ -189,10 +189,10 @@ function createGachaSystem(deps) {
     var currentPool = GACHA_POOL_TYPES.SKILLS;
     var poolStartTime = Date.now();
     var pityCount = {
-        stars: { sr: 0, ssr: 0 },
-        pets: { sr: 0, ssr: 0 },
-        characters: { sr: 0, ssr: 0 },
-        skills: { sr: 0, ssr: 0 }
+        stars: { sr: 0, ssr: 0, ur: 0 },
+        pets: { sr: 0, ssr: 0, ur: 0 },
+        characters: { sr: 0, ssr: 0, ur: 0 },
+        skills: { sr: 0, ssr: 0, ur: 0 }
     };
     var animationState = {
         active: false,
@@ -227,9 +227,25 @@ function createGachaSystem(deps) {
         }
     }
 
+    function getURProbability(pullsSinceLastUR) {
+        if (pullsSinceLastUR <= 50) {
+            return 0.0029;
+        } else if (pullsSinceLastUR <= 100) {
+            return 0.0029 + (pullsSinceLastUR - 50) * 0.003;
+        } else {
+            return 0.0029 + 50 * 0.003 + (pullsSinceLastUR - 100) * 0.005;
+        }
+    }
+
     function drawOneFromPool(poolType) {
         var pool = GACHA_POOLS[poolType];
-        var pity = pityCount[poolType] || { sr: 0, ssr: 0 };
+        var pity = pityCount[poolType] || { sr: 0, ssr: 0, ur: 0 };
+
+        // UR 软保底：51抽起概率递增
+        var urProb = getURProbability(pity.ur || 0);
+        if (Math.random() < urProb) {
+            return drawSpecificRarity(poolType, 'UR');
+        }
 
         if (pity.ssr >= pool.pity.ssr - 1) {
             return drawSpecificRarity(poolType, 'SSR');
@@ -260,6 +276,9 @@ function createGachaSystem(deps) {
                 var skillIds = Object.keys(Skills);
                 candidates = skillIds.filter(function(id) { return Skills[id].rarity === rarity; });
                 if (candidates.length === 0) {
+                    candidates = skillIds.filter(function(id) { return Skills[id].rarity === (rarity === 'UR' ? 'SSR' : 'R'); });
+                }
+                if (candidates.length === 0) {
                     candidates = skillIds.filter(function(id) { return Skills[id].rarity === 'R'; });
                 }
                 var skillId = candidates[Math.floor(Math.random() * candidates.length)];
@@ -269,6 +288,9 @@ function createGachaSystem(deps) {
             if (poolType === 'characters' || poolType === 'pets' || poolType === 'stars') {
                 var items = getPoolItems(poolType);
                 candidates = items.filter(function(item) { return item.rarity === rarity; });
+                if (candidates.length === 0) {
+                    candidates = items.filter(function(item) { return item.rarity === (rarity === 'UR' ? 'SSR' : 'R'); });
+                }
                 if (candidates.length === 0) {
                     candidates = items.filter(function(item) { return item.rarity === 'R'; });
                 }
@@ -289,6 +311,9 @@ function createGachaSystem(deps) {
 
         var poolItems = pool.items;
         candidates = poolItems.filter(function(item) { return item.rarity === rarity; });
+        if (candidates.length === 0) {
+            candidates = poolItems.filter(function(item) { return item.rarity === (rarity === 'UR' ? 'SSR' : 'R'); });
+        }
         if (candidates.length === 0) {
             candidates = poolItems.filter(function(item) { return item.rarity === 'R'; });
         }
@@ -339,7 +364,7 @@ function createGachaSystem(deps) {
         if (!pool) return [];
 
         if (!pityCount[poolType]) {
-            pityCount[poolType] = { sr: 0, ssr: 0 };
+            pityCount[poolType] = { sr: 0, ssr: 0, ur: 0 };
         }
 
         var results = [];
@@ -348,15 +373,22 @@ function createGachaSystem(deps) {
             var item = drawOneFromPool(poolType);
             results.push(item);
 
-            if (item.rarity === 'SSR') {
+            if (item.rarity === 'UR' || item.rarity === 'LR' || item.rarity === 'SP') {
                 pityCount[poolType].sr = 0;
                 pityCount[poolType].ssr = 0;
+                pityCount[poolType].ur = 0;
+            } else if (item.rarity === 'SSR') {
+                pityCount[poolType].sr = 0;
+                pityCount[poolType].ssr = 0;
+                pityCount[poolType].ur = (pityCount[poolType].ur || 0) + 1;
             } else if (item.rarity === 'SR') {
                 pityCount[poolType].sr = 0;
                 pityCount[poolType].ssr++;
+                pityCount[poolType].ur = (pityCount[poolType].ur || 0) + 1;
             } else {
                 pityCount[poolType].sr++;
                 pityCount[poolType].ssr++;
+                pityCount[poolType].ur = (pityCount[poolType].ur || 0) + 1;
             }
 
             addToPlayerData(poolType, item);

@@ -17,6 +17,9 @@ export default {
             compress: {
                 drop_console: true,
                 drop_debugger: true,
+                global_defs: {
+                    __DEV__: false
+                },
                 pure_funcs: ['Logger.info', 'Logger.debug', 'Logger.warn', 'Logger.success']
             },
             format: {

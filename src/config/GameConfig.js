@@ -15,7 +15,7 @@ const CONFIG = {
     timeBonusSlime: 8,           // 邪灵奖励时间
     timeBonusBoss: 15,           // 守护灵奖励时间
     slimeBaseHp: 50,             // 邪灵基础HP
-    bossHp: 150,                 // 守护灵 HP
+    bossHp: 150,                 // @deprecated 守护灵 HP — 使用 MonsterConfig.slime_king.baseHp (800) 作为活跃值
     iceCrystalDropRate: 1.0,     // 守护灵掉落水灵晶率（100%）
     critCrystalDropRate: 0.008,  // 守护灵掉落水灵暴晶率（0.8%）
     critFireSourceDropRate: 0.008,  // 守护灵掉落火灵爆源率（0.8%）
@@ -86,9 +86,9 @@ const BACK_BTN_COLOR = '#87CEEB';
 // ==================== 怪物觉醒系统配置 ====================
 var AWAKE_CONFIG = {
     threshold: 25,              // 25级开始缩放
-    hpGrowthRate: 0.15,         // 每级HP指数+15%
+    hpGrowthRate: 0.05,         // 每级HP指数+5%（修正自0.15，防止Lv30+Boss无法击杀）
     atkGrowthRate: 0.04,        // 每级攻击指数+4%
-    scoreGrowthRate: 0.05,      // 每级分数指数+5%（远低于难度，防止分数膨胀）
+    scoreGrowthRate: 0.02,      // 每级分数指数+2%（修正自0.05，防止分数膨胀）
     stages: [
         { level: 30, name: '觉醒I',   mark: '🛡️', effect: 'armor',  value: 0.15 },
         { level: 40, name: '觉醒II',  mark: '🔥', effect: 'rage',   value: 0.5  },

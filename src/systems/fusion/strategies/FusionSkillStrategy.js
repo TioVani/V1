@@ -83,7 +83,7 @@ function createFusionSkillStrategy(deps) {
     }
 
     function produce(materials, layer, greatSuccess) {
-        var newRarity = getNextRarity(materials[0].rarity);
+        var newRarity = getNextRarity(materials[0].rarity, layer);
         var compositeType = _getCompositeType(materials);
         var avgCooldown = Math.floor(_avgCooldown(materials) * 0.8);
         var stats = _calcStats(materials, layer);

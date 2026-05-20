@@ -2,6 +2,7 @@
  * BackpackRenderer — 背包系统渲染
  */
 import { RARITY_COLORS } from '../config/GameConfig.js';
+import { getSkillAttackRatio } from '../config/SkillConfig.js';
 
 function createBackpackRenderer(deps) {
     var getCtx = deps.getCtx;
@@ -989,7 +990,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             // 技能属性
             ctx.fillStyle = '#aaaaaa';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-            var attrText = skill.type === 'attack' ? '冲击:' + skill.damage + ' CD:' + skill.cooldown + 's' :
+            var attrText = skill.type === 'attack' ? '冲击:攻击×' + getSkillAttackRatio(skill.rarity).toFixed(1) + ' CD:' + skill.cooldown + 's' :
                           (skill.type === 'support' ? (skill.heal ? '治疗:' + skill.heal : (skill.timeAdd ? '时间+' + skill.timeAdd + 's' : (skill.shield ? '护盾:' + skill.shield : '增益效果'))) :
                           '被动效果');
             ctx.fillText(attrText, Math.floor(90 * scale), itemY + Math.floor(50 * scale));

@@ -13,7 +13,7 @@ import Logger from '../utils/Logger.js';
 export const GUIDE_TASKS = [
     { id: 'guide_click_star', name: '初触灵光', description: '触碰你的第一道灵光', type: 'click_stars', target: 1, order: 1, rewards: { gold: 25 }, tip: '触碰屏幕上的灵光可以获得灵辉值！' },
     { id: 'guide_first_game', name: '初次净化', description: '完成你的第一次灵域净化', type: 'play_games', target: 1, order: 2, rewards: { gold: 50 }, tip: '每局净化30秒，尽可能多地触碰灵光！' },
-    { id: 'guide_first_combo', name: '连灵初成', description: '达成20连灵，灵光开始回应你的节奏', type: 'max_combo', target: 20, order: 3, rewards: { gold: 75, exp: 25 }, tip: '连续快速触碰灵光可以触发连灵，获得灵辉加成！' },
+    { id: 'guide_first_combo', name: '连灵初成', description: '达成20连灵，灵光开始回应你的节奏', type: 'max_combo', target: 20, order: 3, rewards: { gold: 75, exp: 25 }, tip: '连续快速触碰灵光可以触发连灵，获得灵辉值加成！' },
     { id: 'guide_kill_monster', name: '净化初试', description: '净化第一只邪灵', type: 'kill_monsters', target: 1, order: 4, rewards: { gold: 50, healPotion: 1 }, tip: '500灵辉值后会出现邪灵，触碰灵光净化它！' },
     { id: 'guide_perfect_click', name: '精准触碰', description: '在灵光映射模式达成一次精准触碰', type: 'perfect_clicks', target: 1, order: 6, rewards: { gold: 50, exp: 15 }, tip: '在判定区域触碰灵光可以获得双倍灵辉值！' },
     { id: 'guide_super_perfect', name: '灵光合拍', description: '在灵光映射模式达成一次灵光合拍', type: 'super_perfect_clicks', target: 1, order: 7, rewards: { gold: 75, exp: 25 }, tip: '在核心判定区域触碰可以获得四倍灵辉值！' },

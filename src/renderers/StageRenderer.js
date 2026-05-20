@@ -176,7 +176,7 @@ function createStageRenderer(deps) {
         // 统计数据
         ctx.fillStyle = '#aaaaaa';
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
-        ctx.fillText('灵辉值: ' + result.score + '  连击: ' + result.maxCombo + '  净化: ' + result.monstersKilled, Math.floor(50 * scale), startY + Math.floor(120 * scale));
+        ctx.fillText('灵辉值: ' + result.score + '  连灵: ' + result.maxCombo + '  净化: ' + result.monstersKilled, Math.floor(50 * scale), startY + Math.floor(120 * scale));
 
         // 奖励显示（只显示实际获得的奖励）
         var rewardsObtained = stageModeSystem.getRewardsObtained() || { gold: 0, exp: 0, materials: {} };

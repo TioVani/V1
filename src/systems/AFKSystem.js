@@ -26,7 +26,7 @@ function createAFKSystem(deps) {
     function calculateAccumulatedAfkRewards() {
         var pd = getPlayerData();
         if (!pd.afkData) {
-            pd.afkData = { lastClaimTime: Date.now(), maxOfflineHours: 8, baseGoldPerMinute: 2, baseExpPerMinute: 2 };
+            pd.afkData = { lastClaimTime: Date.now(), maxOfflineHours: 8, baseGoldPerMinute: 10, baseExpPerMinute: 2 };
             saveData();
             return { gold: 0, exp: 0, materials: {}, equipments: [], hours: 0 };
         }
@@ -86,7 +86,7 @@ function createAFKSystem(deps) {
     function claimAfkRewards() {
         var pd = getPlayerData();
         if (!pd.afkData) {
-            pd.afkData = { lastClaimTime: Date.now(), maxOfflineHours: 8, baseGoldPerMinute: 2, baseExpPerMinute: 2 };
+            pd.afkData = { lastClaimTime: Date.now(), maxOfflineHours: 8, baseGoldPerMinute: 10, baseExpPerMinute: 2 };
             saveData();
             popupVisible = false;
             showToast({ title: '暂无挂机奖励', icon: 'none', duration: 2000 });
@@ -135,7 +135,7 @@ function createAFKSystem(deps) {
             addCharExp(currentCharId, exp);
         }
 
-        var materialDropCount = Math.floor(effectiveMinutes / 120);
+        var materialDropCount = Math.floor(effectiveMinutes / 60);
         var normalMaterialTypes = ['iceCrystal', 'fireSource'];
         var materialsGained = {};
         for (let i = 0; i < materialDropCount; i++) {

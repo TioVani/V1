@@ -161,6 +161,20 @@ function createUpgradePetStrategy(deps) {
         }
     }
 
+    function refundStarMaterials(materials, playerData) {
+        if (!playerData.pets) playerData.pets = { owned: [], equipped: null };
+        if (!playerData.pets.owned) playerData.pets.owned = [];
+        for (var i = 0; i < materials.length; i++) {
+            var m = materials[i];
+            playerData.pets.owned.push({
+                uid: m.uid,
+                id: m.id,
+                instanceId: m.uid || m.instanceId,
+                level: m.level || 1
+            });
+        }
+    }
+
     return {
         type: type,
         resolveEntity: resolveEntity,
@@ -173,7 +187,8 @@ function createUpgradePetStrategy(deps) {
         getMaxLevel: getMaxLevel,
         getAvailableEntities: getAvailableEntities,
         getStarMaterials: getStarMaterials,
-        consumeStarMaterials: consumeStarMaterials
+        consumeStarMaterials: consumeStarMaterials,
+        refundStarMaterials: refundStarMaterials
     };
 }
 

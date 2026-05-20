@@ -99,9 +99,15 @@ function createUpgradeEngine(deps) {
             showToast({ title: '升星成功！★' + newState.starLevel, icon: 'none', duration: 2000 });
             return { success: true, newStarLevel: newState.starLevel, rate: rate, roll: roll };
         } else {
+            // 失败返还 50% 材料（向下取整，最少返还 0）
+            var refundCount = Math.floor(needed * 0.5);
+            if (refundCount > 0) {
+                var refundMaterials = consumed.slice(0, refundCount);
+                strategy.refundStarMaterials(refundMaterials, playerData);
+            }
             saveData();
-            Logger.info('[升星失败] type=' + type + ' uid=' + entityUid + ' star=' + currentStar + ' rate=' + rate + ' roll=' + roll.toFixed(3));
-            showToast({ title: '升星失败…', icon: 'none', duration: 1500 });
+            Logger.info('[升星失败] type=' + type + ' uid=' + entityUid + ' star=' + currentStar + ' rate=' + rate + ' roll=' + roll.toFixed(3) + ' refund=' + refundCount);
+            showToast({ title: '升星失败…返还' + refundCount + '个材料', icon: 'none', duration: 1500 });
             return { success: false, starLevel: currentStar, rate: rate, roll: roll };
         }
     }

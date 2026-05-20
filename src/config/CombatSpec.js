@@ -33,7 +33,9 @@ var COMBAT_SPEC = {
     /** 快速点击窗口 — 增大阈值会让快速点击更容易触发 */
     QUICK_TAP: {
         THRESHOLD_MS: 200,
-        WINDOW_MS: 250
+        WINDOW_MS: 250,
+        SUPER_MULT: 4,
+        NORMAL_MULT: 2
     },
 
     /** 战斗时间 — TIME_DAMAGE_ON_HIT_S 增大会使容错更低 */
@@ -58,8 +60,8 @@ var COMBAT_SPEC = {
 
     /** 特殊灵光效果 */
     SPECIAL_STARS: {
-        HEAL_HP: 15,
-        SHIELD_AMOUNT: 10,
+        HEAL_HP: 5,
+        SHIELD_AMOUNT: 3,
         TIME_SECONDS: 3,
         UNLUCKY_HP_COST: 5,
         UNLUCKY_RAGE_GAIN: 1,
@@ -82,7 +84,10 @@ var COMBAT_SPEC = {
     /** 伤害基础值 */
     DAMAGE: {
         BASE: 20,
-        PER_FLOOR: 8
+        PER_FLOOR: 8,
+        ATTACK_DIVISOR: 100,
+        ATTACK_TO_DAMAGE_SCALE: 0.5,
+        VARIANCE: 0.05
     },
 
     /** 视觉特效参数 */
@@ -174,7 +179,10 @@ var BOSS_COMBAT_OVERRIDES = {
     COMBAT: { TIME_LIMIT_S: 60, TIME_DAMAGE_ON_HIT_S: 8 }
 };
 
-var TOWER_COMBAT_OVERRIDES = {};
+var TOWER_COMBAT_OVERRIDES = {
+    DAMAGE: { PER_FLOOR: 12 },
+    COMBO: { MULTIPLIER: 0.12 }
+};
 
 // ═══════════════════════════════════════════════════════════
 // 工具函数

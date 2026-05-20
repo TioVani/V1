@@ -1,6 +1,7 @@
 import Logger from '../utils/Logger.js';
 import TimerManager from '../utils/TimerManager.js';
 import { TOWER_COMBAT_OVERRIDES, TOWER_COMBAT_FEATURES } from '../config/CombatSpec.js';
+import { getSkillAttackRatio } from '../config/SkillConfig.js';
 import { vibrateShort } from '../platform/BrowserAPI.js';
 /**
  * 爬塔系统（无尽之塔）
@@ -31,7 +32,7 @@ const TOWER_CONFIG = {
 
     cellWeights: {
         empty: 42,
-        monster: 35,
+        monster: 20,
         treasure: 5,
         material: 10,
         hiddenPath: 0,
@@ -39,18 +40,18 @@ const TOWER_CONFIG = {
         exit: 0
     },
 
-    difficultyScale: 1.04,
+    difficultyScale: 1.04,  // 保留向后兼容；实际使用 getTowerDifficultyMult()
 
     baseRewards: {
-        gold: [10, 50],
-        starSource: [1, 5],
+        gold: [30, 150],
+        starSource: [3, 15],
         materials: ['iceCrystal', 'fireSource'],
         materialChance: 0.3
     },
 
     bossFloorRewards: {
-        gold: [100, 300],
-        starSource: [10, 30],
+        gold: [300, 900],
+        starSource: [30, 90],
         materials: ['iceCrystal', 'fireSource', 'critCrystal'],
         materialChance: 0.5,
         equipmentChance: 0.05
@@ -104,6 +105,14 @@ const TOWER_CONFIG = {
         { name: '传送陷阱', emoji: '🌀', damage: 0, effect: 'teleport' }
     ]
 };
+
+// 分层难度倍率：前20层温和(×1.02)，21-40层加速(×1.04)，41层+陡峭(×1.06)
+function getTowerDifficultyMult(floor) {
+    if (floor <= 1) return 1;
+    if (floor <= 20) return Math.pow(1.02, floor - 1);
+    if (floor <= 40) return Math.pow(1.02, 20) * Math.pow(1.04, floor - 21);
+    return Math.pow(1.02, 20) * Math.pow(1.04, 20) * Math.pow(1.06, floor - 41);
+}
 
 // ==================== 闭包工厂 ====================
 
@@ -231,7 +240,7 @@ function createTowerSystem(deps) {
         var size = config.gridSize;
         grid = [];
 
-        var difficultyMult = Math.pow(config.difficultyScale, floor - 1);
+        var difficultyMult = getTowerDifficultyMult(floor);
 
         var weights = {};
         for (let key in config.cellWeights) {
@@ -497,7 +506,7 @@ function createTowerSystem(deps) {
 
     function generateMonster(floor, forceSizeType) {
         var config = TOWER_CONFIG;
-        var difficultyMult = Math.pow(config.difficultyScale, floor - 1);
+        var difficultyMult = getTowerDifficultyMult(floor);
 
         var availableMonsters = config.monsters.filter(function(m) { return floor >= m.minFloor; });
         if (availableMonsters.length === 0) {
@@ -526,9 +535,9 @@ function createTowerSystem(deps) {
 
         var hpMult = 1, atkMult = 1;
         if (sizeType === 'elite') {
-            hpMult = 3; atkMult = 1.5;
+            hpMult = 1.5; atkMult = 1.5;
         } else if (sizeType === 'boss') {
-            hpMult = 8; atkMult = 2.5;
+            hpMult = 3; atkMult = 2.5;
         }
 
         return {
@@ -590,7 +599,7 @@ function createTowerSystem(deps) {
 
     function generateTrap(floor) {
         var config = TOWER_CONFIG;
-        var difficultyMult = Math.pow(config.difficultyScale, floor - 1);
+        var difficultyMult = getTowerDifficultyMult(floor);
         var trap = config.trapTypes[Math.floor(Math.random() * config.trapTypes.length)];
 
         return {
@@ -649,7 +658,7 @@ function createTowerSystem(deps) {
 
     function generateHiddenPathBoss(floor) {
         var config = TOWER_CONFIG;
-        var difficultyMult = Math.pow(config.difficultyScale, floor - 1);
+        var difficultyMult = getTowerDifficultyMult(floor);
 
         var bossNames = ['守护者', '守门人', '看门灵', '守卫灵', '盘门龙'];
         var bossEmojis = ['🏛️', '🐉', '🦅', '🐢', '🐯'];
@@ -931,7 +940,7 @@ function createTowerSystem(deps) {
             }
         }
 
-        combatTime = 30;
+        combatTime = currentFloor <= 20 ? 40 : 25;
         setGameState('TOWER_COMBAT');
 
         // 启动 StarSystem 星星生成（统一星星机制和动画）
@@ -1120,10 +1129,12 @@ function createTowerSystem(deps) {
         switch (skill.effect) {
             case 'damage':
                 if (combatMonster.hp <= 0) return false;
-                var damage = skill.damage;
-                // 暴击
                 var pd = getPlayerData();
                 var stats = getCharFullStats(pd.currentCharacterId);
+                var attackRatio = getSkillAttackRatio(skill.rarity);
+                var baseAtk = (stats && stats.attack) ? stats.attack : 10;
+                var damage = Math.floor(baseAtk * attackRatio);
+                // 暴击
                 var totalCritRate = stats ? stats.critRate : 0;
                 var isCrit = Math.random() * 100 < totalCritRate;
                 if (isCrit) {

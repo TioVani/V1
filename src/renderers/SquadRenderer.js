@@ -496,7 +496,7 @@ function createSquadRenderer(deps) {
         var comboStats = [
             { name: '连灵阈值', value: character.comboThreshold },
             { name: '速度加成', value: (character.comboSpeedBonus * 100).toFixed(0) + '%' },
-            { name: '灵辉加成', value: (character.comboScoreBonus * 100).toFixed(0) + '%' },
+            { name: '灵辉值加成', value: (character.comboScoreBonus * 100).toFixed(0) + '%' },
             { name: '连灵时限', value: (character.comboTimeout / 1000).toFixed(1) + 's' }
         ];
 

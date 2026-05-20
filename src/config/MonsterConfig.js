@@ -7,6 +7,55 @@
  */
 
 const Monsters = {
+    // ==================== UC级古灵（粗品，最低稀有度） ====================
+    dust: {
+        id: 'dust',
+        name: '灵尘',
+        rarity: 'UC',
+        emoji: '🌫️',
+        description: '灵域中最微弱的灵能残留，几乎无法凝聚成形',
+        baseHp: 50,
+        baseAttack: 4,
+        baseDefense: 0,
+        attackInterval: 2500,
+        skills: [],
+        mechanics: {},
+        drops: { gold: [1, 5], exp: 2 },
+        unlockScore: 0
+    },
+
+    wisp: {
+        id: 'wisp',
+        name: '微光灵絮',
+        rarity: 'UC',
+        emoji: '💨',
+        description: '飘散的微弱灵絮，尚不足以形成完整的古灵意识',
+        baseHp: 60,
+        baseAttack: 5,
+        baseDefense: 0,
+        attackInterval: 2200,
+        skills: [],
+        mechanics: {},
+        drops: { gold: [2, 6], exp: 3 },
+        unlockScore: 20
+    },
+
+    shard: {
+        id: 'shard',
+        name: '残片邪灵',
+        rarity: 'UC',
+        emoji: '🔹',
+        description: '被严重污染的文物残片，灵能结构极不稳定',
+        baseHp: 70,
+        baseAttack: 6,
+        baseDefense: 1,
+        attackInterval: 2000,
+        skills: [],
+        mechanics: {},
+        drops: { gold: [3, 8], exp: 4 },
+        unlockScore: 40
+    },
+
     // ==================== N级古灵（无技能，基础属性） ====================
     slime: {
         id: 'slime',
@@ -360,7 +409,7 @@ const Monsters = {
         baseDefense: 35,
         attackInterval: 1200,
         skills: [
-            { type: 'stun', chance: 0.3, duration: 2000, description: '30%打断唤灵人2秒' },
+            { type: 'stun', chance: 0.25, duration: 2000, description: '25%打断唤灵人2秒' },
             { type: 'rage', hpThreshold: 0.5, attackBonus: 1.5, description: '灵核活性低于50%冲击+50%' },
             { type: 'armor', reduction: 0.2, description: '灵场强化：减轻20%灵光冲击' }
         ],
@@ -479,7 +528,7 @@ const Monsters = {
         baseDefense: 35,
         attackInterval: 1500,
         skills: [
-            { type: 'stun', chance: 0.35, duration: 1500, description: '35%打断唤灵人' },
+            { type: 'stun', chance: 0.25, duration: 1500, description: '25%打断唤灵人' },
             { type: 'doubleAtk', chance: 0.3, description: '30%连灵' },
             { type: 'absorb', starType: 'lightning', ratio: 0.4, healRate: 1.0, description: '吸收40%金灵星' }
         ],
@@ -499,7 +548,7 @@ const Monsters = {
         baseDefense: 50,
         attackInterval: 1200,
         skills: [
-            { type: 'stun', chance: 0.3, duration: 2000, description: '30%打断唤灵人' },
+            { type: 'stun', chance: 0.25, duration: 2000, description: '25%打断唤灵人' },
             { type: 'absorb', starType: 'all', ratio: 0.3, healRate: 0.5, description: '吸收30%所有星星' },
             { type: 'summon', interval: 15000, monster: 'void_creature', count: 1, description: '每15秒召唤灵脉裂片' },
             { type: 'dodge', chance: 0.25, description: '25%闪避' }
@@ -520,7 +569,7 @@ const Monsters = {
         baseDefense: 60,
         attackInterval: 1000,
         skills: [
-            { type: 'stun', chance: 0.35, duration: 2500, description: '35%打断唤灵人' },
+            { type: 'stun', chance: 0.25, duration: 2500, description: '25%打断唤灵人' },
             { type: 'rage', hpThreshold: 0.5, attackBonus: 1.8, description: '灵核活性50%以下冲击+80%' },
             { type: 'reflect', ratio: 0.4, description: '灵能反射：反弹40%灵光冲击' },
             { type: 'armor', reduction: 0.3, description: '灵场强化：减轻30%灵光冲击' }
@@ -541,7 +590,7 @@ const Monsters = {
         baseDefense: 80,
         attackInterval: 800,
         skills: [
-            { type: 'stun', chance: 0.4, duration: 3000, description: '40%打断唤灵人3秒' },
+            { type: 'stun', chance: 0.25, duration: 3000, description: '25%打断唤灵人3秒' },
             { type: 'absorb', starType: 'all', ratio: 0.5, healRate: 0.5, description: '吸收50%所有星星' },
             { type: 'summon', interval: 10000, monster: 'demon', count: 2, description: '每10秒召唤狂草灵' },
             { type: 'rage', hpThreshold: 0.3, attackBonus: 2.0, description: '灵核活性30%以下冲击翻倍' },
@@ -564,7 +613,7 @@ const Monsters = {
         baseDefense: 70,
         attackInterval: 800,
         skills: [
-            { type: 'stun', chance: 0.4, duration: 2500, description: '40%打断唤灵人' },
+            { type: 'stun', chance: 0.25, duration: 2500, description: '25%打断唤灵人' },
             { type: 'absorb', starType: 'all', ratio: 0.5, healRate: 1.0, description: '吸收50%所有星星回血' },
             { type: 'rage', hpThreshold: 0.3, attackBonus: 2.5, description: '灵核活性30%以下冲击+150%' },
             { type: 'reflect', ratio: 0.3, description: '反弹30%冲击' }

@@ -151,6 +151,18 @@ function createUpgradeEquipmentStrategy(deps) {
         }
     }
 
+    function refundStarMaterials(materials, playerData) {
+        if (!playerData.equipments) playerData.equipments = { owned: [], equipped: {} };
+        if (!playerData.equipments.owned) playerData.equipments.owned = [];
+        for (var i = 0; i < materials.length; i++) {
+            playerData.equipments.owned.push({
+                uid: materials[i].uid,
+                id: materials[i].id,
+                level: materials[i].level || 1
+            });
+        }
+    }
+
     return {
         type: type,
         resolveEntity: resolveEntity,
@@ -163,7 +175,8 @@ function createUpgradeEquipmentStrategy(deps) {
         getMaxLevel: getMaxLevel,
         getAvailableEntities: getAvailableEntities,
         getStarMaterials: getStarMaterials,
-        consumeStarMaterials: consumeStarMaterials
+        consumeStarMaterials: consumeStarMaterials,
+        refundStarMaterials: refundStarMaterials
     };
 }
 

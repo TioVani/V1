@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { getSkillAttackRatio } from '../config/SkillConfig.js';
 import {
     COMBAT_SPEC, COMBAT_FEATURES, specResolver, getSpecValue, flattenSpec,
     validateOverrides, validateFeatures, getWeakWarnings
@@ -18,6 +19,8 @@ var BATTLE_CONSTANTS = {
     STAR_Y_MIN_RATIO: 0.6,
     QUICK_TAP_THRESHOLD_MS: COMBAT_SPEC.QUICK_TAP.THRESHOLD_MS,
     QUICK_TAP_WINDOW_MS: COMBAT_SPEC.QUICK_TAP.WINDOW_MS,
+    QUICK_TAP_SUPER_MULT: COMBAT_SPEC.QUICK_TAP.SUPER_MULT,
+    QUICK_TAP_NORMAL_MULT: COMBAT_SPEC.QUICK_TAP.NORMAL_MULT,
     COMBAT_TIME_LIMIT: COMBAT_SPEC.COMBAT.TIME_LIMIT_S,
     TIME_DAMAGE_ON_HIT: COMBAT_SPEC.COMBAT.TIME_DAMAGE_ON_HIT_S,
     TIME_TICK_MS: COMBAT_SPEC.COMBAT.TIME_TICK_MS,
@@ -155,7 +158,9 @@ function createBattleEngine(deps) {
 
     function calculateDamage(star, stats, pd) {
         var baseDamage = getSpecValue(RC, 'DAMAGE.BASE') + S.floor * getSpecValue(RC, 'DAMAGE.PER_FLOOR');
-        var attackBonus = 1 + (stats.attack / 100) * 0.5;
+        var attackDivisor = getSpecValue(RC, 'DAMAGE.ATTACK_DIVISOR');
+        var attackScale = getSpecValue(RC, 'DAMAGE.ATTACK_TO_DAMAGE_SCALE');
+        var attackBonus = 1 + (stats.attack / attackDivisor) * attackScale;
         var damage = baseDamage * attackBonus;
 
         // 星星类型倍率
@@ -180,16 +185,22 @@ function createBattleEngine(deps) {
         S.lastStarClickTime = now;
         var isSuperQuickTap = clickDelay <= getSpecValue(RC, 'QUICK_TAP.THRESHOLD_MS') && S.lastStarClickTime > 0;
         var isQuickTap = clickDelay <= getSpecValue(RC, 'QUICK_TAP.WINDOW_MS') && !isSuperQuickTap && S.lastStarClickTime > 0;
-        var quickTapMult = isSuperQuickTap ? 4 : (isQuickTap ? 2 : 1);
+        var quickTapMult = isSuperQuickTap ? getSpecValue(RC, 'QUICK_TAP.SUPER_MULT') : (isQuickTap ? getSpecValue(RC, 'QUICK_TAP.NORMAL_MULT') : 1);
         if (quickTapMult > 1) {
             damage *= quickTapMult;
             starScore = Math.floor(starScore * quickTapMult);
         }
 
-        // Combo
+        // Combo（15连后收益减半，防止秒杀Boss）
         combatSvc.updateCombo();
         var comboCount = combatSvc.getComboCount();
-        var comboMultiplier = 1 + comboCount * getSpecValue(RC, 'COMBO.MULTIPLIER');
+        var comboMult = getSpecValue(RC, 'COMBO.MULTIPLIER');
+        var comboMultiplier;
+        if (comboCount <= 15) {
+            comboMultiplier = 1 + comboCount * comboMult;
+        } else {
+            comboMultiplier = 1 + 15 * comboMult + (comboCount - 15) * comboMult * 0.5;
+        }
         damage *= comboMultiplier;
 
         // 暴击
@@ -203,6 +214,11 @@ function createBattleEngine(deps) {
             starScore = Math.floor(starScore * critDamageMult);
             isCrit = true;
         }
+
+        // 伤害浮动 ±5%
+        var variance = getSpecValue(RC, 'DAMAGE.VARIANCE');
+        var floatFactor = 1 - variance + Math.random() * variance * 2;
+        damage = Math.floor(damage * floatFactor);
 
         return {
             damage: Math.floor(damage), isCrit: isCrit, critDamageMult: critDamageMult,
@@ -510,8 +526,9 @@ function createBattleEngine(deps) {
         switch (star.type) {
             case 'heal':
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
-                var healAmt = Math.min(getSpecValue(RC, 'SPECIAL_STARS.HEAL_HP'), maxHp - S.playerHp);
-                S.playerHp = Math.min(S.playerHp + getSpecValue(RC, 'SPECIAL_STARS.HEAL_HP'), maxHp);
+                var healPct = getSpecValue(RC, 'SPECIAL_STARS.HEAL_HP') / 100;
+                var healAmt = Math.min(Math.floor(maxHp * healPct), maxHp - S.playerHp);
+                S.playerHp = Math.min(S.playerHp + healAmt, maxHp);
                 anim.createStarBurst(star.x, star.y, 'heal');
                 // 绿色流星飞向玩家（血条位置）
                 anim.createMeteor(
@@ -528,8 +545,11 @@ function createBattleEngine(deps) {
                 break;
 
             case 'shield':
-                S.playerShield = (S.playerShield || 0) + getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT');
-                anim.addMessage('🛡️ +' + getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT') + '护盾', '#cc88ff');
+                var shieldPct = getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT') / 100;
+                var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
+                var shieldAmt = Math.floor(maxHp * shieldPct);
+                S.playerShield = (S.playerShield || 0) + shieldAmt;
+                anim.addMessage('🛡️ +' + shieldAmt + '护盾', '#cc88ff');
                 anim.createStarBurst(star.x, star.y, 'shield');
                 break;
 
@@ -985,7 +1005,10 @@ function createBattleEngine(deps) {
         switch (skill.effect) {
             case 'damage':
                 if (!S.monster || S.monster.hp <= 0) return false;
-                var dmg = skill.damage;
+                var attackRatio = getSkillAttackRatio(skill.rarity);
+                var baseAtk = (stats && stats.attack) ? stats.attack : 10;
+                var comboCount = combatSvc.getComboCount();
+                var dmg = Math.floor(baseAtk * attackRatio * (1 + comboCount * 0.05));
                 var isCrit = Math.random() * 100 < (stats.critRate + (pd.extraCritRate || 0));
                 if (isCrit) {
                     dmg = Math.floor(dmg * (stats.critDamage + (pd.extraCritDamage || 0)));

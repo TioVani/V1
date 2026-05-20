@@ -697,7 +697,7 @@ function createNormalBattleAdapter(deps) {
         // 连击提示
         var comboState = getComboState();
         if (comboState.count >= 20) {
-            tipShowTipOnce('first_high_combo', '连灵加成生效中！连续触碰灵辉翻倍');
+            tipShowTipOnce('first_high_combo', '连灵加成生效中！连续触碰灵光翻倍');
         }
     }
 

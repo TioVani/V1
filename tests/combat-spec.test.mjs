@@ -85,7 +85,7 @@ describe('specResolver', () => {
 
 describe('getSpecValue', () => {
     it('resolves valid paths', () => {
-        assert.equal(getSpecValue(COMBAT_SPEC, 'STAR.SPAWN_INTERVAL_MS'), 600);
+        assert.equal(getSpecValue(COMBAT_SPEC, 'STAR.SPAWN_INTERVAL_MS'), 350);
         assert.equal(getSpecValue(COMBAT_SPEC, 'COMBAT.TIME_LIMIT_S'), 30);
         assert.equal(getSpecValue(COMBAT_SPEC, 'DAMAGE.BASE'), 20);
     });
@@ -117,7 +117,7 @@ describe('getSpecValue', () => {
     it('handles resolved config with overrides', () => {
         const RC = specResolver(COMBAT_SPEC, { COMBAT: { TIME_LIMIT_S: 60 } });
         assert.equal(getSpecValue(RC, 'COMBAT.TIME_LIMIT_S'), 60);
-        assert.equal(getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS'), 600);
+        assert.equal(getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS'), 350);
     });
 });
 
@@ -128,7 +128,7 @@ describe('getSpecValue', () => {
 describe('flattenSpec', () => {
     it('flattens nested spec to flat keys', () => {
         const flat = flattenSpec(COMBAT_SPEC);
-        assert.equal(flat.STAR_SPAWN_INTERVAL_MS, 600);
+        assert.equal(flat.STAR_SPAWN_INTERVAL_MS, 350);
         assert.equal(flat.STAR_LIFETIME_MS, 2000);
         assert.equal(flat.COMBAT_TIME_LIMIT_S, 30);
         assert.equal(flat.COMBO_MULTIPLIER, 0.1);
@@ -137,7 +137,7 @@ describe('flattenSpec', () => {
 
     it('uses prefix for nested flattening', () => {
         const flat = flattenSpec(COMBAT_SPEC.STAR, 'STAR');
-        assert.equal(flat.STAR_SPAWN_INTERVAL_MS, 600);
+        assert.equal(flat.STAR_SPAWN_INTERVAL_MS, 350);
         assert.equal(flat.STAR_SIZE, 48);
     });
 
@@ -298,14 +298,14 @@ describe('Mode config snapshots', () => {
         const RC = specResolver(COMBAT_SPEC, BOSS_COMBAT_OVERRIDES);
         assert.equal(getSpecValue(RC, 'COMBAT.TIME_LIMIT_S'), 60);
         assert.equal(getSpecValue(RC, 'COMBAT.TIME_DAMAGE_ON_HIT_S'), 8);
-        assert.equal(getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS'), 600);
+        assert.equal(getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS'), 350);
         assert.equal(getSpecValue(RC, 'COMBO.MULTIPLIER'), 0.1);
     });
 
     it('tower mode uses defaults (empty overrides)', () => {
         const RC = specResolver(COMBAT_SPEC, TOWER_COMBAT_OVERRIDES);
         assert.equal(getSpecValue(RC, 'COMBAT.TIME_LIMIT_S'), 30);
-        assert.equal(getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS'), 600);
+        assert.equal(getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS'), 350);
     });
 
     it('boss features disable skillBar and use boss anti-overlap', () => {

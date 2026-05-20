@@ -51,10 +51,11 @@ var FUSION_CONFIG = {
 
 var RARITY_ORDER = ['UC', 'N', 'R', 'SR', 'SSR', 'UR', 'LR', 'SP'];
 
-function getNextRarity(rarity) {
+function getNextRarity(rarity, layer) {
     var idx = RARITY_ORDER.indexOf(rarity);
     if (idx < 0 || idx >= RARITY_ORDER.length - 1) return rarity;
-    return RARITY_ORDER[idx + 1];
+    var steps = layer === 'normal' ? 1 : layer === 'super' ? 2 : 3;
+    return RARITY_ORDER[Math.min(idx + steps, RARITY_ORDER.length - 1)];
 }
 
 export { FUSION_LAYERS, FUSION_TYPES, FUSION_CONFIG, RARITY_ORDER, getNextRarity };

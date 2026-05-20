@@ -15,7 +15,7 @@ var UPGRADE_CONFIG = {
     entities: {
         character: {
             maxLevel: 90,
-            expFormula: function(level) { return 100 * level; },
+            expFormula: function(level) { return 100 + level * 50; },
             statGrowth: { hp: 12, attack: 3, critRate: 0.2, critDamage: 2, defense: 1, mana: 0.5, faith: 0.5 },
             maxStar: 5,
             starMaterials: [1, 1, 2, 2, 3],
@@ -35,7 +35,7 @@ var UPGRADE_CONFIG = {
         },
         skill: {
             maxLevel: 10,
-            expFormula: function(level) { return 100 * level; },
+            expFormula: function(level) { return 100 + level * 50; },
             statGrowth: { damage: 5 },
             maxStar: 3,
             starMaterials: [1, 1, 2],

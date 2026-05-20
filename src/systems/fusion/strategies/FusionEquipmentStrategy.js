@@ -92,7 +92,7 @@ function createFusionEquipmentStrategy(deps) {
     }
 
     function produce(materials, layer, greatSuccess) {
-        var newRarity = getNextRarity(materials[0].rarity);
+        var newRarity = getNextRarity(materials[0].rarity, layer);
         var slot = materials[0].slot;
         var stats = _calcStats(materials, layer);
         var forgeAffix = _randomPick(FORGE_AFFIXES);
