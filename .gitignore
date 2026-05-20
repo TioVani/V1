@@ -35,3 +35,22 @@ Desktop.ini
 启动Claude Code.bat
 启动CodeBuddy.bat
 启动iFlow.bat
+
+# iFlow AI 工具（不属于项目源码）
+.iflow/
+skill-creator-workspace/
+
+# 微信开发者工具私有配置
+project.private.config.json
+
+# 安全扫描配置
+code.fortify.config.json
+
+# 构建脚本（本地使用）
+一键构建.bat
+
+# 音频副本文件
+assets/audio/*副本*
+
+# lock 文件（小程序项目不需要）
+package-lock.json
