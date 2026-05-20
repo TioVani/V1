@@ -87,15 +87,15 @@ function createAFKRenderer(deps) {
 
         ctx.fillStyle = '#ffcc00';
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
-        ctx.fillText('   💰 星币: ' + rewards.gold, popupX + 25, yOffset);
+        ctx.fillText('   💰 灵币: ' + rewards.gold, popupX + 25, yOffset);
         yOffset += lineHeight;
 
         ctx.fillStyle = '#00ccff';
-        ctx.fillText('   ⭐ 经验: ' + rewards.exp, popupX + 25, yOffset);
+        ctx.fillText('   ⭐ 感悟: ' + rewards.exp, popupX + 25, yOffset);
         yOffset += lineHeight;
 
-        var matNames = { iceCrystal: '冰晶', fireSource: '火源', critCrystal: '暴击冰晶', timeCrystal: '时间结晶' };
-        var matEmojis = { iceCrystal: '❄️', fireSource: '🔥', critCrystal: '🖠', timeCrystal: '⏰' };
+        var matNames = { iceCrystal: '水灵晶', fireSource: '火灵源', critCrystal: '水灵暴晶', timeCrystal: '时序结晶' };
+        var matEmojis = { iceCrystal: '💧', fireSource: '🔥', critCrystal: '💠', timeCrystal: '⏰' };
         var matCount = 0;
         for (var mat in rewards.materials) {
             if (rewards.materials[mat] > 0) matCount += rewards.materials[mat];
@@ -160,8 +160,8 @@ function createAFKRenderer(deps) {
 
         if (!afkSystem.claimedResult) return;
         var result = afkSystem.claimedResult;
-        var matNames = { iceCrystal: '冰晶', fireSource: '火源', critCrystal: '暴击冰晶', timeCrystal: '时间结晶' };
-        var matEmojis = { iceCrystal: '❄️', fireSource: '🔥', critCrystal: '🖠', timeCrystal: '⏰' };
+        var matNames = { iceCrystal: '水灵晶', fireSource: '火灵源', critCrystal: '水灵暴晶', timeCrystal: '时序结晶' };
+        var matEmojis = { iceCrystal: '💧', fireSource: '🔥', critCrystal: '💠', timeCrystal: '⏰' };
         var rarityColors = RARITY_COLORS;
 
         var popupWidth = screenWidth * 0.85;
@@ -216,12 +216,12 @@ function createAFKRenderer(deps) {
 
         ctx.fillStyle = '#ffcc00';
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
-        ctx.fillText('💰 星币  +' + result.gold, leftX + 10, yOffset);
+        ctx.fillText('💰 灵币  +' + result.gold, leftX + 10, yOffset);
         yOffset += lineHeight;
 
         if (result.exp > 0) {
             ctx.fillStyle = '#00ccff';
-            ctx.fillText('⭐ 经验  +' + result.exp, leftX + 10, yOffset);
+            ctx.fillText('⭐ 感悟  +' + result.exp, leftX + 10, yOffset);
             yOffset += lineHeight;
         }
 

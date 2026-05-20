@@ -21,7 +21,7 @@ import Logger from '../utils/Logger.js';
 // ═══════════════════════════════════════════════════════════
 
 var COMBAT_SPEC = {
-    /** 星星参数 — 增大 SPAWN_INTERVAL_MS 会使节奏变慢，增大 LIFETIME_MS 会降低操作压力 */
+    /** 灵光参数 — 增大 SPAWN_INTERVAL_MS 会使节奏变慢，增大 LIFETIME_MS 会降低操作压力 */
     STAR: {
         SPAWN_INTERVAL_MS: 350,
         LIFETIME_MS: 2000,
@@ -56,7 +56,7 @@ var COMBAT_SPEC = {
         ATTACK_INTERVAL_MS: 2000
     },
 
-    /** 特殊星星效果 */
+    /** 特殊灵光效果 */
     SPECIAL_STARS: {
         HEAL_HP: 15,
         SHIELD_AMOUNT: 10,
@@ -379,13 +379,13 @@ function validateFeatures(features, label) {
 function getWeakWarnings(config) {
     var warnings = [];
     if (getSpecValue(config, 'STAR.LIFETIME_MS') <= getSpecValue(config, 'QUICK_TAP.WINDOW_MS')) {
-        warnings.push('STAR.LIFETIME_MS ≤ QUICK_TAP.WINDOW_MS: 星星可能在快速点击前消失');
+        warnings.push('STAR.LIFETIME_MS ≤ QUICK_TAP.WINDOW_MS: 灵光可能在快速点击前消失');
     }
     if (getSpecValue(config, 'COMBAT.TIME_LIMIT_S') <= 0) {
         warnings.push('COMBAT.TIME_LIMIT_S ≤ 0: 战斗时间无效');
     }
     if (getSpecValue(config, 'STAR.MAX_ON_SCREEN') <= 0) {
-        warnings.push('STAR.MAX_ON_SCREEN ≤ 0: 无法生成星星');
+        warnings.push('STAR.MAX_ON_SCREEN ≤ 0: 无法生成灵光');
     }
     if (getSpecValue(config, 'COMBO.MULTIPLIER') <= 0) {
         warnings.push('COMBO.MULTIPLIER ≤ 0: 连击无奖励');

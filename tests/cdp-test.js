@@ -1,6 +1,6 @@
 /**
  * cdp-connect.js — 直接通过 WebSocket 连接开发者工具自动化端口
- * 绕过 miniprogram-automator，直接发送命令
+ * 发送 CDP 命令进行调试
  */
 const WebSocket = require('ws');
 
@@ -26,7 +26,6 @@ async function main() {
 
     ws.on('message', (data) => {
         const msg = JSON.parse(data.toString());
-        // console.log('[RECV]', JSON.stringify(msg).substring(0, 200));
         if (msg.id && pending[msg.id]) {
             if (msg.error) {
                 pending[msg.id].reject(new Error(msg.error.message || JSON.stringify(msg.error)));
@@ -53,16 +52,15 @@ async function main() {
         console.log('[INFO] Tool.getInfo failed:', e.message);
     }
 
-    // 测试: 调用 wx 方法
+    // 测试: 获取屏幕信息
     try {
         const result = await send('Tool.evaluate', {
-            expr: 'JSON.stringify({ width: wx.getSystemInfoSync().windowWidth, height: wx.getSystemInfoSync().windowHeight })'
+            expr: 'JSON.stringify({ width: window.innerWidth, height: window.innerHeight })'
         });
         console.log('[RESULT] Screen:', result);
     } catch(e) {
         console.log('[FAIL] evaluate:', e.message);
 
-        // 尝试 App 方法
         try {
             const result2 = await send('App.callMethod', {
                 method: 'getCurrentPages'

@@ -1,5 +1,6 @@
 import Logger from '../utils/Logger.js';
 import ObjectPool from '../utils/ObjectPool.js';
+import { vibrateShort } from '../platform/BrowserAPI.js';
 /**
  * 动画系统（Animation System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -166,10 +167,10 @@ function createAnimationSystem(deps) {
                 ctx.fillText('+' + anim.damage, x, y);
             } else if (anim.score > 0) {
                 ctx.strokeText('-' + anim.damage, x, y - fontSize * 0.5);
-                ctx.strokeText('+' + anim.score + '分', x, y + fontSize * 0.5);
+                ctx.strokeText('+' + anim.score + '灵光', x, y + fontSize * 0.5);
                 ctx.fillStyle = fillColor;
                 ctx.fillText('-' + anim.damage, x, y - fontSize * 0.5);
-                ctx.fillText('+' + anim.score + '分', x, y + fontSize * 0.5);
+                ctx.fillText('+' + anim.score + '灵光', x, y + fontSize * 0.5);
             } else {
                 ctx.strokeText('-' + anim.damage, x, y);
                 ctx.fillStyle = fillColor;
@@ -245,15 +246,15 @@ function createAnimationSystem(deps) {
      */
     function getStarColor(starType) {
         switch(starType) {
-            case 'ice': return '#00BFFF';
-            case 'fire': return '#FF4500';
+            case 'ice': return '#4488FF';
+            case 'fire': return '#FF4400';
             case 'lightning': return '#FFD700';
             case 'time': return '#9370DB';
-            case 'combo': return '#00CED1';  // 连击星星：青色
-            case 'dodge': return '#DA70D6';  // 闪避星星：兰花紫
+            case 'combo': return '#00CED1';
+            case 'dodge': return '#DA70D6';
             case 'big': return '#FFD700';
-            case 'poison': return '#00FF00';  // 毒星：绿色
-            case 'heal': return '#90EE90';   // 治疗星星：嫩绿
+            case 'poison': return '#00FF00';
+            case 'heal': return '#90EE90';
             default: return '#FFD700';
         }
     }
@@ -263,14 +264,14 @@ function createAnimationSystem(deps) {
      */
     function getStarGlowColor(starType) {
         switch(starType) {
-            case 'ice': return 'rgba(0, 191, 255, 0.6)';
-            case 'fire': return 'rgba(255, 69, 0, 0.6)';
+            case 'ice': return 'rgba(68, 136, 255, 0.6)';
+            case 'fire': return 'rgba(255, 68, 0, 0.6)';
             case 'lightning': return 'rgba(255, 215, 0, 0.6)';
             case 'time': return 'rgba(147, 112, 219, 0.6)';
-            case 'combo': return 'rgba(0, 206, 209, 0.7)';  // 连击星星：青色发光
-            case 'dodge': return 'rgba(218, 112, 214, 0.7)';  // 闪避星星：紫色发光
+            case 'combo': return 'rgba(0, 206, 209, 0.7)';
+            case 'dodge': return 'rgba(218, 112, 214, 0.7)';
             case 'big': return 'rgba(255, 215, 0, 0.8)';
-            case 'poison': return 'rgba(0, 255, 0, 0.7)';  // 毒星：绿色发光
+            case 'poison': return 'rgba(0, 255, 0, 0.7)';
             case 'heal': return 'rgba(144, 238, 144, 0.7)'; // 治疗星星：嫩绿发光
             default: return 'rgba(255, 215, 0, 0.5)';
         }
@@ -546,7 +547,7 @@ function createAnimationSystem(deps) {
         var now = getGameTime();
         if (now - lastVibrateTime >= VIBRATE_COOLDOWN) {
             lastVibrateTime = now;
-            wx.vibrateShort({ type: isCritical ? 'heavy' : 'light' });
+            vibrateShort({ type: isCritical ? 'heavy' : 'light' });
         }
 
         // 创建爆炸效果
@@ -1132,7 +1133,7 @@ function createAnimationSystem(deps) {
         }
     }
 
-    // ==================== 星币掉落动画 ====================
+    // ==================== 灵币掉落动画 ====================
 
     function createGoldDropAnimation(x, y, amount) {
         var animation = {
@@ -1182,7 +1183,7 @@ function createAnimationSystem(deps) {
 
             var iconSize = Math.floor(24 * scale * anim.scale);
 
-            // 绘制星币图标
+            // 绘制灵币图标
             if (Assets.goldIcon && Assets.goldIcon.complete) {
                 ctx.drawImage(Assets.goldIcon, x - iconSize, y - iconSize/2, iconSize, iconSize);
             }
@@ -1209,7 +1210,7 @@ function createAnimationSystem(deps) {
     // ==================== 局内滚动消息系统 ====================
 
     /**
-     * 添加滚动消息（替代wx.showToast）
+     * 添加滚动消息（替代 showToast）
      */
     function addGameMessage(text, color, isReward) {
         gameMessages.push({
@@ -1409,7 +1410,7 @@ function createAnimationSystem(deps) {
             // 显示双倍伤害提示
             ctx.font = getFont('elementalSub', scale);
             ctx.fillStyle = '#FFD700';
-            ctx.fillText('×2 伤害！', x, y - Math.floor(50 * scale));
+            ctx.fillText('×2 冲击！', x, y - Math.floor(50 * scale));
         }
 
         ctx.restore();
@@ -2221,7 +2222,7 @@ function createAnimationSystem(deps) {
         updateQuickTapAnimations: updateQuickTapAnimations,
         drawQuickTapAnimations: drawQuickTapAnimations,
 
-        // 星币掉落
+        // 灵币掉落
         createGoldDropAnimation: createGoldDropAnimation,
         updateGoldDropAnimations: updateGoldDropAnimations,
         drawGoldDropAnimations: drawGoldDropAnimations,

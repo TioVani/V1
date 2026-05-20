@@ -182,7 +182,7 @@ function createFusionPetStrategy(deps) {
     }
 
     function _evoEmoji(evoType) {
-        var m = { pure: '🐾', hybrid: '🦊', chimera: '🐉', transcend: '🌌' };
+        var m = { pure: '🐾', hybrid: '🦊', chimera: '🐉', transcend: '🔮' };
         return m[evoType] || '🐾';
     }
 

@@ -175,7 +175,7 @@ function createMonthlyCardSystem(deps) {
         card.lastClaimDate = today;
         card.days--;
 
-        showToastFn({ title: '获得 ' + reward + '💎！', icon: 'success', duration: 1500 });
+        showToastFn({ title: '获得 ' + reward + '🪨！', icon: 'success', duration: 1500 });
         saveDataFn();
     }
 

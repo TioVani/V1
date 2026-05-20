@@ -210,7 +210,7 @@ function createTowerRenderer(deps) {
                             } else {
                                 // Boss未击败，显示Boss图标
                                 ctx.fillStyle = '#FF0000';
-                                ctx.fillText(cell.guardian ? cell.guardian.emoji : '👹', cellX + cellSize / 2, cellY + cellSize / 2);
+                                ctx.fillText(cell.guardian ? cell.guardian.emoji : '🏛️', cellX + cellSize / 2, cellY + cellSize / 2);
                             }
                             break;
                         case 'trap':
@@ -438,8 +438,8 @@ function createTowerRenderer(deps) {
         var comboState = getComboState();
 
         // === 怪物显示 ===
-        var monsterEmoji = monster.emoji || '👾';
-        var monsterName = monster.name || '怪物';
+        var monsterEmoji = monster.emoji || '🌫️';
+        var monsterName = monster.name || '邪灵';
         var monsterSize = Math.floor(60 * scale);
         var monsterX = screenWidth / 2;
         var monsterY = Math.floor(screenHeight / 3);
@@ -510,7 +510,7 @@ function createTowerRenderer(deps) {
             ctx.fillText(comboState.count, comboX - Math.floor(20 * scale) - Math.floor(55 * scale) + slideOffset, comboY);
 
             ctx.font = 'bold ' + Math.floor(20 * scale) + 'px sans-serif';
-            ctx.fillText(' COMBO', comboX + slideOffset, comboY + comboNumSize * 0.15);
+            ctx.fillText(' 连灵', comboX + slideOffset, comboY + comboNumSize * 0.15);
 
             var _cf = getCombatFeatures();
             if (comboLevel > 0 && _cf.comboDisplay === 'full') {
@@ -633,7 +633,7 @@ function createTowerRenderer(deps) {
         ctx.fillStyle = '#FF6B6B';
         ctx.font = 'bold ' + Math.floor(32 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('💀 挑战失败 💀', screenWidth / 2, Math.floor(80 * scale));
+        ctx.fillText('🔻 挑战失败 🔻', screenWidth / 2, Math.floor(80 * scale));
 
         // 结算面板
         var panelWidth = Math.floor(300 * scale);
@@ -670,16 +670,16 @@ function createTowerRenderer(deps) {
         ctx.fillStyle = '#aaaaaa';
         ctx.fillText('最高记录: 第 ' + (playerData.infiniteTower.highestFloor || 1) + ' 层', screenWidth / 2, yOffset);
 
-        // 获得星币
+        // 获得灵币
         yOffset += Math.floor(35 * scale);
         ctx.font = Math.floor(20 * scale) + 'px sans-serif';
         ctx.fillStyle = '#FFD700';
-        ctx.fillText('获得星币', screenWidth / 2, yOffset);
+        ctx.fillText('获得灵币', screenWidth / 2, yOffset);
         yOffset += Math.floor(30 * scale);
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
 
-        // 星币图标
+        // 灵币图标
         var resultIconSize = Math.floor(20 * scale);
         var goldAmount = towerSystem.resultData ? towerSystem.resultData.earnedGold : 0;
         if (Assets.goldIcon && Assets.goldIcon.complete) {
@@ -773,7 +773,7 @@ function createTowerRenderer(deps) {
 
         // 当前血量
         ctx.fillStyle = '#ff6b6b';
-        ctx.fillText('HP: ' + (playerData.infiniteTower.currentHp || 100) + '/' + (playerData.infiniteTower.maxHp || 100), screenWidth / 2, yOffset);
+        ctx.fillText('灵能: ' + (playerData.infiniteTower.currentHp || 100) + '/' + (playerData.infiniteTower.maxHp || 100), screenWidth / 2, yOffset);
         yOffset += Math.floor(35 * scale);
 
         // 已收集奖励
@@ -782,7 +782,7 @@ function createTowerRenderer(deps) {
             if (r.type === 'gold') totalGold += r.amount;
         });
         ctx.fillStyle = '#FFD700';
-        ctx.fillText('已收集: ' + totalGold + ' 星币', screenWidth / 2, yOffset);
+        ctx.fillText('已收集: ' + totalGold + ' 灵币', screenWidth / 2, yOffset);
         yOffset += Math.floor(35 * scale);
 
         // 最高记录

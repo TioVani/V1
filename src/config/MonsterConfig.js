@@ -1,23 +1,25 @@
 /**
- * 怪物配置模块（Monster Config）
+ * 怪物配置模块（Monster Config）— 邪灵主题（器灵·赛博华夏）
  * 从 game.js 迁移，包含 Monsters、MonsterRarityWeights、MonsterGrowth、BOSS_LIST
- * MonsterSkillType.XXX 已替换为对应字符串值，避免跨模块引用依赖
+ *
+ * 邪灵 = 被污染的古灵。击败 = 净化。
+ * 命名公式：【古灵本名】邪灵 / 被污染的【文物】碎片 /【属性】紊乱灵
  */
 
 const Monsters = {
-    // ==================== N级怪物（无技能，基础属性） ====================
+    // ==================== N级古灵（无技能，基础属性） ====================
     slime: {
         id: 'slime',
-        name: '史莱姆',
+        name: '锈灵碎片',
         rarity: 'N',
-        emoji: '🟢',
-        description: '最常见的怪物，弱小但数量众多',
+        emoji: '🔸',
+        description: '被污染的青铜碎片中剥离的细小灵能，在灵域边缘徘徊。攻击时附带紊乱能量的微弱侵蚀',
         baseHp: 100,
         baseAttack: 10,
         baseDefense: 0,
         attackInterval: 2000,
         skills: [
-            { type: 'poison', damage: 1, duration: 3, description: '攻击附带毒素' }
+            { type: 'poison', damage: 1, duration: 3, description: '攻击附带铜毒' }
         ],
         mechanics: {},
         drops: { gold: [5, 15], exp: 5 },
@@ -26,10 +28,10 @@ const Monsters = {
 
     bat: {
         id: 'bat',
-        name: '蝙蝠',
+        name: '碎瓷邪灵',
         rarity: 'N',
-        emoji: '🦇',
-        description: '飞行的小型怪物，速度较快',
+        emoji: '🔹',
+        description: '破碎瓷器中被污染的残余灵能，在灵域中游荡不定',
         baseHp: 80,
         baseAttack: 8,
         baseDefense: 0,
@@ -42,10 +44,10 @@ const Monsters = {
 
     rat: {
         id: 'rat',
-        name: '巨鼠',
+        name: '散玉邪灵',
         rarity: 'N',
-        emoji: '🐀',
-        description: '肮脏的巨鼠，携带毒素',
+        emoji: '💚',
+        description: '碎玉中逸散的被污染灵能，微小但凝聚不散',
         baseHp: 120,
         baseAttack: 6,
         baseDefense: 2,
@@ -58,10 +60,10 @@ const Monsters = {
 
     spider: {
         id: 'spider',
-        name: '蜘蛛',
+        name: '锈剑邪灵',
         rarity: 'N',
-        emoji: '🕷️',
-        description: '结网的蜘蛛，攻击带有毒素',
+        emoji: '🗡️',
+        description: '残破锈剑中滞留的紊乱灵能，锋芒仍带有侵蚀之力',
         baseHp: 90,
         baseAttack: 10,
         baseDefense: 0,
@@ -74,10 +76,10 @@ const Monsters = {
 
     snake: {
         id: 'snake',
-        name: '毒蛇',
+        name: '墨渍邪灵',
         rarity: 'N',
-        emoji: '🐍',
-        description: '剧毒之蛇，被咬中会持续掉血',
+        emoji: '🖋️',
+        description: '被污染的废弃墨迹灵能，携带紊乱的意识碎片',
         baseHp: 100,
         baseAttack: 12,
         baseDefense: 0,
@@ -90,10 +92,10 @@ const Monsters = {
 
     boar: {
         id: 'boar',
-        name: '野猪',
+        name: '碎金邪灵',
         rarity: 'N',
-        emoji: '🐗',
-        description: '暴躁的野猪，冲撞攻击',
+        emoji: '✨',
+        description: '金器碎片中被污染的灵能，以莽撞的方式横冲直撞',
         baseHp: 150,
         baseAttack: 8,
         baseDefense: 5,
@@ -104,13 +106,13 @@ const Monsters = {
         unlockScore: 180
     },
 
-    // ==================== R级怪物（1个被动技能） ====================
+    // ==================== R级古灵（1个被动技能） ====================
     goblin: {
         id: 'goblin',
-        name: '哥布林',
+        name: '戈魂邪灵',
         rarity: 'R',
-        emoji: '👺',
-        description: '贪婪的小怪物，喜欢抢夺星币',
+        emoji: '🔱',
+        description: '被污染的青铜戈矛之残灵，贪恋灵质碎屑的残余能量',
         baseHp: 180,
         baseAttack: 15,
         baseDefense: 5,
@@ -125,16 +127,16 @@ const Monsters = {
 
     wolf: {
         id: 'wolf',
-        name: '野狼',
+        name: '青瓷邪灵',
         rarity: 'R',
-        emoji: '🐺',
-        description: '凶猛的野兽，攻击力强',
+        emoji: '🍶',
+        description: '被污染的瓷器之灵，优雅外表下是紊乱的内核',
         baseHp: 200,
         baseAttack: 20,
         baseDefense: 3,
         attackInterval: 1600,
         skills: [
-            { type: 'doubleAtk', chance: 0.15, description: '15%概率连击' }
+            { type: 'doubleAtk', chance: 0.15, description: '15%概率连灵' }
         ],
         mechanics: {},
         drops: { gold: [20, 35], exp: 18 },
@@ -143,16 +145,16 @@ const Monsters = {
 
     skeleton: {
         id: 'skeleton',
-        name: '骷髅战士',
+        name: '断璧邪灵',
         rarity: 'R',
-        emoji: '💀',
-        description: '不死族战士，手持利刃',
+        emoji: '💍',
+        description: '被污染的断裂玉璧之灵，聚集成顽固的防御性能量层',
         baseHp: 220,
         baseAttack: 18,
         baseDefense: 10,
         attackInterval: 2000,
         skills: [
-            { type: 'shield', interval: 10000, amount: 30, description: '每10秒获得护盾' }
+            { type: 'shield', interval: 10000, amount: 30, description: '每10秒获得玉盾' }
         ],
         mechanics: {},
         drops: { gold: [18, 35], exp: 20 },
@@ -161,16 +163,16 @@ const Monsters = {
 
     zombie: {
         id: 'zombie',
-        name: '僵尸',
+        name: '残卷邪灵',
         rarity: 'R',
-        emoji: '🧟',
-        description: '不死生物，生命力顽强',
+        emoji: '📜',
+        description: '被污染的残破书卷之灵，紊乱能量使其反复重组',
         baseHp: 300,
         baseAttack: 12,
         baseDefense: 8,
         attackInterval: 2500,
         skills: [
-            { type: 'heal', interval: 8000, amount: 20, description: '每8秒恢复20HP' }
+            { type: 'heal', interval: 8000, amount: 20, description: '每8秒恢复20灵能' }
         ],
         mechanics: {},
         drops: { gold: [15, 30], exp: 22 },
@@ -179,10 +181,10 @@ const Monsters = {
 
     harpy: {
         id: 'harpy',
-        name: '鹰身女妖',
+        name: '暗矢邪灵',
         rarity: 'R',
-        emoji: '🦅',
-        description: '飞翔的女妖，速度极快',
+        emoji: '🏹',
+        description: '被污染的暗器之灵，来去无踪的紊乱能量碎片',
         baseHp: 160,
         baseAttack: 25,
         baseDefense: 0,
@@ -195,19 +197,19 @@ const Monsters = {
         unlockScore: 400
     },
 
-    // ==================== SR级怪物（1-2个技能） ====================
+    // ==================== SR级古灵（1-2个技能） ====================
     orc: {
         id: 'orc',
-        name: '兽人',
+        name: '战戈邪灵',
         rarity: 'SR',
-        emoji: '👹',
-        description: '强壮的兽人战士，狂暴时更强',
+        emoji: '⚔️',
+        description: '被污染的铜戈战意之灵——越受压制，紊乱反噬越强',
         baseHp: 400,
         baseAttack: 30,
         baseDefense: 15,
         attackInterval: 2000,
         skills: [
-            { type: 'rage', hpThreshold: 0.3, attackBonus: 1.5, description: '血量低于30%攻击+50%' }
+            { type: 'rage', hpThreshold: 0.3, attackBonus: 1.5, description: '灵核活性低于30%冲击+50%' }
         ],
         mechanics: {},
         drops: { gold: [30, 60], exp: 35 },
@@ -216,17 +218,17 @@ const Monsters = {
 
     ghost: {
         id: 'ghost',
-        name: '幽灵',
+        name: '玉蝉邪灵',
         rarity: 'SR',
-        emoji: '👻',
-        description: '虚无缥缈，难以击中',
+        emoji: '🦗',
+        description: '被污染的玉蝉之灵，紊乱能量使其形态在虚实之间不断闪烁',
         baseHp: 250,
         baseAttack: 35,
         baseDefense: 0,
         attackInterval: 1800,
         skills: [
-            { type: 'dodge', chance: 0.35, description: '35%闪避攻击' },
-            { type: 'reflect', ratio: 0.2, description: '反弹20%伤害' }
+            { type: 'dodge', chance: 0.35, description: '灵核虚化：35%闪避灵光冲击' },
+            { type: 'reflect', ratio: 0.2, description: '灵能反射：反弹20%灵光冲击' }
         ],
         mechanics: {},
         drops: { gold: [35, 70], exp: 40 },
@@ -235,16 +237,16 @@ const Monsters = {
 
     golem: {
         id: 'golem',
-        name: '石像鬼',
+        name: '鼎纹邪灵',
         rarity: 'SR',
-        emoji: '🗿',
-        description: '坚硬的石像，防御极高',
+        emoji: '🛡️',
+        description: '被污染的鼎纹碎片之灵，凝成僵固但坚定不散的防御层',
         baseHp: 500,
         baseAttack: 20,
         baseDefense: 40,
         attackInterval: 3000,
         skills: [
-            { type: 'armor', reduction: 0.3, description: '减伤30%' }
+            { type: 'armor', reduction: 0.3, description: '灵场强化：减轻30%灵光冲击' }
         ],
         mechanics: {},
         drops: { gold: [40, 80], exp: 45 },
@@ -253,36 +255,36 @@ const Monsters = {
 
     demon: {
         id: 'demon',
-        name: '恶魔',
+        name: '狂草邪灵',
         rarity: 'SR',
-        emoji: '😈',
-        description: '来自深渊的恶魔，危险而强大',
+        emoji: '🎨',
+        description: '被污染的书法之灵，狂乱笔意扭曲为无序的紊乱冲击',
         baseHp: 450,
         baseAttack: 45,
         baseDefense: 20,
         attackInterval: 1600,
         skills: [
-            { type: 'stun', chance: 0.15, duration: 1000, description: '15%打断玩家1秒' }
+            { type: 'stun', chance: 0.15, duration: 1000, description: '15%打断唤灵人1秒' }
         ],
         mechanics: {},
         drops: { gold: [50, 100], exp: 55 },
         unlockScore: 800
     },
 
-    // ==================== SSR级怪物（2个技能+特殊机制） ====================
+    // ==================== SSR级古灵（2个技能+特殊机制） ====================
     necromancer: {
         id: 'necromancer',
-        name: '死灵法师',
+        name: '丹青卷邪灵',
         rarity: 'SSR',
-        emoji: '🧙',
-        description: '召唤亡灵的邪恶法师',
+        emoji: '📖',
+        description: '被污染的古画卷灵，紊乱能量撕扯出更多碎片蔓延',
         baseHp: 350,
         baseAttack: 40,
         baseDefense: 10,
         attackInterval: 2200,
         skills: [
-            { type: 'summon', interval: 15000, monster: 'skeleton', count: 2, description: '每15秒召唤2只骷髅' },
-            { type: 'poison', damage: 5, duration: 3, description: '攻击附带毒素' }
+            { type: 'summon', interval: 15000, monster: 'skeleton', count: 2, description: '每15秒召唤2只断璧灵' },
+            { type: 'poison', damage: 5, duration: 3, description: '攻击附带墨毒' }
         ],
         mechanics: { canSummon: true },
         drops: { gold: [80, 150], exp: 80 },
@@ -291,17 +293,17 @@ const Monsters = {
 
     dragon: {
         id: 'dragon',
-        name: '幼龙',
+        name: '铜龙纹邪灵',
         rarity: 'SSR',
-        emoji: '🐉',
-        description: '幼年巨龙，拥有强大的力量',
+        emoji: '🐲',
+        description: '被污染的青铜龙纹之灵，龙威异化为侵蚀性能量场',
         baseHp: 600,
         baseAttack: 55,
         baseDefense: 25,
         attackInterval: 1400,
         skills: [
-            { type: 'stun', chance: 0.25, duration: 1500, description: '25%打断玩家1.5秒' },
-            { type: 'absorb', starType: 'fire', ratio: 0.3, healRate: 0.5, description: '吸收30%火星回血' }
+            { type: 'stun', chance: 0.25, duration: 1500, description: '25%打断唤灵人1.5秒' },
+            { type: 'absorb', starType: 'fire', ratio: 0.3, healRate: 0.5, description: '吸收30%火灵星回血' }
         ],
         mechanics: {},
         drops: { gold: [100, 200], exp: 100 },
@@ -310,17 +312,17 @@ const Monsters = {
 
     shadow_demon: {
         id: 'shadow_demon',
-        name: '影魔',
+        name: '剑意邪灵',
         rarity: 'SSR',
-        emoji: '👤',
-        description: '黑暗中的杀手，难以捉摸',
+        emoji: '⚡',
+        description: '被污染的剑意之灵，锋芒逆转成对自身周围的反噬',
         baseHp: 400,
         baseAttack: 70,
         baseDefense: 5,
         attackInterval: 1000,
         skills: [
             { type: 'dodge', chance: 0.4, description: '40%闪避攻击' },
-            { type: 'doubleAtk', chance: 0.25, description: '25%概率连击' }
+            { type: 'doubleAtk', chance: 0.25, description: '25%概率连灵' }
         ],
         mechanics: {},
         drops: { gold: [100, 180], exp: 90 },
@@ -329,38 +331,38 @@ const Monsters = {
 
     fallenAngel: {
         id: 'fallenAngel',
-        name: '堕落天使',
+        name: '鎏金邪灵',
         rarity: 'SSR',
-        emoji: '👿',
-        description: '堕落的翼人，以黑暗力量攻击',
+        emoji: '👑',
+        description: '被污染的鎏金器灵，紊乱能量以耀目金辉伪装自身',
         baseHp: 500,
         baseAttack: 50,
         baseDefense: 15,
         attackInterval: 1800,
         skills: [
-            { type: 'stun', chance: 0.2, duration: 1200, description: '20%打断玩家1.2秒' },
-            { type: 'absorb', starType: 'ice', ratio: 0.25, healRate: 0.4, description: '吸收25%冰星回血' }
+            { type: 'stun', chance: 0.2, duration: 1200, description: '20%打断唤灵人1.2秒' },
+            { type: 'absorb', starType: 'ice', ratio: 0.25, healRate: 0.4, description: '吸收25%水灵星回血' }
         ],
         mechanics: {},
         drops: { gold: [100, 200], exp: 100 },
         unlockScore: 1200
     },
 
-    // ==================== UR级怪物（多技能+复杂机制） ====================
+    // ==================== UR级古灵（多技能+复杂机制） ====================
     ancient_dragon: {
         id: 'ancient_dragon',
-        name: '远古巨龙',
+        name: '龙纹鼎邪灵',
         rarity: 'UR',
-        emoji: '🐲',
-        description: '远古的巨龙，毁灭性的力量',
+        emoji: '🔥',
+        description: '被污染的龙纹鼎之灵，紊乱能量在铭文间层层叠加暴烈释放',
         baseHp: 800,
         baseAttack: 80,
         baseDefense: 35,
         attackInterval: 1200,
         skills: [
-            { type: 'stun', chance: 0.3, duration: 2000, description: '30%打断玩家2秒' },
-            { type: 'rage', hpThreshold: 0.5, attackBonus: 1.5, description: '血量低于50%攻击+50%' },
-            { type: 'armor', reduction: 0.2, description: '减伤20%' }
+            { type: 'stun', chance: 0.3, duration: 2000, description: '30%打断唤灵人2秒' },
+            { type: 'rage', hpThreshold: 0.5, attackBonus: 1.5, description: '灵核活性低于50%冲击+50%' },
+            { type: 'armor', reduction: 0.2, description: '灵场强化：减轻20%灵光冲击' }
         ],
         mechanics: {},
         drops: { gold: [150, 300], exp: 150 },
@@ -369,17 +371,17 @@ const Monsters = {
 
     void_creature: {
         id: 'void_creature',
-        name: '虚空生物',
+        name: '灵脉裂片',
         rarity: 'UR',
-        emoji: '👾',
-        description: '来自虚空的神秘存在，无视防御',
+        emoji: '🔮',
+        description: '被污染的灵在灵脉中留下的残缺印记，侵入了不属它的灵域',
         baseHp: 700,
         baseAttack: 100,
         baseDefense: 0,
         attackInterval: 1000,
         skills: [
             { type: 'dodge', chance: 0.3, description: '30%闪避攻击' },
-            { type: 'reflect', ratio: 0.3, description: '反弹30%伤害' },
+            { type: 'reflect', ratio: 0.3, description: '反弹30%冲击' },
             { type: 'absorb', starType: 'all', ratio: 0.2, healRate: 1.0, description: '吸收20%所有星星' }
         ],
         mechanics: { ignoreDefense: true },
@@ -387,20 +389,20 @@ const Monsters = {
         unlockScore: 1800
     },
 
-    // ==================== Boss怪物 ====================
+    // ==================== Boss古灵 ====================
     slime_king: {
         id: 'slime_king',
-        name: '史莱姆王',
+        name: '聚合邪灵·瓷',
         rarity: 'SR',
-        emoji: '👑',
-        description: '史莱姆的领袖，体型巨大',
+        emoji: '🏺',
+        description: '多片被污染的瓷灵碎片重新聚合而成的更大紊乱能量体。灵核活性降至一半时会再次崩散',
         baseHp: 800,
         baseAttack: 30,
         baseDefense: 10,
         attackInterval: 2500,
         skills: [
-            { type: 'split', hpThreshold: 0.5, splitInto: 'slime', count: 3, description: '血量50%时分裂成3只史莱姆' },
-            { type: 'poison_split', hpThreshold: 0.7, damage: 20, poisonDuration: 5, poisonDamage: 8, puddleCount: 3, puddleRadius: 65, description: '吐出毒液形成毒液滩' }
+            { type: 'split', hpThreshold: 0.5, splitInto: 'slime', count: 3, description: '灵核活性50%时分裂成3只锈灵碎片' },
+            { type: 'poison_split', hpThreshold: 0.7, damage: 20, poisonDuration: 5, poisonDamage: 8, puddleCount: 3, puddleRadius: 65, description: '溅射瓷碎片形成危险区域' }
         ],
         mechanics: { isBoss: true, bossPhase: 1 },
         drops: { gold: 100, exp: 80, materials: ['iceCrystal'], materialChance: 1.0 },
@@ -409,17 +411,17 @@ const Monsters = {
 
     goblin_king: {
         id: 'goblin_king',
-        name: '哥布林王',
+        name: '统领邪灵·戈',
         rarity: 'SR',
-        emoji: '👑',
-        description: '哥布林的首领，统领群族',
+        emoji: '⚔️',
+        description: '被污染戈戟群灵中最强的一缕，紊乱能量高度集中于其身，能召唤更多戈魂邪灵',
         baseHp: 1200,
         baseAttack: 50,
         baseDefense: 20,
         attackInterval: 2000,
         skills: [
-            { type: 'summon', interval: 12000, monster: 'goblin', count: 2, description: '每12秒召唤2只哥布林' },
-            { type: 'absorb', starType: 'ice', ratio: 0.2, healRate: 1.0, description: '吸收20%冰星回血' }
+            { type: 'summon', interval: 12000, monster: 'goblin', count: 2, description: '每12秒召唤2只戈魂' },
+            { type: 'absorb', starType: 'ice', ratio: 0.2, healRate: 1.0, description: '吸收20%水灵星回血' }
         ],
         mechanics: { isBoss: true, bossPhase: 2 },
         drops: { gold: 150, exp: 120, materials: ['fireSource'], materialChance: 1.0 },
@@ -428,18 +430,18 @@ const Monsters = {
 
     flame_lord: {
         id: 'flame_lord',
-        name: '火焰领主',
+        name: '烈焰鼎邪灵',
         rarity: 'SSR',
         emoji: '🔥',
-        description: '掌控火焰的强大存在',
+        description: '被火灵光污染的鼎灵，紊乱能量以高温形态疯狂释放',
         baseHp: 2000,
         baseAttack: 80,
         baseDefense: 30,
         attackInterval: 1800,
         skills: [
-            { type: 'stun', chance: 0.2, duration: 1500, description: '20%打断玩家' },
-            { type: 'absorb', starType: 'fire', ratio: 0.5, healRate: 0.8, description: '吸收50%火星回血' },
-            { type: 'rage', hpThreshold: 0.3, attackBonus: 2.0, description: '血量低于30%攻击翻倍' }
+            { type: 'stun', chance: 0.2, duration: 1500, description: '20%打断唤灵人' },
+            { type: 'absorb', starType: 'fire', ratio: 0.5, healRate: 0.8, description: '吸收50%火灵星回血' },
+            { type: 'rage', hpThreshold: 0.3, attackBonus: 2.0, description: '灵核活性低于30%冲击翻倍' }
         ],
         mechanics: { isBoss: true, bossPhase: 3 },
         drops: { gold: 250, exp: 200, materials: ['fireSource', 'critFireSource'], materialChance: 0.8 },
@@ -448,18 +450,18 @@ const Monsters = {
 
     ice_queen: {
         id: 'ice_queen',
-        name: '冰霜女王',
+        name: '冰裂瓷邪灵',
         rarity: 'SSR',
         emoji: '❄️',
-        description: '冰冷的王者，冻结一切',
+        description: '被水灵光污染的冰裂纹瓷器之灵，紊乱能量冻结周遭的灵场',
         baseHp: 1800,
         baseAttack: 70,
         baseDefense: 40,
         attackInterval: 2000,
         skills: [
-            { type: 'stun', chance: 0.25, duration: 2000, description: '25%打断玩家' },
-            { type: 'absorb', starType: 'ice', ratio: 0.5, healRate: 0.8, description: '吸收50%冰星回血' },
-            { type: 'shield', interval: 8000, amount: 100, description: '每8秒获得护盾' }
+            { type: 'stun', chance: 0.25, duration: 2000, description: '25%打断唤灵人' },
+            { type: 'absorb', starType: 'ice', ratio: 0.5, healRate: 0.8, description: '吸收50%水灵星回血' },
+            { type: 'shield', interval: 8000, amount: 100, description: '每8秒获得冰瓷护盾' }
         ],
         mechanics: { isBoss: true, bossPhase: 4 },
         drops: { gold: 300, exp: 250, materials: ['iceCrystal', 'critCrystal'], materialChance: 0.8 },
@@ -468,18 +470,18 @@ const Monsters = {
 
     thunder_dragon: {
         id: 'thunder_dragon',
-        name: '雷龙',
+        name: '雷击剑邪灵',
         rarity: 'SSR',
         emoji: '⚡',
-        description: '掌控雷电的巨龙',
+        description: '被金灵光污染的剑之灵，紊乱能量以高频暴发的形态反复轰击',
         baseHp: 3000,
         baseAttack: 100,
         baseDefense: 35,
         attackInterval: 1500,
         skills: [
-            { type: 'stun', chance: 0.35, duration: 1500, description: '35%打断玩家' },
-            { type: 'doubleAtk', chance: 0.3, description: '30%连击' },
-            { type: 'absorb', starType: 'lightning', ratio: 0.4, healRate: 1.0, description: '吸收40%雷星' }
+            { type: 'stun', chance: 0.35, duration: 1500, description: '35%打断唤灵人' },
+            { type: 'doubleAtk', chance: 0.3, description: '30%连灵' },
+            { type: 'absorb', starType: 'lightning', ratio: 0.4, healRate: 1.0, description: '吸收40%金灵星' }
         ],
         mechanics: { isBoss: true, bossPhase: 5 },
         drops: { gold: 400, exp: 350, materials: ['critCrystal', 'critFireSource'], materialChance: 0.6 },
@@ -488,18 +490,18 @@ const Monsters = {
 
     void_emperor: {
         id: 'void_emperor',
-        name: '虚空皇帝',
+        name: '灵脉邪灵',
         rarity: 'UR',
-        emoji: '🌌',
-        description: '虚空的主宰，不可名状的恐惧',
+        emoji: '🔮',
+        description: '灵脉超载中产生的高度凝缩紊乱能量聚合体——它没有本体，只有紊乱的结构本身',
         baseHp: 5000,
         baseAttack: 150,
         baseDefense: 50,
         attackInterval: 1200,
         skills: [
-            { type: 'stun', chance: 0.3, duration: 2000, description: '30%打断玩家' },
+            { type: 'stun', chance: 0.3, duration: 2000, description: '30%打断唤灵人' },
             { type: 'absorb', starType: 'all', ratio: 0.3, healRate: 0.5, description: '吸收30%所有星星' },
-            { type: 'summon', interval: 15000, monster: 'void_creature', count: 1, description: '每15秒召唤虚空生物' },
+            { type: 'summon', interval: 15000, monster: 'void_creature', count: 1, description: '每15秒召唤灵脉裂片' },
             { type: 'dodge', chance: 0.25, description: '25%闪避' }
         ],
         mechanics: { isBoss: true, bossPhase: 6, ignoreDefense: true },
@@ -509,19 +511,19 @@ const Monsters = {
 
     chaos_lord: {
         id: 'chaos_lord',
-        name: '混沌之王',
+        name: '古器邪灵',
         rarity: 'UR',
-        emoji: '👑',
-        description: '混沌的化身，毁灭一切',
+        emoji: '🔻',
+        description: '一件被严重污染的古器物之灵，紊乱能量已深入意义核心——不是恶，是彻底的失控',
         baseHp: 8000,
         baseAttack: 200,
         baseDefense: 60,
         attackInterval: 1000,
         skills: [
-            { type: 'stun', chance: 0.35, duration: 2500, description: '35%打断玩家' },
-            { type: 'rage', hpThreshold: 0.5, attackBonus: 1.8, description: '血量50%以下攻击+80%' },
-            { type: 'reflect', ratio: 0.4, description: '反弹40%伤害' },
-            { type: 'armor', reduction: 0.3, description: '减伤30%' }
+            { type: 'stun', chance: 0.35, duration: 2500, description: '35%打断唤灵人' },
+            { type: 'rage', hpThreshold: 0.5, attackBonus: 1.8, description: '灵核活性50%以下冲击+80%' },
+            { type: 'reflect', ratio: 0.4, description: '灵能反射：反弹40%灵光冲击' },
+            { type: 'armor', reduction: 0.3, description: '灵场强化：减轻30%灵光冲击' }
         ],
         mechanics: { isBoss: true, bossPhase: 7 },
         drops: { gold: 1000, exp: 800, materials: ['critCrystal', 'critFireSource', 'timeCrystal'], materialChance: 0.5 },
@@ -530,19 +532,19 @@ const Monsters = {
 
     abyss_lord: {
         id: 'abyss_lord',
-        name: '深渊之主',
+        name: '渊默邪灵',
         rarity: 'UR',
-        emoji: '👿',
-        description: '深渊的最终Boss，无尽之塔的终极挑战',
+        emoji: '🌀',
+        description: '灵域深处最古老的被污染灵——它的紊乱已持续数千年，安静但深不可测',
         baseHp: 15000,
         baseAttack: 300,
         baseDefense: 80,
         attackInterval: 800,
         skills: [
-            { type: 'stun', chance: 0.4, duration: 3000, description: '40%打断玩家3秒' },
+            { type: 'stun', chance: 0.4, duration: 3000, description: '40%打断唤灵人3秒' },
             { type: 'absorb', starType: 'all', ratio: 0.5, healRate: 0.5, description: '吸收50%所有星星' },
-            { type: 'summon', interval: 10000, monster: 'demon', count: 2, description: '每10秒召唤恶魔' },
-            { type: 'rage', hpThreshold: 0.3, attackBonus: 2.0, description: '血量30%以下攻击翻倍' },
+            { type: 'summon', interval: 10000, monster: 'demon', count: 2, description: '每10秒召唤狂草灵' },
+            { type: 'rage', hpThreshold: 0.3, attackBonus: 2.0, description: '灵核活性30%以下冲击翻倍' },
             { type: 'armor', reduction: 0.4, description: '减伤40%' }
         ],
         mechanics: { isBoss: true, bossPhase: 8, finalBoss: true },
@@ -550,78 +552,73 @@ const Monsters = {
         unlockScore: 2000
     },
 
-    // ==================== 终极Boss ====================
+    // ==================== 终极Boss（已中国化，保留） ====================
     star_god: {
         id: 'star_god',
-        name: '器灵之神',
+        name: '万灵聚合体',
         rarity: 'UR',
         emoji: '🌟',
-        description: '终极Boss，掌控器灵之力',
+        description: '灵脉中所有残余被污染灵能的共振聚合——它不是一个灵，是所有紊乱的回音',
         baseHp: 20000,
         baseAttack: 250,
         baseDefense: 70,
         attackInterval: 800,
         skills: [
-            { type: 'stun', chance: 0.4, duration: 2500, description: '40%打断玩家' },
+            { type: 'stun', chance: 0.4, duration: 2500, description: '40%打断唤灵人' },
             { type: 'absorb', starType: 'all', ratio: 0.5, healRate: 1.0, description: '吸收50%所有星星回血' },
-            { type: 'rage', hpThreshold: 0.3, attackBonus: 2.5, description: '血量30%以下攻击+150%' },
-            { type: 'reflect', ratio: 0.3, description: '反弹30%伤害' }
+            { type: 'rage', hpThreshold: 0.3, attackBonus: 2.5, description: '灵核活性30%以下冲击+150%' },
+            { type: 'reflect', ratio: 0.3, description: '反弹30%冲击' }
         ],
         mechanics: { isBoss: true, bossPhase: 9, finalBoss: true },
         drops: { gold: 3000, exp: 2000, materials: ['critCrystal', 'critFireSource', 'timeCrystal'], materialChance: 1.0 },
         unlockScore: 2500
     },
 
-    // ==================== 特殊机制Boss ====================
+    // ==================== 特殊机制Boss（已中国化，保留） ====================
     star_devourer: {
         id: 'star_devourer',
-        name: '器渊吞噬者',
+        name: '灵脉吞噬者',
         rarity: 'UR',
         emoji: '🌀',
-        description: '吞噬器灵的深渊存在，会召唤Boss星星考验玩家',
+        description: '灵脉中紊乱能量凝结的反向涡流——没有意识，但像漩涡一样吞噬靠近的灵能',
         baseHp: 6000,
         baseAttack: 120,
         baseDefense: 40,
         attackInterval: 1500,
         skills: [
-            { type: 'stun', chance: 0.15, duration: 1500, description: '15%打断玩家' },
+            { type: 'stun', chance: 0.15, duration: 1500, description: '15%打断唤灵人' },
             { type: 'absorb', starType: 'all', ratio: 0.2, healRate: 0.5, description: '吸收20%所有星星' }
         ],
         mechanics: {
             isBoss: true,
             bossPhase: 6,
-            hasStarSummon: true,      // 拥有星星召唤技能
-            starSummonFirst: 3,       // 首次触发攻击次数
-            starSummonRepeat: 6       // 后续触发间隔
+            hasStarSummon: true,
+            starSummonFirst: 3,
+            starSummonRepeat: 6
         },
         drops: {
-            gold: [800, 1200],           // 星币范围 800-1200
-            exp: [600, 800],             // 经验范围 600-800
-            // 衡生装备池
+            gold: [800, 1200],
+            exp: [600, 800],
             equipment: ['devourer_blade', 'void_armor', 'abyss_pendant', 'devourer_crown'],
-            equipmentChance: 0.0025,        // 0.25%概率掉落装备
-            // 衡生技能池
+            equipmentChance: 0.0025,
             skill: ['skill_void_hide', 'skill_star_devour', 'skill_shadow_evasion', 'skill_void_power'],
-            skillChance: 0.01,            // 1%概率掉落技能
-            // 衡生宠物池
+            skillChance: 0.01,
             pet: ['pet_void_sprite', 'pet_star_devourer_cub', 'pet_phantom_hunter'],
-            petChance: 0.01,              // 1%概率掉落宠物
-            // 材料掉落
+            petChance: 0.01,
             materials: ['critCrystal', 'critFireSource'],
-            materialChance: 0.5,          // 50%概率掉落暴击冰晶/爆伤火源
-            // 吞噬残辉必掉
-            devourerResidue: [3, 10]      // 必掉3-10个吞噬残辉
+            materialChance: 0.5,
+            devourerResidue: [3, 10]
         },
         unlockScore: 1400
     },
 
-    // ==================== 偷星者（特殊怪物）====================
+    // ==================== 偷星者/窃灵者（特殊怪物，已中国化，保留） ====================
     star_thief: {
         id: 'star_thief',
         name: '窃灵者',
         rarity: 'SSR',
         emoji: '🌑',
-        description: '窃取器灵之力，将星星化为己用的神秘存在',
+        description: '窃取器灵之力，将灵光化为己用的神秘存在',
         baseHp: 1500,
         baseAttack: 15,
         baseDefense: 0,
@@ -634,7 +631,7 @@ const Monsters = {
     }
 };
 
-// 怪物稀有度权重（用于随机生成）
+// 古灵稀有度权重（用于随机生成）
 const MonsterRarityWeights = {
     UC: 60,
     N: 50,
@@ -646,28 +643,28 @@ const MonsterRarityWeights = {
     SP: 0.01
 };
 
-// 怪物成长系数
+// 古灵成长系数
 const MonsterGrowth = {
-    hpPerLevel: 1.15,      // 每层HP +15%
-    attackPerLevel: 1.10,  // 每层攻击 +10%
-    defensePerLevel: 1.05  // 每层防御 +5%
+    hpPerLevel: 1.15,
+    attackPerLevel: 1.10,
+    defensePerLevel: 1.05
 };
 
 // Boss列表配置
 const BOSS_LIST = [
     {
         id: 'slime_king',
-        name: '史莱姆王',
-        emoji: '🟢',
+        name: '聚合邪灵·瓷',
+        emoji: '🏺',
         level: 1,
         hp: 2000,
         attack: 5,
         attackInterval: 2000,
         skills: [
-            { type: 'split', hpThreshold: 0.5, splitInto: 'slime', count: 3, description: '血量50%时分裂成3只史莱姆' },
-            { type: 'poison_split', hpThreshold: 0.7, damage: 20, poisonDuration: 5, poisonDamage: 8, puddleCount: 3, puddleRadius: 65, description: '吐出毒液形成毒液滩' }
+            { type: 'split', hpThreshold: 0.5, splitInto: 'slime', count: 3, description: '灵核活性50%时分裂成3只锈灵碎片' },
+            { type: 'poison_split', hpThreshold: 0.7, damage: 20, poisonDuration: 5, poisonDamage: 8, puddleCount: 3, puddleRadius: 65, description: '溅射瓷碎片形成危险区域' }
         ],
-        description: '入门级Boss，击败可获得基础奖励',
+        description: '入门级邪灵，被污染的碎瓷灵能聚合体',
         rewards: {
             gold: [50, 100],
             starSource: [0, 5],
@@ -681,13 +678,13 @@ const BOSS_LIST = [
     },
     {
         id: 'flame_lord',
-        name: '火焰领主',
+        name: '烈焰鼎邪灵',
         emoji: '🔥',
         level: 5,
         hp: 4000,
         attack: 10,
-        attackInterval: 1800,  // 攻击间隔1.8秒
-        description: '中级Boss，有概率掉落火源和技能',
+        attackInterval: 1800,
+        description: '被火灵光污染的中型邪灵',
         rewards: {
             gold: [100, 200],
             starSource: [5, 15],
@@ -701,13 +698,13 @@ const BOSS_LIST = [
     },
     {
         id: 'ice_queen',
-        name: '冰霜女王',
+        name: '冰裂瓷邪灵',
         emoji: '❄️',
         level: 10,
         hp: 8000,
         attack: 15,
-        attackInterval: 1500,  // 攻击间隔1.5秒
-        description: '高级Boss，有概率掉落暴击冰晶',
+        attackInterval: 1500,
+        description: '被水灵光污染的高级邪灵',
         rewards: {
             gold: [200, 400],
             starSource: [10, 30],
@@ -721,13 +718,13 @@ const BOSS_LIST = [
     },
     {
         id: 'thunder_dragon',
-        name: '雷龙',
-        emoji: '🐉',
+        name: '雷击剑邪灵',
+        emoji: '⚡',
         level: 20,
         hp: 20000,
         attack: 25,
-        attackInterval: 1200,  // 攻击间隔1.2秒
-        description: '精英Boss，有概率掉落稀有装备和技能',
+        attackInterval: 1200,
+        description: '被金灵光污染的精英邪灵',
         rewards: {
             gold: [500, 1000],
             starSource: [30, 80],
@@ -741,13 +738,13 @@ const BOSS_LIST = [
     },
     {
         id: 'void_emperor',
-        name: '虚空皇帝',
-        emoji: '👾',
+        name: '灵脉邪灵',
+        emoji: '🔮',
         level: 30,
         hp: 40000,
         attack: 40,
-        attackInterval: 1000,  // 攻击间隔1秒
-        description: '传说级Boss，有概率掉落UR装备',
+        attackInterval: 1000,
+        description: '灵脉紊乱产生的聚合邪灵',
         rewards: {
             gold: [1000, 3000],
             starSource: [100, 200],
@@ -761,13 +758,13 @@ const BOSS_LIST = [
     },
     {
         id: 'star_god',
-        name: '器灵之神',
+        name: '万灵聚合体',
         emoji: '🌟',
         level: 50,
         hp: 100000,
         attack: 60,
-        attackInterval: 800,  // 攻击间隔0.8秒（最快）
-        description: '终极Boss，掉落最稀有奖励',
+        attackInterval: 800,
+        description: '灵域中所有紊乱能量共振的统合产物',
         rewards: {
             gold: [3000, 8000],
             starSource: [200, 500],
@@ -781,9 +778,8 @@ const BOSS_LIST = [
     }
 ];
 
-// 怪物配置 - 使用统一怪物系统
+// 古灵配置 - 使用统一古灵系统（MonsterTypes 通过 Monsters 引用自动获取新名称）
 const MonsterTypes = {
-    // 普通怪物 - 从统一配置获取
     slime: {
         id: 'slime',
         name: Monsters.slime.name,
@@ -838,7 +834,6 @@ const MonsterTypes = {
         rarity: Monsters.fallenAngel.rarity,
         skills: Monsters.fallenAngel.skills
     },
-    // Boss - 从统一配置获取
     slime_king: {
         id: 'slime_king',
         name: Monsters.slime_king.name,
@@ -960,7 +955,6 @@ const MonsterTypes = {
         isBoss: true
     },
 
-    // 偷星者（特殊怪物）
     star_thief: {
         id: 'star_thief',
         name: Monsters.star_thief.name,

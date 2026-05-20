@@ -139,6 +139,12 @@ function createGameBattleRenderer(deps) {
     var drawButton = uiCore.drawButton;
     var drawBackButton = uiCore.drawBackButton;
 
+    // D2-D5 战斗维度系统
+    var getRhythmSystem = deps.getRhythmSystem || function () { return null; };
+    var getChargeSystem = deps.getChargeSystem || function () { return null; };
+    var getDragSystem = deps.getDragSystem || function () { return null; };
+    var getLinkChainSystem = deps.getLinkChainSystem || function () { return null; };
+
     function renderGame() {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
@@ -234,20 +240,20 @@ function createGameBattleRenderer(deps) {
                 var rewardY = boxY + Math.floor(80 * scale);
                 if (popup.gold > 0) {
                     ctx.textAlign = 'center';
-                    ctx.fillText('💰 星币 +' + popup.gold, screenWidth / 2, rewardY);
+                    ctx.fillText('💰 灵币 +' + popup.gold, screenWidth / 2, rewardY);
                     rewardY += Math.floor(28 * scale);
                 }
                 if (popup.exp > 0) {
                     ctx.textAlign = 'center';
-                    ctx.fillText('✨ 经验 +' + popup.exp, screenWidth / 2, rewardY);
+                    ctx.fillText('&#x2728; 感悟 +' + popup.exp, screenWidth / 2, rewardY);
                     rewardY += Math.floor(28 * scale);
                 }
                 if (popup.material) {
                     var matNames = {
-                        'iceCrystal': '❄️ 冰晶',
-                        'fireSource': '🔥 火源',
-                        'critCrystal': '💠 暴击冰晶',
-                        'critFireSource': '💥 爆伤火源',
+                        'iceCrystal': '💧 水灵晶',
+                        'fireSource': '🔥 火灵源',
+                        'critCrystal': '💠 水灵暴晶',
+                        'critFireSource': '💥 火灵爆源',
                         'devourerResidue': '✨ 吞噬残辉'
                     };
                     ctx.fillText(matNames[popup.material.id] + ' x' + popup.material.amount, screenWidth / 2, rewardY);
@@ -315,9 +321,9 @@ function createGameBattleRenderer(deps) {
             checkMonsterAppear();
             if (!hadMonsterBefore && monster && monster.active) {
                 if (monster.isBoss) {
-                    tipShowTipOnce('first_boss', 'Boss来了！它更强但击败后奖励丰厚');
+                    tipShowTipOnce('first_boss', '守护灵来了！它更强但净化后奖励丰厚');
                 } else {
-                    tipShowTipOnce('first_monster', '怪物出现了！点击星星可以攻击它');
+                    tipShowTipOnce('first_monster', '邪灵出现了！触碰灵光可以净化它');
                 }
             }
         }
@@ -325,7 +331,7 @@ function createGameBattleRenderer(deps) {
         // 低血量提示（仅普通模式）
         if (!_isBoss && !_isTower) {
             if (playerData.playerHp > 0 && playerData.playerHp < (playerData.maxPlayerHp || 100) * 0.3) {
-                tipShowTipOnce('low_hp', '血量危险！可以携带治疗和防御类星星哦');
+                tipShowTipOnce('low_hp', '灵核濒危！可以携带治疗和防御类灵光哦');
             }
         }
 
@@ -539,7 +545,7 @@ function createGameBattleRenderer(deps) {
         }
         } // 结束赛季模式道具按钮条件
 
-        // 时间星星主动技能按钮（只有解锁了时间星星且装备到编队且有怪物时才显示）
+        // 时序星主动技能按钮（只有解锁了时序星且装备到编队且有怪物时才显示）
         const hasTimeStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('time') !== -1;
         const hasTimeStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('time') !== -1;
         const hasTimeStar = hasTimeStarUnlocked && hasTimeStarEquipped;
@@ -554,7 +560,7 @@ function createGameBattleRenderer(deps) {
 
             if (consumableTime > 0) {
                 // 有可消耗时间，显示可用技能按钮
-                ctx.fillStyle = '#5a3d5a'; // 紫色表示时间星星技能
+                ctx.fillStyle = '#5a3d5a'; // 紫色表示时序星技能
                 fillRoundRect(ctx, 15, skillBtnY, skillBtnSize, skillBtnSize, 4);
                 ctx.font = Math.floor(24 * scale) + 'px sans-serif';
                 ctx.fillStyle = '#ffffff';
@@ -578,7 +584,7 @@ function createGameBattleRenderer(deps) {
         const hasGreedyStar = hasGreedyStarUnlocked && hasGreedyStarEquipped;
         if (hasGreedyStar && !isSeasonMode && _cf.greedySkill) {
             const greedyBtnSize = Math.floor(45 * scale);
-            const greedyBtnY = 75 + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时间星星技能按钮下方
+            const greedyBtnY = 75 + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时序星技能按钮下方
 
             if (combatState.greedySkillUnlocked) {
                 // 已解锁，显示可用技能按钮
@@ -589,7 +595,7 @@ function createGameBattleRenderer(deps) {
                 fillRoundRect(ctx, 15, greedyBtnY, greedyBtnSize, greedyBtnSize, 4);
                 ctx.font = Math.floor(24 * scale) + 'px sans-serif';
                 ctx.fillStyle = '#ffffff';
-                ctx.fillText('😈', 15 + greedyBtnSize/2, greedyBtnY + greedyBtnSize/2);
+                ctx.fillText('🌀', 15 + greedyBtnSize/2, greedyBtnY + greedyBtnSize/2);
                 ctx.font = 'bold ' + Math.floor(10 * scale) + 'px sans-serif';
                 ctx.fillStyle = '#ffd700';
                 ctx.fillText(Math.floor(potentialDamage), 15 + greedyBtnSize - 5, greedyBtnY + greedyBtnSize - 5);
@@ -599,7 +605,7 @@ function createGameBattleRenderer(deps) {
                 fillRoundRect(ctx, 15, greedyBtnY, greedyBtnSize, greedyBtnSize, 4);
                 ctx.font = Math.floor(20 * scale) + 'px sans-serif';
                 ctx.fillStyle = '#ffffff';
-                ctx.fillText('😈', 15 + greedyBtnSize/2, greedyBtnY + greedyBtnSize/2);
+                ctx.fillText('🌀', 15 + greedyBtnSize/2, greedyBtnY + greedyBtnSize/2);
                 ctx.font = 'bold ' + Math.floor(9 * scale) + 'px sans-serif';
                 ctx.fillStyle = '#ffd700';
                 ctx.fillText(combatState.greedyHpPool + '/' + GREEDY_SKILL_THRESHOLD, 15 + greedyBtnSize/2, greedyBtnY + greedyBtnSize - 3);
@@ -706,7 +712,7 @@ function createGameBattleRenderer(deps) {
             drawText('层: ' + towerFloor, screenWidth/2, 50, Math.floor(32 * scale), '#ffd700');
         } else {
             const displayScore = (state === GAME_STATE.SEASON_PLAYING) ? seasonScore : isStageMode ? stageModeSystem.getScore() : score;
-            const scoreLabel = (state === GAME_STATE.SEASON_PLAYING) ? '🏆 得分: ' : '得分: ';
+            const scoreLabel = (state === GAME_STATE.SEASON_PLAYING) ? '🏆 灵辉值: ' : '灵辉值: ';
             drawText(scoreLabel + displayScore, screenWidth/2, 50, Math.floor(32 * scale), '#ffd700');
         }
 
@@ -725,7 +731,7 @@ function createGameBattleRenderer(deps) {
         if (isStageMode) {
             var stageData = stageModeSystem.getCurrentStageData();
             var settings = stageData ? stageData.settings : null;
-            drawText('击杀: ' + stageModeSystem.getMonstersKilled() + '/' + (settings && settings.monsterCount || '?'), screenWidth/2, Math.floor(115 * scale), Math.floor(16 * scale), '#87CEEB');
+            drawText('净化: ' + stageModeSystem.getMonstersKilled() + '/' + (settings && settings.monsterCount || '?'), screenWidth/2, Math.floor(115 * scale), Math.floor(16 * scale), '#87CEEB');
         }
 
         // 打断状态显示（屏幕变暗 + 红色脉冲 + 提示文字）
@@ -803,7 +809,7 @@ function createGameBattleRenderer(deps) {
             ctx.fillText(comboState.count, comboX - comboLabelSize - 4 - Math.floor(55 * scale) + slideOffset, comboY);
             // 绘制COMBO文字（在数字右侧，垂直居中对齐）
             ctx.font = getFont('comboLabel', scale);
-            ctx.fillText('COMBO', comboX + slideOffset, comboY + comboNumSize * 0.15);
+            ctx.fillText('连灵', comboX + slideOffset, comboY + comboNumSize * 0.15);
 
             // 连击层级指示
             if (comboLevel > 0) {
@@ -892,7 +898,7 @@ function createGameBattleRenderer(deps) {
             ctx.fillStyle = '#ffffff';
             ctx.font = getFont('hp', scale);
             ctx.textAlign = 'center';
-            ctx.fillText(`HP: ${Math.floor(currentHp)}/${maxHp}`, screenWidth/2, hpBarY + hpBarHeight + Math.floor(15 * scale));
+            ctx.fillText(`灵能: ${Math.floor(currentHp)}/${maxHp}`, screenWidth/2, hpBarY + hpBarHeight + Math.floor(15 * scale));
 
             // 闪避状态指示
             if (playerEffects.dodging && Date.now() < playerEffects.dodgeEndTime) {
@@ -1025,6 +1031,16 @@ function createGameBattleRenderer(deps) {
             }
         }
 
+        // D2-D5 战斗维度渲染
+        var _rhythmSys = getRhythmSystem();
+        if (_rhythmSys) _rhythmSys.render(ctx, screenWidth, screenHeight, scale, getStars);
+        var _chargeSys = getChargeSystem();
+        if (_chargeSys) _chargeSys.render(ctx, screenWidth, screenHeight, scale);
+        var _dragSys = getDragSystem();
+        if (_dragSys) _dragSys.render(ctx, screenWidth, screenHeight, scale);
+        var _linkSys = getLinkChainSystem();
+        if (_linkSys) _linkSys.render(ctx, screenWidth, screenHeight, scale);
+
         // 更新和绘制暴击动画
         var _ncf = getCombatFeatures();
         if (_ncf.critDisplay) { updateCritAnimations(); drawCritAnimations(scale); }
@@ -1032,7 +1048,7 @@ function createGameBattleRenderer(deps) {
         // 更新和绘制快速点击动画
         if (_ncf.quickTapDisplay) { updateQuickTapAnimations(); drawQuickTapAnimations(scale); }
 
-        // 更新和绘制星币掉落动画
+        // 更新和绘制灵币掉落动画
         updateGoldDropAnimations();
         drawGoldDropAnimations(scale);
 
@@ -1108,7 +1124,7 @@ function createGameBattleRenderer(deps) {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 var bossData = BossBattleMode.currentBoss;
-                ctx.fillText((bossData ? bossData.name : 'Boss') + ' ' + Math.ceil(bossHp) + '/' + bossMaxHp, screenWidth / 2, bossBarY + bossBarH / 2);
+                ctx.fillText((bossData ? bossData.name : '守护灵') + ' ' + Math.ceil(bossHp) + '/' + bossMaxHp, screenWidth / 2, bossBarY + bossBarH / 2);
             }
         }
 

@@ -29,60 +29,60 @@ function createDropSystem(deps) {
                 timeCrystal: { quantity: 0, usedCount: 0 }
             };
         }
-        // 2000分后掉落火源，否则掉落冰晶
+        // 2000分后掉落火灵源，否则掉落水灵晶
         var isEnhanced = getScore() >= 2000;
         var dropRate = Math.random();
         var srDropRate = Math.random();
 
-        // 首次击杀Boss必掉暴击冰晶
+        // 首次净化守护灵必掉水灵暴晶
         if (!playerData.firstBossKilled) {
             playerData.firstBossKilled = true;
             if (!playerData.materials['critCrystal']) {
                 playerData.materials['critCrystal'] = { quantity: 0, usedCount: 0 };
             }
             playerData.materials['critCrystal'].quantity++;
-            Logger.info('首次击杀Boss! 必掉暴击冰晶!');
-            addMessage('首次Boss击杀！获得暴击冰晶!', '#FF9ECF', true);
+            Logger.info('首次净化守护灵! 必掉水灵暴晶!');
+            addMessage('首次净化守护灵！获得水灵暴晶!', '#FF9ECF', true);
             saveData();
             return;
         }
 
-        // Boss有0.8%概率掉落爆伤火源（独立概率）
+        // Boss有0.8%概率掉落火灵爆源（独立概率）
         if (srDropRate < 0.008) {
             if (!playerData.materials['critFireSource']) {
                 playerData.materials['critFireSource'] = { quantity: 0, usedCount: 0 };
             }
             playerData.materials['critFireSource'].quantity++;
-            Logger.info('掉落爆伤火源!');
-            addMessage('获得爆伤火源!', '#FF9ECF', true);
+            Logger.info('掉落火灵爆源!');
+            addMessage('获得火灵爆源!', '#FF9ECF', true);
             saveData();
             return;
         }
 
-        // 0.8% 几率掉落暴击冰晶
+        // 0.8% 几率掉落水灵暴晶
         if (dropRate < 0.008) {
             if (!playerData.materials['critCrystal']) {
                 playerData.materials['critCrystal'] = { quantity: 0, usedCount: 0 };
             }
             playerData.materials['critCrystal'].quantity++;
-            Logger.info('掉落暴击冰晶!');
-            addMessage('获得暴击冰晶!', '#00ccff', true);
+            Logger.info('掉落水灵暴晶!');
+            addMessage('获得水灵暴晶!', '#00ccff', true);
         } else if (isEnhanced) {
-            // 2000分后掉落火源
+            // 2000分后掉落火灵源
             if (!playerData.materials['fireSource']) {
                 playerData.materials['fireSource'] = { quantity: 0, usedCount: 0 };
             }
             playerData.materials['fireSource'].quantity++;
-            Logger.info('掉落火源!');
-            addMessage('获得火源!', '#ff6b6b', true);
+            Logger.info('掉落火灵源!');
+            addMessage('获得火灵源!', '#ff6b6b', true);
         } else {
-            // 2000分前掉落冰晶
+            // 2000分前掉落水灵晶
             if (!playerData.materials['iceCrystal']) {
                 playerData.materials['iceCrystal'] = { quantity: 0, usedCount: 0 };
             }
             playerData.materials['iceCrystal'].quantity++;
-            Logger.info('掉落冰晶!');
-            addMessage('获得冰晶!', '#00ccff', true);
+            Logger.info('掉落水灵晶!');
+            addMessage('获得水灵晶!', '#00ccff', true);
         }
 
         // 星辉宝箱掉落

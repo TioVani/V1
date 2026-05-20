@@ -13,7 +13,6 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '../..');
-const HTML_PATH = resolve(__dirname, 'game-test.html');
 
 async function createHarness() {
     const browser = await chromium.launch({ headless: true });
@@ -25,18 +24,8 @@ async function createHarness() {
     page.on('console', msg => logs.push(`[${msg.type()}] ${msg.text()}`));
     page.on('pageerror', err => logs.push(`[PAGE ERROR] ${err.message}`));
 
-    // Load HTML via HTTP server (CORS-safe for script loading)
-    // Set flag before loading so HTML skips its own script loading
+    // Load game via injected scripts (browser-compatible eval)
     await page.addInitScript(() => { window.__playwright = true; });
-    const htmlUrl = `http://localhost:8888/tests/browser/game-test.html`;
-    const response = await page.goto(htmlUrl);
-    if (!response || !response.ok()) {
-        console.error(`Failed to load HTML: ${response ? response.status() : 'no response'}`);
-    }
-
-    // Load wx-mock.js + game-modules.js + game.js in a single script tag
-    // wx-mock provides browser-compatible wx API
-    const wxMockJs = readFileSync(resolve(PROJECT_ROOT, 'wx-mock.js'), 'utf8');
 
     const modulesJs = readFileSync(resolve(PROJECT_ROOT, 'dist/game-modules.js'), 'utf8');
     const modulesPatched = modulesJs
@@ -53,8 +42,8 @@ async function createHarness() {
         .replace(/require\(['"][^'"]+['"]\)/g, '({})')
         .replace(/^(const|let)\s/gm, 'var ');
 
-    // Single script tag: wx-mock first, then modules, then game.js, then init
-    const combined = wxMockJs + '\n\n' + modulesPatched + '\n\n' + gamePatched + '\n\ninit(); window.__gameReady = true;';
+    // Inject: GameModules → game.js → init
+    const combined = modulesPatched + '\n\n' + gamePatched + '\n\ninit(); window.__gameReady = true;';
     await page.addScriptTag({ content: combined });
 
     // 等待游戏初始化
@@ -81,7 +70,6 @@ async function createHarness() {
     }));
     console.log('[harness] globals:', JSON.stringify(globals));
 
-    // 封装 testApi
     const api = {
         page,
 
@@ -95,7 +83,6 @@ async function createHarness() {
 
         async setPlayerData(data) {
             await page.evaluate((d) => {
-                /* global playerData */
                 if (typeof playerData !== 'undefined') {
                     Object.keys(d).forEach(k => { playerData[k] = d[k]; });
                 }
@@ -144,7 +131,7 @@ async function createHarness() {
                 targetState,
                 { timeout }
             ).catch(() => {
-                throw new Error(`Timeout waiting for state "${targetState}", current: ${page.evaluate(() => window.__testApi.getState())}`);
+                throw new Error(`Timeout waiting for state "${targetState}"`);
             });
         },
 
@@ -178,7 +165,6 @@ if (process.argv[1] && process.argv[1].endsWith('test-harness.mjs')) {
     const harness = await createHarness();
     console.log(`[harness] Game loaded, state: ${await harness.getState()}`);
 
-    // 加载测试文件 — 约定导出 async function run(api)
     const mod = await import(`file:///${resolvedPath.replace(/\\/g, '/')}`);
     console.log(`[harness] Test module loaded, default type: ${typeof mod.default}, run type: ${typeof mod.run}`);
     if (typeof mod.default === 'function') {

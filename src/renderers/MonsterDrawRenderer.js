@@ -84,9 +84,9 @@ function createMonsterDrawRenderer(deps) {
             ctx.beginPath();
             ctx.arc(m.x, drawY, scaledSize * 0.7, 0, Math.PI * 2);
             if (m.absorbType === 'ice') {
-                ctx.fillStyle = 'rgba(0, 191, 255, 0.2)';
+                ctx.fillStyle = 'rgba(68, 136, 255, 0.2)';
             } else if (m.absorbType === 'fire') {
-                ctx.fillStyle = 'rgba(255, 69, 0, 0.2)';
+                ctx.fillStyle = 'rgba(255, 68, 0, 0.2)';
             } else if (m.absorbType === 'normal') {
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
             }
@@ -97,9 +97,9 @@ function createMonsterDrawRenderer(deps) {
             ctx.beginPath();
             ctx.arc(m.x, drawY, scaledSize * 0.8, 0, Math.PI * 2);
             if (m.empowerType === 'ice') {
-                ctx.fillStyle = 'rgba(0, 191, 255, 0.3)';
+                ctx.fillStyle = 'rgba(68, 136, 255, 0.3)';
             } else if (m.empowerType === 'fire') {
-                ctx.fillStyle = 'rgba(255, 69, 0, 0.3)';
+                ctx.fillStyle = 'rgba(255, 68, 0, 0.3)';
             } else if (m.empowerType === 'normal') {
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
             }
@@ -119,20 +119,20 @@ function createMonsterDrawRenderer(deps) {
         ctx.textBaseline = 'top';
         var nameX = m.x;
         var nameY = isStarThief ? starThiefHpBarY + 8 + 2 : drawY + scaledSize / 2 + 5;
-        ctx.fillText(monsterType.name || m.name || '怪物', nameX, nameY);
+        ctx.fillText(monsterType.name || m.name || '邪灵', nameX, nameY);
 
         if (m.absorbType) {
             ctx.font = '10px sans-serif';
             ctx.textAlign = 'center';
             var label, color;
             if (m.absorbType === 'ice') {
-                label = '❄️吸冰';
-                color = '#00BFFF';
+                label = '💧吸水';
+                color = '#4488FF';
             } else if (m.absorbType === 'fire') {
                 label = '🔥吸火';
-                color = '#FF4500';
+                color = '#FF4400';
             } else {
-                label = '⭐吸普';
+                label = '⭐吸灵';
                 color = '#FFD700';
             }
             ctx.fillStyle = color;

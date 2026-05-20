@@ -153,11 +153,11 @@ function createSquadRenderer(deps) {
                 };
 
                 var attrs = [
-                    { name: '攻击力', value: formatNum(fullStats.attack), color: '#ff6b6b' },
-                    { name: '暴击率', value: formatNum(fullStats.critRate) + '%', color: '#ffd700' },
-                    { name: '暴击伤害', value: formatNum(fullStats.critDamage * 100) + '%', color: '#ff9f43' },
-                    { name: '生命值', value: formatNum(playerData.playerHp) + '/' + formatNum(playerData.maxPlayerHp), color: '#4CAF50' },
-                    { name: '防御力', value: formatNum(fullStats.defense || 0), color: '#87CEEB' }
+                    { name: '灵光冲击', value: formatNum(fullStats.attack), color: '#ff6b6b' },
+                    { name: '会心感应', value: formatNum(fullStats.critRate) + '%', color: '#ffd700' },
+                    { name: '会心威力', value: formatNum(fullStats.critDamage * 100) + '%', color: '#ff9f43' },
+                    { name: '灵能值', value: formatNum(playerData.playerHp) + '/' + formatNum(playerData.maxPlayerHp), color: '#4CAF50' },
+                    { name: '灵场护盾', value: formatNum(fullStats.defense || 0), color: '#87CEEB' }
                 ];
 
                 ctx.font = Math.floor(12 * scale) + 'px sans-serif';
@@ -179,11 +179,11 @@ function createSquadRenderer(deps) {
         var startTabY = Math.floor(100 * scale);
 
         var tabs = [
-            { id: 'character', name: '角色' },
+            { id: 'character', name: '古灵' },
             { id: 'equipment', name: '装备' },
             { id: 'skills', name: '技能' },
             { id: 'pets', name: '宠物' },
-            { id: 'stars', name: '星星' }
+            { id: 'stars', name: '灵光' }
         ];
 
         // 绘制标签按钮（书签形状）
@@ -456,12 +456,12 @@ function createSquadRenderer(deps) {
         // 基础属性列表
         var stats = [
             { name: '等级', value: level + ' / 90', color: '#ffffff' },
-            { name: '经验', value: exp + ' / ' + (level * 100), color: '#ffffff' },
-            { name: '生命值', value: formatNum(playerData.maxPlayerHp), color: '#ff6b6b' },
-            { name: '攻击力', value: formatNum(fullStats.attack), color: '#ffd700' },
-            { name: '防御力', value: formatNum(fullStats.defense || character.defense), color: '#4ecdc4' },
-            { name: '暴击率', value: formatNum(fullStats.critRate) + '%', color: '#ff9f43' },
-            { name: '暴击伤害', value: formatNum(fullStats.critDamage * 100) + '%', color: '#ee5a24' },
+            { name: '感悟', value: exp + ' / ' + (level * 100), color: '#ffffff' },
+            { name: '灵能值', value: formatNum(playerData.maxPlayerHp), color: '#ff6b6b' },
+            { name: '灵光冲击', value: formatNum(fullStats.attack), color: '#ffd700' },
+            { name: '灵场护盾', value: formatNum(fullStats.defense || character.defense), color: '#4ecdc4' },
+            { name: '会心感应', value: formatNum(fullStats.critRate) + '%', color: '#ff9f43' },
+            { name: '会心威力', value: formatNum(fullStats.critDamage * 100) + '%', color: '#ee5a24' },
             { name: '魔力', value: formatNum(fullStats.mana || character.mana), color: '#a29bfe' },
             { name: '信仰', value: formatNum(fullStats.faith || character.faith), color: '#74b9ff' }
         ];
@@ -490,14 +490,14 @@ function createSquadRenderer(deps) {
         // 连击属性
         ctx.fillStyle = '#87CEEB';
         ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
-        ctx.fillText('【连击属性】', infoX, infoY);
+        ctx.fillText('【连灵属性】', infoX, infoY);
         infoY += lineHeight + Math.floor(5 * scale);
 
         var comboStats = [
-            { name: '连击阈值', value: character.comboThreshold },
+            { name: '连灵阈值', value: character.comboThreshold },
             { name: '速度加成', value: (character.comboSpeedBonus * 100).toFixed(0) + '%' },
-            { name: '分数加成', value: (character.comboScoreBonus * 100).toFixed(0) + '%' },
-            { name: '连击时限', value: (character.comboTimeout / 1000).toFixed(1) + 's' }
+            { name: '灵辉加成', value: (character.comboScoreBonus * 100).toFixed(0) + '%' },
+            { name: '连灵时限', value: (character.comboTimeout / 1000).toFixed(1) + 's' }
         ];
 
         for (let i = 0; i < comboStats.length; i++) {
@@ -744,7 +744,7 @@ function createSquadRenderer(deps) {
         ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText('⭐ 普通星星入局', x + Math.floor(20 * scale), switchY + switchHeight / 2);
+        ctx.fillText('⭐ 普通灵光入局', x + Math.floor(20 * scale), switchY + switchHeight / 2);
 
         // 开关按钮
         var switchBtnW = Math.floor(50 * scale);
@@ -821,7 +821,7 @@ function createSquadRenderer(deps) {
         if (equippedNames.length > 0) {
             ctx.fillText('已装备: ' + equippedNames.join('、'), x + w / 2, fixedSlotY + slotSize + Math.floor(8 * scale));
         } else {
-            ctx.fillText('未装备任何星星', x + w / 2, fixedSlotY + slotSize + Math.floor(8 * scale));
+            ctx.fillText('未装备任何灵光', x + w / 2, fixedSlotY + slotSize + Math.floor(8 * scale));
         }
 
         // 分隔线
@@ -860,8 +860,8 @@ function createSquadRenderer(deps) {
             ctx.font = Math.floor(14 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
-            ctx.fillText('暂无已解锁的特殊星星', x + w / 2, listY + Math.floor(20 * scale));
-            ctx.fillText('通过游戏获取材料来解锁', x + w / 2, listY + Math.floor(45 * scale));
+            ctx.fillText('暂无已解锁的特殊灵光', x + w / 2, listY + Math.floor(20 * scale));
+            ctx.fillText('通过净化之旅获取材料来解锁', x + w / 2, listY + Math.floor(45 * scale));
         } else {
             // 可选星星列表
             for (let k = 0; k < unlockedStars.length; k++) {
@@ -1065,7 +1065,7 @@ function createSquadRenderer(deps) {
 
             if (x >= switchBtnX && x <= switchBtnX + switchBtnW && y >= switchBtnY && y <= switchBtnY + switchBtnH) {
                 pd.normalStarEnabled = pd.normalStarEnabled === false ? true : false;
-                deps.showToast({ title: pd.normalStarEnabled ? '⭐ 普通星星已开启' : '⭐ 普通星星已关闭', icon: 'none', duration: 1000 });
+                deps.showToast({ title: pd.normalStarEnabled ? '⭐ 普通灵光已开启' : '⭐ 普通灵光已关闭', icon: 'none', duration: 1000 });
                 deps.savePlayerData();
                 return;
             }
@@ -1125,7 +1125,7 @@ function createSquadRenderer(deps) {
                         deps.showToast({ title: '已卸下 ' + star.name, icon: 'none', duration: 1000 });
                     } else {
                         if (equippedStars.length >= 5) {
-                            deps.showToast({ title: '最多装备5个特殊星星', icon: 'none', duration: 1500 });
+                            deps.showToast({ title: '最多装备5个特殊灵光', icon: 'none', duration: 1500 });
                             return;
                         }
                         equippedStars.push(star.id);

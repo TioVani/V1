@@ -129,12 +129,12 @@ function createSkillSystem(deps) {
                 var actualHeal = Math.min(healAmount, maxHp - currentHp);
 
                 if (actualHeal <= 0) {
-                    addMessage('生命值已满', '#ff6b6b');
+                    addMessage('灵核已满', '#ff6b6b');
                     return false;
                 }
 
                 playerData.playerHp = Math.min(maxHp, currentHp + healAmount);
-                addMessage(skill.emoji + ' +' + actualHeal + ' HP', '#00ff88');
+                addMessage(skill.emoji + ' +' + actualHeal + ' 灵能', '#00ff88');
                 Logger.info('治疗:', actualHeal, '当前HP:', playerData.playerHp);
                 success = true;
                 break;
@@ -185,15 +185,15 @@ function createSkillSystem(deps) {
                 break;
 
             case 'gold':
-                // 星币加成技能
+                // 灵币加成技能
                 activeSkillEffects.push({
                     type: 'gold',
                     goldBonus: skill.goldBonus,
                     duration: skill.duration * 1000,
                     startTime: Date.now()
                 });
-                addMessage(skill.emoji + ' 星币翻倍!', '#ffcc00');
-                Logger.info('星币加成:', skill.goldBonus, '持续:', skill.duration);
+                addMessage(skill.emoji + ' 灵币翻倍!', '#ffcc00');
+                Logger.info('灵币加成:', skill.goldBonus, '持续:', skill.duration);
                 success = true;
                 break;
 

@@ -1,3 +1,4 @@
+import { request } from '../platform/BrowserAPI.js';
 /**
  * UIEditorSystem — 游戏内可视化UI编辑器
  *
@@ -289,7 +290,7 @@ function createUIEditorSystem(deps) {
         } else if (btnId === 'export') {
             var json = uiConfig.exportDefaults();
             try {
-                wx.request({
+                request({
                     url: 'http://localhost:9527/ui-sync',
                     method: 'POST',
                     data: json,

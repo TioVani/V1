@@ -223,7 +223,7 @@ function createBattleEngine(deps) {
         S.poisonTickTime = Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS');
         var poisonLabel = S.playerShield > 0 ? '腐蚀!' : '中毒!';
         anim.createPlayerDamage(0, false, true, poisonLabel);
-        anim.addMessage('☠️ ' + poisonLabel + ' 每秒-' + S.poisonDamage + 'HP', '#ff6b6b');
+        anim.addMessage('☠️ ' + poisonLabel + ' 每秒-' + S.poisonDamage + '灵能', '#ff6b6b');
     }
 
     function applyStun(stunSkill) {
@@ -325,7 +325,7 @@ function createBattleEngine(deps) {
             case 'heal':
                 var healAmt = pet.healAmount || 5;
                 S.playerHp = Math.min(S.playerHp + healAmt, S.playerMaxHp);
-                anim.addMessage('💚 宠物治疗 +' + healAmt + 'HP', '#00ff88');
+                anim.addMessage('💚 灵兽治愈 +' + healAmt + '灵能', '#00ff88');
                 break;
             case 'swift':
                 if (Math.random() < 0.15 && S.dodging) {
@@ -446,7 +446,7 @@ function createBattleEngine(deps) {
                         S.timeLeft = Math.max(0, S.timeLeft - S.timeDamageOnHit);
                         anim.createPlayerDamage(damage, false);
                         anim.createTimeDamage(S.timeDamageOnHit);
-                        anim.addMessage('-' + damage + ' HP', '#ff6b6b');
+                        anim.addMessage('-' + damage + ' 灵能', '#ff6b6b');
                         anim.vibrateShort({ type: 'heavy' });
                     }
 
@@ -471,7 +471,7 @@ function createBattleEngine(deps) {
                     if (S.bossStunChance > 0 && damage > 0 && Math.random() < S.bossStunChance) {
                         S.isStunned = true;
                         S.stunEndTime = Date.now() + (S.bossStunDuration || 1000);
-                        anim.addMessage('⚡ Boss打断!', '#ff6b6b');
+                        anim.addMessage('⚡ 守护灵打断!', '#ff6b6b');
                     }
 
                     // 通知适配器
@@ -489,7 +489,7 @@ function createBattleEngine(deps) {
     }
 
     // ═══════════════════════════════════════════════════════
-    // 子模块: PendingDeath（每怪独立追踪死亡延迟）
+    // 子模块: PendingDeath（每怪独立追踪消散延迟）
     // ═══════════════════════════════════════════════════════
 
     function addPendingDeath(monster) {
@@ -548,7 +548,7 @@ function createBattleEngine(deps) {
                 }
                 S.playerHp -= hpCost;
                 S.playerRage = (S.playerRage || 0) + 1;
-                anim.addMessage('💀 -' + hpCost + 'HP 怒气 ' + S.playerRage + '/3', '#ff6b6b');
+                anim.addMessage('🔻 -' + hpCost + '灵能 怒气 ' + S.playerRage + '/3', '#ff6b6b');
 
                 if (S.playerRage >= 3) {
                     S.playerRage = 0;
@@ -564,7 +564,7 @@ function createBattleEngine(deps) {
                     } else {
                         var healRage = 30;
                         S.playerHp = Math.min(S.playerHp + healRage, S.playerMaxHp);
-                        anim.addMessage('💚 怒气回复! +' + healRage + 'HP', '#00ff88');
+                        anim.addMessage('💚 怒气回复! +' + healRage + '灵能', '#00ff88');
                     }
                 }
                 anim.createStarBurst(star.x, star.y, 'unlucky');
@@ -574,7 +574,7 @@ function createBattleEngine(deps) {
             case 'greedy':
                 S.playerHp -= getSpecValue(RC, 'SPECIAL_STARS.GREEDY_HP_COST');
                 S.greedyHpPool = (S.greedyHpPool || 0) + 2;
-                anim.addMessage('😈 -1HP 贪婪池 ' + S.greedyHpPool + '/20', '#8b0000');
+                anim.addMessage('🌀 -1灵能 贪婪池 ' + S.greedyHpPool + '/20', '#8b0000');
                 anim.createStarBurst(star.x, star.y, 'greedy');
                 if (S.playerHp <= 0) { S.playerHp = 0; finishBattle('playerDeath'); }
                 break;
@@ -826,7 +826,7 @@ function createBattleEngine(deps) {
                             0, 1, null,
                             { x: targetMonster.x || scr.getWidth() / 2, y: targetMonster.y || scr.getHeight() / 3 }
                         );
-                        anim.addMessage('吸收! +' + hitResult.healAmount + 'HP', '#ff6b6b');
+                        anim.addMessage('吸收! +' + hitResult.healAmount + '灵能', '#ff6b6b');
                     }
                     if (S.extensions && S.extensions.onScoreEarned) {
                         S.extensions.onScoreEarned(star, result, 0, true);
@@ -916,7 +916,7 @@ function createBattleEngine(deps) {
         // 统一攻击系统：所有怪物通过 attackers[] 独立攻击
         updateAttackers();
 
-        // 怪物死亡延迟结算（每怪独立追踪，等流星动画完成后取最晚死亡时间）
+        // 怪物消散延迟结算（每怪独立追踪，等流星动画完成后取最晚消散时间）
         if (S.pendingDeaths.length > 0) {
             var latestTime = 0;
             for (var pd = 0; pd < S.pendingDeaths.length; pd++) {
@@ -1003,7 +1003,7 @@ function createBattleEngine(deps) {
                 var actualHeal = Math.min(healAmt, S.playerMaxHp - S.playerHp);
                 if (actualHeal <= 0) return false;
                 S.playerHp = Math.min(S.playerHp + healAmt, S.playerMaxHp);
-                anim.addMessage(skill.emoji + ' +' + actualHeal + 'HP', '#00ff88');
+                anim.addMessage(skill.emoji + ' +' + actualHeal + '灵能', '#00ff88');
                 success = true;
                 break;
             case 'shield':

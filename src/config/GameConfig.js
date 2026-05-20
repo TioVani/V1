@@ -7,58 +7,58 @@ import { STAGES } from './StageConfig.js';
 
 // 游戏核心数值配置
 const CONFIG = {
-    monsterAppearScore: 60,      // 出现怪物的分数
-    bossKillCount: 8,            // 击杀多少怪物后出现Boss
-    bossKillReward: 20,          // 击杀Boss获得的分数奖励
-    starUnlockScore: 50,         // 解锁星星使者的分数
-    warriorUnlockScore: 200,     // 解锁星光战士的分数
-    timeBonusSlime: 8,           // 史莱姆奖励时间
-    timeBonusBoss: 15,           // Boss奖励时间
-    slimeBaseHp: 50,             // 史莱姆基础HP
-    bossHp: 150,                 // Boss HP
-    iceCrystalDropRate: 1.0,     // Boss掉落冰晶率（100%）
-    critCrystalDropRate: 0.008,  // Boss掉落暴击冰晶率（0.8%）
-    critFireSourceDropRate: 0.008,  // Boss掉落爆伤火源率（0.8%）
-    iceStarBaseMultiplier: 3.0,  // 冰星基础分数倍数
-    iceStarLevelBonus: 0.05,     // 每级冰星加成（5%）
-    maxIceStarLevel: 10,         // 冰星最高等级
-    iceCrystalUpgradeCost: 5,    // 升级冰星消耗冰晶数
-    iceCrystalAttackBonus: 1     // 每颗冰晶的攻击加成
+    monsterAppearScore: 60,      // 出现邪灵的灵辉值
+    bossKillCount: 8,            // 净化多少邪灵后出现守护灵
+    bossKillReward: 20,          // 净化守护灵获得的灵辉奖励
+    starUnlockScore: 50,         // 解锁玉蝉仙的灵辉值
+    warriorUnlockScore: 200,     // 解锁鼎魂的灵辉值
+    timeBonusSlime: 8,           // 邪灵奖励时间
+    timeBonusBoss: 15,           // 守护灵奖励时间
+    slimeBaseHp: 50,             // 邪灵基础HP
+    bossHp: 150,                 // 守护灵 HP
+    iceCrystalDropRate: 1.0,     // 守护灵掉落水灵晶率（100%）
+    critCrystalDropRate: 0.008,  // 守护灵掉落水灵暴晶率（0.8%）
+    critFireSourceDropRate: 0.008,  // 守护灵掉落火灵爆源率（0.8%）
+    iceStarBaseMultiplier: 3.0,  // 水灵星基础分数倍数
+    iceStarLevelBonus: 0.05,     // 每级水灵星加成（5%）
+    maxIceStarLevel: 10,         // 水灵星最高等级
+    iceCrystalUpgradeCost: 5,    // 升级水灵星消耗水灵晶数
+    iceCrystalAttackBonus: 1     // 每颗水灵晶的攻击加成
 };
 
-// Boss战配置
+// 守护灵战配置
 const BOSS_BATTLE_CONFIG = {
     baseTime: 60,               // 基础时间60秒
-    starSpawnRate: 600,         // 星星生成间隔（与随机模式统一）
+    starSpawnRate: 600,         // 灵光生成间隔（与随机模式统一）
     comboTimeout: 1500          // 连击超时
 };
 
-// 星星系统常量
-const BASE_STAR_INTERVAL = 350;   // 基础星星生成间隔
-const MIN_STAR_INTERVAL = 300;    // 最小星星生成间隔
+// 灵光系统常量
+const BASE_STAR_INTERVAL = 350;   // 基础灵光生成间隔
+const MIN_STAR_INTERVAL = 300;    // 最小灵光生成间隔
 
 // 闪避系统常量
 const DODGE_DURATION = 1000;              // 闪避持续1秒
-const DODGE_STAR_SPAWN_INTERVAL = 1200;   // 闪避星星生成间隔：1.2秒
-const DODGE_STAR_LIFETIME = 1000;         // 闪避星星存在时间：1秒
+const DODGE_STAR_SPAWN_INTERVAL = 1200;   // 闪避灵光生成间隔：1.2秒
+const DODGE_STAR_LIFETIME = 1000;         // 闪避灵光存在时间：1秒
 
 // 怪物吸收常量
-const MONSTER_ABSORB_SCORE = 2000;  // 2000分后怪物开始吸收星星
-const MONSTER_ARMOR_GAIN = 5;       // 吸收冰星星获得护甲值
-const MONSTER_HP_GAIN = 20;         // 吸收火星星获得生命值
-const MONSTER_DAMAGE_GAIN = 3;      // 吸收普通星星获得攻击力加成
+const MONSTER_ABSORB_SCORE = 2000;  // 2000分后怪物开始吸收灵光
+const MONSTER_ARMOR_GAIN = 5;       // 吸收水灵星获得护甲值
+const MONSTER_HP_GAIN = 20;         // 吸收火灵星获得生命值
+const MONSTER_DAMAGE_GAIN = 3;      // 吸收基础灵光获得攻击力加成
 
 // 游戏时间常量
 const NORMAL_GAME_TIME = 30;        // 普通模式初始时间（秒）
-const TIME_STAR_MIN_TIME = 30;      // 时间星星技能保留的最小时间（秒）
+const TIME_STAR_MIN_TIME = 30;      // 时序星技能保留的最小时间（秒）
 
-// 星渊吞噬者逃跑机制
+// 灵脉吞噬者逃跑机制
 const STAR_DEVOURER_ESCAPE_HP_RATIO = 0.3;  // 血量低于30%时触发逃跑
 
-// 贪婪星星常量
+// 贪婪灵光常量
 const GREEDY_SKILL_THRESHOLD = 20;  // 解锁技能所需累计扣血
 
-// 连击星星常量
+// 连击灵光常量
 const COMBO_STAR_DURATION = 5000;   // 持续5秒
 const COMBO_STAR_INTERVAL = 200;    // 每0.2秒攻击一次
 

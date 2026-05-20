@@ -54,7 +54,7 @@ function createMonsterSkillSystem(deps) {
                         monster.hp = Math.min(monster.hp + healAmount, monster.maxHp);
                         result.triggered = true;
                         result.effect = { type: 'absorb', heal: healAmount, starType: context.starType };
-                        addMonsterSkillAnimation(monster, 'absorb', '+' + healAmount + ' HP');
+                        addMonsterSkillAnimation(monster, 'absorb', '+' + healAmount + ' 灵能');
                     }
                 }
                 break;
@@ -129,7 +129,7 @@ function createMonsterSkillSystem(deps) {
                 if (Math.random() < skill.chance) {
                     result.triggered = true;
                     result.effect = { type: 'doubleAttack' };
-                    addMonsterSkillAnimation(monster, 'doubleAttack', '连击!');
+                    addMonsterSkillAnimation(monster, 'doubleAttack', '连灵!');
                 }
                 break;
 
@@ -165,7 +165,7 @@ function createMonsterSkillSystem(deps) {
                         monster.hp += healAmt;
                         result.triggered = true;
                         result.effect = { type: 'heal', amount: healAmt };
-                        addMonsterSkillAnimation(monster, 'heal', '+' + healAmt + ' HP');
+                        addMonsterSkillAnimation(monster, 'heal', '+' + healAmt + ' 灵能');
                     }
                 }
                 break;

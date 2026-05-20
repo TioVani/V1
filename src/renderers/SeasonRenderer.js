@@ -93,9 +93,9 @@ function createSeasonRenderer(deps) {
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
             var rules = [
                 '• 每周一刷新角色、技能、宠物池',
-                '• 玩家只能从赛季池中选择搭配',
+                '• 唤灵人只能从赛季池中选择搭配',
                 '• 禁止使用自带装备、道具、增益',
-                '• 公平竞技，比拼最高分数'
+                '• 公平竞技，比拼最高灵辉值'
             ];
             for (var ri = 0; ri < rules.length; ri++) {
                 ctx.fillText(rules[ri], screenWidth / 2, ruleY + Math.floor(25 * scale) * (ri + 1));
@@ -206,7 +206,7 @@ function createSeasonRenderer(deps) {
             }
 
             // 标题
-            drawText('🎯 选择你的配置', screenWidth / 2, Math.floor(40 * scale), Math.floor(24 * scale), '#ffd700');
+            drawText('🔮 选择你的配置', screenWidth / 2, Math.floor(40 * scale), Math.floor(24 * scale), '#ffd700');
 
             var currentY = Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;
 
@@ -245,7 +245,7 @@ function createSeasonRenderer(deps) {
                 ctx.fillStyle = '#aaaaaa';
                 ctx.font = Math.floor(10 * scale) + 'px sans-serif';
                 ctx.fillText('攻击:' + charMaxStats.attack + ' 暴击:' + charMaxStats.critRate.toFixed(1) + '%', charItemX + Math.floor(10 * scale), currentY + Math.floor(40 * scale));
-                ctx.fillText('HP:' + charMaxStats.hp + ' 爆伤:' + charMaxStats.critDamage.toFixed(1) + 'x', charItemX + Math.floor(10 * scale), currentY + Math.floor(55 * scale));
+                ctx.fillText('灵能:' + charMaxStats.hp + ' 爆伤:' + charMaxStats.critDamage.toFixed(1) + 'x', charItemX + Math.floor(10 * scale), currentY + Math.floor(55 * scale));
 
                 // 选中标记
                 if (isSelected) {
@@ -374,7 +374,7 @@ function createSeasonRenderer(deps) {
             ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
             ctx.textAlign = 'left';
             var selectedStarCount = seasonSelection.starTypes ? seasonSelection.starTypes.length : 0;
-            ctx.fillText('⭐ 星星类型 (已选' + selectedStarCount + '/3，至少选1个)', Math.floor(20 * scale), currentY);
+            ctx.fillText('⭐ 灵光类型 (已选' + selectedStarCount + '/3，至少选1个)', Math.floor(20 * scale), currentY);
             currentY += Math.floor(25 * scale);
 
             var seasonStarTypes = seasonContent.starTypes || [];
@@ -432,7 +432,7 @@ function createSeasonRenderer(deps) {
             // 开始游戏按钮（需要选择至少1个星星类型）
             var canStart = seasonSelection.character && seasonSelection.skills.length > 0 && seasonSelection.starTypes && seasonSelection.starTypes.length > 0;
             var startBtnColor = canStart ? '#4CAF50' : '#666666';
-            drawButton('开始游戏', screenWidth / 2, btnY, Math.floor(120 * scale), btnHeight, startBtnColor);
+            drawButton('踏入灵域', screenWidth / 2, btnY, Math.floor(120 * scale), btnHeight, startBtnColor);
 
             // 返回按钮（左下角）
             drawBackButton();
@@ -487,9 +487,9 @@ function createSeasonRenderer(deps) {
         ctx.font = 'bold ' + Math.floor(12 * scale) + 'px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText('排名', Math.floor(40 * scale), listStartY);
-        ctx.fillText('玩家', Math.floor(90 * scale), listStartY);
+        ctx.fillText('唤灵人', Math.floor(90 * scale), listStartY);
         ctx.textAlign = 'right';
-        ctx.fillText('分数', screenWidth - Math.floor(40 * scale), listStartY);
+        ctx.fillText('灵辉值', screenWidth - Math.floor(40 * scale), listStartY);
         ctx.textAlign = 'left';
 
         // 排行榜项目

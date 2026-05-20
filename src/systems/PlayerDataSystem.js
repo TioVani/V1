@@ -6,7 +6,7 @@ import deepClone from '../utils/DeepClone.js';
  */
 
 function createPlayerDataSystem(deps) {
-    var getWxStorage = deps.getWxStorage;
+    var getStorage = deps.getStorage;
     var setPlayerData = deps.setPlayerData;
     var setPlayerDataField = deps.setPlayerDataField;
     var savePlayerData = deps.savePlayerData;
@@ -37,7 +37,7 @@ function createPlayerDataSystem(deps) {
     // 默认玩家数据模板
     var defaultPlayerData = {
         id: 'player_001',
-        name: '玩家',
+        name: '唤灵人',
         gold: 0,
         starSource: 9999,
         starStones: 0,
@@ -170,7 +170,7 @@ function createPlayerDataSystem(deps) {
     function loadPlayerData() {
         try {
             Logger.info('=== 开始加载玩家数据 ===');
-            var savedData = getWxStorage('playerData');
+            var savedData = getStorage('playerData');
             Logger.info('读取到的原始数据:', JSON.stringify(savedData));
 
             if (savedData) {
@@ -263,10 +263,10 @@ function createPlayerDataSystem(deps) {
                     playerData.unlockedStarTypes = [];
                 }
 
-                // 恢复时间结晶解锁状态
+                // 恢复时序结晶解锁状态
                 if (playerData.timeCrystalUnlocked) {
                     setTimeCrystalUnlocked(true);
-                    Logger.info('时间结晶已解锁');
+                    Logger.info('时序结晶已解锁');
                 }
 
                 Logger.info('ownedCharacters:', playerData.ownedCharacters);

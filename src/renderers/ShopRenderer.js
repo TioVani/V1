@@ -56,7 +56,7 @@ function createShopRenderer(deps) {
         // 显示货币
         var goldIconSize = Math.floor(16 * scale);
 
-        // 星币
+        // 灵币
         if (Assets.goldIcon && Assets.goldIcon.complete) {
             ctx.drawImage(Assets.goldIcon, Math.floor(20 * scale), Math.floor(74 * scale), goldIconSize, goldIconSize);
         } else {
@@ -70,7 +70,7 @@ function createShopRenderer(deps) {
         ctx.textAlign = 'left';
         ctx.fillText(' ' + playerData.gold, Math.floor(40 * scale), Math.floor(85 * scale));
 
-        // 星源石
+        // 灵石
         var starSourceIconSize = Math.floor(16 * scale);
         if (Assets.starSourceIcon && Assets.starSourceIcon.complete) {
             ctx.drawImage(Assets.starSourceIcon, Math.floor(130 * scale), Math.floor(74 * scale), starSourceIconSize, starSourceIconSize);
@@ -100,9 +100,9 @@ function createShopRenderer(deps) {
         var itemsColor = uiState.shopTab === 'items' ? '#ffd700' : '#87CEEB';
         drawButton('道具', startX + (tabWidth + tabGap) * 2 + tabWidth / 2, tabY + tabHeight / 2, tabWidth, tabHeight, itemsColor);
 
-        // 抽卡标签按钮
+        // 唤灵标签按钮
         var gachaColor = uiState.shopTab === 'gacha' ? '#ffd700' : '#87CEEB';
-        drawButton('抽卡', startX + (tabWidth + tabGap) * 3 + tabWidth / 2, tabY + tabHeight / 2, tabWidth, tabHeight, gachaColor);
+        drawButton('唤灵', startX + (tabWidth + tabGap) * 3 + tabWidth / 2, tabY + tabHeight / 2, tabWidth, tabHeight, gachaColor);
 
         // 宠物标签按钮
         var petsColor = uiState.shopTab === 'pets' ? '#ffd700' : '#87CEEB';
@@ -227,9 +227,9 @@ function createShopRenderer(deps) {
             }
         }
 
-        // 时间结晶商品（只有解锁后才显示）
+        // 时序结晶商品（只有解锁后才显示）
         if (combatState.timeCrystalUnlocked) {
-            var timeCrystalItem = { id: 'timeCrystal', name: '时间结晶', emoji: '⏰', price: 0, currency: 'ad', description: '看广告获取，解锁时间星星' };
+            var timeCrystalItem = { id: 'timeCrystal', name: '时序结晶', emoji: '⏰', price: 0, currency: 'ad', description: '看广告获取，解锁时序星' };
             var tcItemY = startY + items.length * (itemHeight + padding) - uiState.shopScrollY;
 
             // 商品背景（圆角）
@@ -480,7 +480,7 @@ function createShopRenderer(deps) {
 
         // ===== 卡池选择标签（水平排列） =====
         var poolTabs = [
-            { id: 'stars', name: '⭐', label: '星星' },
+            { id: 'stars', name: '⭐', label: '灵光' },
             { id: 'pets', name: '🐾', label: '宠物' },
             { id: 'characters', name: '👤', label: '角色' },
             { id: 'skills', name: '✨', label: '技能' }
@@ -532,7 +532,7 @@ function createShopRenderer(deps) {
 
         // 货币显示
         var currencyIconSize = Math.floor(16 * scale);
-        var currencyText = '星源石: ' + (playerData.starSource || 0);
+        var currencyText = '灵石: ' + (playerData.starSource || 0);
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
         var textWidth = ctx.measureText(currencyText).width;
         var totalWidth = currencyIconSize + Math.floor(5 * scale) + textWidth;
@@ -549,11 +549,11 @@ function createShopRenderer(deps) {
             ctx.fillText('💎 ' + currencyText, screenWidth / 2, infoY + Math.floor(70 * scale));
         }
 
-        // 技能卡池时显示抽卡券数量
+        // 技能卡池时显示唤灵券数量
         if (gachaSystem.currentPool === 'skills') {
             var gachaTickets = (playerData.skills && playerData.skills.gachaTickets) ? playerData.skills.gachaTickets : 0;
             ctx.fillStyle = '#FFD700';
-            ctx.fillText('🎫 抽卡券: ' + gachaTickets, screenWidth / 2, infoY + Math.floor(90 * scale));
+            ctx.fillText('&#x1F3AB; 唤灵券: ' + gachaTickets, screenWidth / 2, infoY + Math.floor(90 * scale));
         }
 
         // ===== 抽卡按钮 =====
@@ -562,7 +562,7 @@ function createShopRenderer(deps) {
         var btnHeight = Math.floor(45 * scale);
         var btnGap = Math.floor(20 * scale);
 
-        // 获取技能抽卡券数量
+        // 获取技能唤灵券数量
         var gachaTickets = (playerData.skills && playerData.skills.gachaTickets) ? playerData.skills.gachaTickets : 0;
         var isSkillPool = (gachaSystem.currentPool === 'skills');
 
@@ -578,9 +578,9 @@ function createShopRenderer(deps) {
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('单抽', singleBtnX + btnWidth / 2, btnY + Math.floor(15 * scale));
+        ctx.fillText('单次唤灵', singleBtnX + btnWidth / 2, btnY + Math.floor(15 * scale));
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-        // 技能卡池优先显示抽卡券价格
+        // 技能卡池优先显示唤灵券价格
         if (isSkillPool && gachaTickets >= 1) {
             ctx.fillText('🎫1张', singleBtnX + btnWidth / 2, btnY + Math.floor(32 * scale));
         } else {
@@ -604,9 +604,9 @@ function createShopRenderer(deps) {
 
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
-        ctx.fillText('十连抽', tenBtnX + btnWidth / 2, btnY + Math.floor(15 * scale));
+        ctx.fillText('古灵共鸣', tenBtnX + btnWidth / 2, btnY + Math.floor(15 * scale));
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-        // 技能卡池优先显示抽卡券价格
+        // 技能卡池优先显示唤灵券价格
         if (isSkillPool && gachaTickets >= 10) {
             ctx.fillText('🎫10张', tenBtnX + btnWidth / 2, btnY + Math.floor(32 * scale));
         } else {
@@ -624,13 +624,13 @@ function createShopRenderer(deps) {
         ctx.fillStyle = '#888888';
         ctx.font = Math.floor(11 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('保底: ' + pool.pity.sr + '抽必出SR, ' + pool.pity.ssr + '抽必出SSR', screenWidth / 2, pityY);
+        ctx.fillText('保底: ' + pool.pity.sr + '必定唤来SR, ' + pool.pity.ssr + '必定唤来SSR', screenWidth / 2, pityY);
 
         // 当前保底计数
         var pityCount = gachaSystem.pityCount[gachaSystem.currentPool] || { sr: 0, ssr: 0 };
         ctx.fillStyle = '#ffd700';
         ctx.font = Math.floor(11 * scale) + 'px sans-serif';
-        ctx.fillText('已抽: SR保底' + pityCount.sr + '/' + pool.pity.sr + '  SSR保底' + pityCount.ssr + '/' + pool.pity.ssr, screenWidth / 2, pityY + Math.floor(18 * scale));
+        ctx.fillText('已唤灵: SR保底' + pityCount.sr + '/' + pool.pity.sr + '  SSR保底' + pityCount.ssr + '/' + pool.pity.ssr, screenWidth / 2, pityY + Math.floor(18 * scale));
     }
 
     // ==================== renderShopPetsTab ====================

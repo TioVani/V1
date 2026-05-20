@@ -156,9 +156,9 @@ function createMonsterSpawnSystem(deps) {
         if (score < 1400) return Math.random() < 0.4 ? 'goblin_king' : (Math.random() < 0.5 ? 'flame_lord' : 'ice_queen');
         if (score < 2000) {
             var roll = Math.random();
-            // 星渊吞噬者 15%
+            // 灵脉吞噬者 15%
             if (roll < 0.15 && !starDevourerEscaped) return 'star_devourer';
-            // 虚空皇帝 5%（必须在星渊吞噬者判断之后独立判断）
+            // 灵脉邪灵 5%（必须在灵脉吞噬者判断之后独立判断）
             if (!voidEmperorSpawned && roll >= 0.15 && roll < 0.20) {
                 setVoidEmperorSpawned(true);
                 return 'void_emperor';
@@ -167,9 +167,9 @@ function createMonsterSpawnSystem(deps) {
         }
         // 2000分以上
         var roll2 = Math.random();
-        // 星渊吞噬者 20%
+        // 灵脉吞噬者 20%
         if (roll2 < 0.2 && !starDevourerEscaped) return 'star_devourer';
-        // 虚空皇帝 5%
+        // 灵脉邪灵 5%
         if (!voidEmperorSpawned && roll2 >= 0.2 && roll2 < 0.25) {
             setVoidEmperorSpawned(true);
             return 'void_emperor';
@@ -262,7 +262,7 @@ function createMonsterSpawnSystem(deps) {
         var playerData = getPlayerData();
         var CONFIG = getConfig();
 
-        // 星星使者：达到50分解锁
+        // 玉蝉仙：达到50分解锁
         var starUnlockScore = CONFIG.starUnlockScore;
         var starUnlockCharId = 'char_001';
 
@@ -270,13 +270,13 @@ function createMonsterSpawnSystem(deps) {
             if (score >= starUnlockScore) {
                 playerData.ownedCharacters.push(starUnlockCharId);
                 initCharacterExp(starUnlockCharId);
-                if (showTipOnce) showTipOnce('unlock_char_001', '获得新角色星星使者！去背包出战吧');
+                if (showTipOnce) showTipOnce('unlock_char_001', '获得新角色玉蝉仙！去背包出战吧');
                 Logger.info('解锁新角色:', starUnlockCharId, '当前仍使用:', playerData.currentCharacterId);
                 saveData();
             }
         }
 
-        // 星光战士：达到200分解锁
+        // 鼎魂：达到200分解锁
         var warriorUnlockScore = CONFIG.warriorUnlockScore;
         var warriorUnlockCharId = 'char_002';
 
@@ -284,7 +284,7 @@ function createMonsterSpawnSystem(deps) {
             if (score >= warriorUnlockScore) {
                 playerData.ownedCharacters.push(warriorUnlockCharId);
                 initCharacterExp(warriorUnlockCharId);
-                if (showTipOnce) showTipOnce('unlock_char_002', '获得新角色星光战士！去背包出战吧');
+                if (showTipOnce) showTipOnce('unlock_char_002', '获得新角色鼎魂！去背包出战吧');
                 Logger.info('解锁新角色:', warriorUnlockCharId, '当前仍使用:', playerData.currentCharacterId);
                 saveData();
             }

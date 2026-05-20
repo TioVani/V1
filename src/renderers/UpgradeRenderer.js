@@ -25,7 +25,7 @@ function createUpgradeRenderer(deps) {
         equipment: { name: '装备', emoji: '⚔️', color: '#E74C3C' },
         skill:     { name: '技能', emoji: '✨', color: '#9B59B6' },
         pet:       { name: '宠物', emoji: '🐾', color: '#4ECDC4' },
-        star:      { name: '星星', emoji: '⭐', color: '#F1C40F' }
+        star:      { name: '灵光', emoji: '⭐', color: '#F1C40F' }
     };
 
     // ==================== renderUpgrade ====================
@@ -479,7 +479,7 @@ function createUpgradeRenderer(deps) {
     function _formatCost(cost) {
         if (!cost) return '无';
         var parts = [];
-        var names = { gold: '金币', starSource: '星源石', iceCrystal: '冰晶', fireSource: '火源', timeCrystal: '时间结晶' };
+        var names = { gold: '灵币', starSource: '灵石', iceCrystal: '水灵晶', fireSource: '火灵源', timeCrystal: '时序结晶' };
         for (var k in cost) {
             if (!cost.hasOwnProperty(k)) continue;
             parts.push((names[k] || k) + ' ' + cost[k]);

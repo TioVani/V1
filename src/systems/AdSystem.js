@@ -1,10 +1,11 @@
 import Logger from '../utils/Logger.js';
+import { createBannerAd, createRewardedVideoAd } from '../platform/BrowserAPI.js';
 /**
  * AdSystem - 广告系统
  * 管理广告的初始化、显示和奖励处理
  */
 
-// 时间结晶广告阈值
+// 时序结晶广告阈值
 var TIME_CRYSTAL_AD_THRESHOLD = 5;
 
 function createAdSystem(deps) {
@@ -44,17 +45,11 @@ function createAdSystem(deps) {
      */
     function initAds() {
         try {
-            // 检查是否支持广告
-            if (!wx.createBannerAd || !wx.createRewardedVideoAd) {
-                Logger.info('当前环境不支持广告功能');
-                return;
-            }
-
             var sw = getScreenWidth();
             var sh = getScreenHeight();
 
             // Banner广告
-            bannerAd = wx.createBannerAd({
+            bannerAd = createBannerAd({
                 adUnitId: 'adunit-123456789', // 测试ID，上线前替换为真实ID
                 style: {
                     left: sw / 2 - 150,
@@ -75,7 +70,7 @@ function createAdSystem(deps) {
             });
 
             // 激励视频广告
-            rewardedVideoAd = wx.createRewardedVideoAd({
+            rewardedVideoAd = createRewardedVideoAd({
                 adUnitId: 'adunit-987654321' // 测试ID，上线前替换为真实ID
             });
 
@@ -97,9 +92,9 @@ function createAdSystem(deps) {
                     setAdWatchCount(count);
                     Logger.info('广告观看次数:', count);
 
-                    // 检查是否达到时间结晶奖励条件
+                    // 检查是否达到时序结晶奖励条件
                     if (count >= TIME_CRYSTAL_AD_THRESHOLD && !getTimeCrystalUnlocked()) {
-                        // 解锁时间结晶并赠送1个
+                        // 解锁时序结晶并赠送1个
                         setTimeCrystalUnlocked(true);
                         setPlayerDataProp('timeCrystalUnlocked', true);
                         var playerData = getPlayerData();
@@ -108,8 +103,8 @@ function createAdSystem(deps) {
                             playerData.materials.timeCrystal = { quantity: 0 };
                         }
                         playerData.materials.timeCrystal.quantity++;
-                        Logger.info('恭喜！获得时间结晶！商城已解锁购买途径');
-                        addMessage('获得时间结晶！', '#cc88ff', true);
+                        Logger.info('恭喜！获得时序结晶！商城已解锁购买途径');
+                        addMessage('获得时序结晶！', '#cc88ff', true);
                         saveData();
                     }
 
@@ -125,7 +120,7 @@ function createAdSystem(deps) {
                         addMonthlyCardDays(rewardedVideoAd._pendingMonthlyCard, 1);
                         rewardedVideoAd._pendingMonthlyCard = null;
                     } else if (rewardedVideoAd._pendingTimeCrystal) {
-                        // 时间结晶广告：发放时间结晶
+                        // 时序结晶广告：发放时序结晶
                         rewardedVideoAd._pendingTimeCrystal = false;
                         var pd = getPlayerData();
                         if (!pd.materials) pd.materials = {};
@@ -133,8 +128,8 @@ function createAdSystem(deps) {
                             pd.materials.timeCrystal = { quantity: 0 };
                         }
                         pd.materials.timeCrystal.quantity++;
-                        Logger.info('获得时间结晶！当前数量:', pd.materials.timeCrystal.quantity);
-                        addMessage('获得时间结晶！', '#cc88ff', true);
+                        Logger.info('获得时序结晶！当前数量:', pd.materials.timeCrystal.quantity);
+                        addMessage('获得时序结晶！', '#cc88ff', true);
                         saveData();
                     } else {
                         // 复活广告：奖励用户
@@ -236,7 +231,7 @@ function createAdSystem(deps) {
             playerData.playerHp = playerData.maxPlayerHp;
             setAdItemsProp('healPotion', getAdItems().healPotion + 1);
             showToast({
-                title: '血量已回满！',
+                title: '灵核已回满！',
                 icon: 'success',
                 duration: 1500
             });
@@ -255,7 +250,7 @@ function createAdSystem(deps) {
     }
 
     /**
-     * 播放广告获取时间结晶（商城专用）
+     * 播放广告获取时序结晶（商城专用）
      */
     function showTimeCrystalAd() {
         if (!adLoaded || !rewardedVideoAd) {
@@ -267,13 +262,13 @@ function createAdSystem(deps) {
             return;
         }
 
-        // 标记为时间结晶广告
+        // 标记为时序结晶广告
         rewardedVideoAd._pendingTimeCrystal = true;
 
         rewardedVideoAd.show().then(function() {
-            Logger.info('时间结晶广告开始播放');
+            Logger.info('时序结晶广告开始播放');
         }).catch(function(err) {
-            console.error('时间结晶广告显示失败:', err);
+            console.error('时序结晶广告显示失败:', err);
             showToast({
                 title: '广告加载失败',
                 icon: 'none',

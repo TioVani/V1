@@ -19,10 +19,10 @@ function createTipSystem(deps) {
 
     // 星星类型中文名
     var starTypeNames = {
-        ice: '冰晶', fire: '火焰', time: '时间',
+        ice: '水灵', fire: '火灵', time: '时序',
         heal: '治疗', shield: '护盾', dodge: '闪避',
-        combo: '连击', lightning: '雷电', poison: '毒素',
-        greedy: '贪婪', unlucky: '倒霉', boss_star: 'Boss'
+        combo: '连灵', lightning: '雷电', poison: '毒素',
+        greedy: '贪婪', unlucky: '倒霉', boss_star: '守护灵'
     };
 
     function showTipOnce(tipId, text) {

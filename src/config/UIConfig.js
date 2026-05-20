@@ -24,8 +24,8 @@ function createUIConfig(deps) {
     var _overrides = {};
     var _loaded = false;
 
-    var wxSetStorageSync = deps.wxSetStorageSync;
-    var wxGetStorageSync = deps.wxGetStorageSync;
+    var storageSet = deps.storageSet;
+    var storageGet = deps.storageGet;
 
     function register(def) {
         _registry[def.id] = def;
@@ -49,7 +49,7 @@ function createUIConfig(deps) {
         if (_loaded) return;
         _loaded = true;
         try {
-            var raw = wxGetStorageSync('ui_layout_overrides');
+            var raw = storageGet('ui_layout_overrides');
             if (!raw) return;
             var data = (typeof raw === 'string') ? JSON.parse(raw) : raw;
             if (data && data.version === 1 && data.elements) {
@@ -73,7 +73,7 @@ function createUIConfig(deps) {
                 data.elements[keys[i]] = { dx: Math.round(o.dx), dy: Math.round(o.dy) };
             }
         }
-        wxSetStorageSync('ui_layout_overrides', JSON.stringify(data));
+        storageSet('ui_layout_overrides', JSON.stringify(data));
     }
 
     // 导出当前所有覆盖为JSON字符串（用于粘贴到 DEFAULT_OVERRIDES）

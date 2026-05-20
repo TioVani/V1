@@ -9,40 +9,40 @@ import Logger from '../utils/Logger.js';
 
 // 商品配置
 var ShopItems = {
-    // 材料商品（星源石购买）
+    // 材料商品（灵石购买）
     materials: [
-        { id: 'iceCrystal', name: '冰晶', emoji: '❄️', price: 30, currency: 'starSource', description: '解锁/升级冰星星' },
-        { id: 'fireSource', name: '火源', emoji: '🔥', price: 40, currency: 'starSource', description: '解锁/升级火星星' },
-        { id: 'critCrystal', name: '暴击冰晶', emoji: '💠', price: 50, currency: 'starSource', description: '永久+3%暴击率' },
-        { id: 'critFireSource', name: '爆伤火源', emoji: '💥', price: 80, currency: 'starSource', description: '永久+20%爆伤' }
+        { id: 'iceCrystal', name: '水灵晶', emoji: '💧', price: 30, currency: 'starSource', description: '解锁/升级水灵星' },
+        { id: 'fireSource', name: '火灵源', emoji: '🔥', price: 40, currency: 'starSource', description: '解锁/升级火灵星' },
+        { id: 'critCrystal', name: '水灵暴晶', emoji: '💠', price: 50, currency: 'starSource', description: '会心感应永久提升' },
+        { id: 'critFireSource', name: '火灵爆源', emoji: '💥', price: 80, currency: 'starSource', description: '永久+20%爆伤' }
     ],
-    // 增益道具（星源石购买，单局生效）
+    // 增益道具（灵石购买，单局生效）
     buffs: [
-        { id: 'attackBoost', name: '攻击强化', emoji: '⚔️', price: 20, currency: 'starSource', effect: { attackBonus: 50 }, description: '本局攻击力+50' },
-        { id: 'critBoost', name: '暴击强化', emoji: '🎯', price: 30, currency: 'starSource', effect: { critRateBonus: 10 }, description: '本局暴击率+10%' },
-        { id: 'goldBoost', name: '星币加成', emoji: '💰', price: 15, currency: 'starSource', effect: { goldBonus: 2 }, description: '本局星币获取×2' },
+        { id: 'attackBoost', name: '灵光强化', emoji: '⚔️', price: 20, currency: 'starSource', effect: { attackBonus: 50 }, description: '本局灵光冲击+50' },
+        { id: 'critBoost', name: '会心强化', emoji: '🔮', price: 30, currency: 'starSource', effect: { critRateBonus: 10 }, description: '本局会心感应提升' },
+        { id: 'goldBoost', name: '灵币加成', emoji: '💰', price: 15, currency: 'starSource', effect: { goldBonus: 2 }, description: '本局灵币获取×2' },
         { id: 'timeBoost', name: '时间延长', emoji: '⏰', price: 25, currency: 'starSource', effect: { timeBonus: 15 }, description: '本局初始时间+15秒' },
-        { id: 'hpBoost', name: '生命强化', emoji: '❤️', price: 20, currency: 'starSource', effect: { hpBonus: 100 }, description: '本局最大HP+100' }
+        { id: 'hpBoost', name: '灵核强化', emoji: '❤️', price: 20, currency: 'starSource', effect: { hpBonus: 100 }, description: '灵核活性上限+100' }
     ],
-    // 道具商品（星币购买）
+    // 道具商品（灵币购买）
     items: [
-        { id: 'healPotion', name: '治疗药水', emoji: '🧪', price: 200, currency: 'gold', effect: { heal: 50 }, description: '立即恢复50点HP' },
-        { id: 'timePotion', name: '时间药水', emoji: '⏳', price: 300, currency: 'gold', effect: { addTime: 10 }, description: '立即增加10秒时间' },
-        { id: 'expPotionSmall', name: '经验药水(小)', emoji: '📜', price: 100, currency: 'gold', effect: { exp: 50 }, description: '当前角色+50经验' },
-        { id: 'expPotionMedium', name: '经验药水(中)', emoji: '📔', price: 180, currency: 'gold', effect: { exp: 100 }, description: '当前角色+100经验' },
-        { id: 'expPotionLarge', name: '经验药水(大)', emoji: '📖', price: 250, currency: 'gold', effect: { exp: 150 }, description: '当前角色+150经验' },
+        { id: 'healPotion', name: '愈灵露', emoji: '🧪', price: 200, currency: 'gold', effect: { heal: 50 }, description: '恢复50点灵能' },
+        { id: 'timePotion', name: '时序露', emoji: '⏳', price: 300, currency: 'gold', effect: { addTime: 10 }, description: '立即增加10秒时间' },
+        { id: 'expPotionSmall', name: '灵悟卷(小)', emoji: '📜', price: 100, currency: 'gold', effect: { exp: 50 }, description: '当前角色+50感悟' },
+        { id: 'expPotionMedium', name: '灵悟卷(中)', emoji: '📔', price: 180, currency: 'gold', effect: { exp: 100 }, description: '当前角色+100感悟' },
+        { id: 'expPotionLarge', name: '灵悟卷(大)', emoji: '📖', price: 250, currency: 'gold', effect: { exp: 150 }, description: '当前角色+150感悟' },
     ],
-    // 技能抽取（星源石购买）
+    // 技能抽取（灵石购买）
     gacha: [
-        { id: 'skillGacha1', name: '单抽', emoji: '🎰', price: 50, currency: 'starSource', description: '抽取1个技能' },
-        { id: 'skillGacha10', name: '十连抽', emoji: '🎰', price: 450, currency: 'starSource', description: '抽取10个技能（9折）' }
+        { id: 'skillGacha1', name: '单次唤灵', emoji: '🔮', price: 50, currency: 'starSource', description: '抽取1个技能' },
+        { id: 'skillGacha10', name: '古灵共鸣', emoji: '🔮', price: 450, currency: 'starSource', description: '抽取10个技能（9折）' }
     ],
-    // 宠物商店（星币购买）
+    // 宠物商店（灵币购买）
     pets: [
-        { id: 'pet_slime', name: '小史莱姆', emoji: '🟢', price: 500, currency: 'gold', description: '可爱的史莱姆' },
-        { id: 'pet_fire_spirit', name: '火焰精灵', emoji: '🔥', price: 1000, currency: 'gold', description: '火焰精灵，攻击附带燃烧' },
-        { id: 'pet_ice_fairy', name: '冰霜仙子', emoji: '❄️', price: 1000, currency: 'gold', description: '冰霜仙子，有几率冻结敌人' },
-        { id: 'pet_star_dragon', name: '星龙', emoji: '🐉', price: 2000, currency: 'gold', description: '传说中的星龙' }
+        { id: 'pet_slime', name: '铜锈碎片', emoji: '🟤', price: 500, currency: 'gold', description: '青铜锈片聚成的古灵' },
+        { id: 'pet_fire_spirit', name: '火灵精', emoji: '🔥', price: 1000, currency: 'gold', description: '火灵精，攻击附带燃烧' },
+        { id: 'pet_ice_fairy', name: '水灵仙子', emoji: '💧', price: 1000, currency: 'gold', description: '水灵仙子，有几率冻结邪灵' },
+        { id: 'pet_star_dragon', name: '应龙', emoji: '🐉', price: 2000, currency: 'gold', description: '应龙的龙威震慑邪灵，紊乱能量在你面前更难凝聚' }
     ]
 };
 
@@ -76,13 +76,13 @@ function createShopSystem(deps) {
         // 检查货币是否足够
         if (item.currency === 'gold') {
             if (playerData.gold < item.price) {
-                showToast({ title: '星币不足！', icon: 'none', duration: 1500 });
+                showToast({ title: '灵币不足！', icon: 'none', duration: 1500 });
                 return false;
             }
             playerData.gold -= item.price;
         } else if (item.currency === 'starSource') {
             if ((playerData.starSource || 0) < item.price) {
-                showToast({ title: '星源石不足！', icon: 'none', duration: 1500 });
+                showToast({ title: '灵石不足！', icon: 'none', duration: 1500 });
                 return false;
             }
             playerData.starSource -= item.price;
@@ -137,11 +137,11 @@ function createShopSystem(deps) {
                 playerData.items[item.id].quantity++;
                 showToast({ title: '已存入背包！', icon: 'success', duration: 1500 });
             } else if (item.effect.exp) {
-                // 经验药水：立即使用
+                // 灵悟卷：立即使用
                 var currentCharId = playerData.currentCharacterId;
                 if (currentCharId) {
                     addCharExp(currentCharId, item.effect.exp);
-                    showToast({ title: '获得' + item.effect.exp + '经验！', icon: 'none', duration: 1500 });
+                    showToast({ title: '获得' + item.effect.exp + '感悟！', icon: 'none', duration: 1500 });
                 } else {
                     showToast({ title: '请先选择角色！', icon: 'none', duration: 1500 });
                     // 退款
@@ -212,7 +212,7 @@ function createShopSystem(deps) {
                 // 任务：使用道具
                 updateTaskProgress('use_item', 1);
                 updateTaskStats('itemsUsed', 1);
-                addMessage('恢复' + healAmount + '点HP!', '#00ff88');
+                addMessage('恢复' + healAmount + '点灵能!', '#00ff88');
                 Logger.info('使用治疗药水，恢复HP:', healAmount, '剩余:', gameItems.healPotion);
                 return true;
             } else if (itemId === 'timePotion') {
@@ -229,14 +229,14 @@ function createShopSystem(deps) {
             }
         }
 
-        // 经验药水：使用背包数量
+        // 灵悟卷：使用背包数量
         if (!playerData.items || !playerData.items[itemId] || playerData.items[itemId].quantity <= 0) {
             addMessage('没有该道具', '#ff6b6b');
             return false;
         }
 
         if (itemId === 'expPotionSmall' || itemId === 'expPotionMedium' || itemId === 'expPotionLarge') {
-            // 经验药水：增加角色经验
+            // 灵悟卷：增加角色经验
             var expMap = {
                 'expPotionSmall': 50,
                 'expPotionMedium': 100,
@@ -248,8 +248,8 @@ function createShopSystem(deps) {
                 addCharExp(currentCharId, expAmount);
                 playerData.items[itemId].quantity--;
                 saveData();
-                addMessage('获得' + expAmount + '经验!', '#ffcc00');
-                Logger.info('使用经验药水，获得经验:', expAmount);
+                addMessage('获得' + expAmount + '感悟!', '#ffcc00');
+                Logger.info('使用灵悟卷，获得感悟:', expAmount);
                 return true;
             } else {
                 addMessage('请先选择角色!', '#ff6b6b');
@@ -257,7 +257,7 @@ function createShopSystem(deps) {
             }
         }
 
-        // 星辉宝箱：随机获得抽卡券
+        // 星辉宝箱：随机获得唤灵券
         if (itemId === 'starChest') {
             if (!playerData.items.starChest || playerData.items.starChest.quantity <= 0) {
                 addMessage('没有星辉宝箱', '#ff6b6b');

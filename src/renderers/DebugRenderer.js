@@ -11,13 +11,13 @@ function createDebugRenderer(deps) {
 
     var DEBUG_BUTTONS = [
         { id: 'unlock_chars', label: '🔓 解锁所有角色', color: '#4CAF50' },
-        { id: 'unlock_stars', label: '⭐ 解锁所有星星', color: '#2196F3' },
-        { id: 'add_gold', label: '💰 +10000星币', color: '#FFD700' },
+        { id: 'unlock_stars', label: '⭐ 解锁所有灵光', color: '#2196F3' },
+        { id: 'add_gold', label: '💰 +10000灵币', color: '#FFD700' },
         { id: 'add_materials', label: '📦 满材料', color: '#9C27B0' },
-        { id: 'add_starSource', label: '💎 +1000星源石', color: '#00BCD4' },
+        { id: 'add_starSource', label: '💎 +1000灵石', color: '#00BCD4' },
         { id: 'max_level', label: '📈 角色满级', color: '#FF9800' },
         { id: 'unlock_equips', label: '⚔️ 解锁所有装备', color: '#795548' },
-        { id: 'unlock_skills', label: '🎯 解锁所有技能', color: '#607D8B' },
+        { id: 'unlock_skills', label: '🔮 解锁所有技能', color: '#607D8B' },
         { id: 'unlock_pets', label: '🐾 解锁所有宠物', color: '#E91E63' },
         { id: 'unlock_all', label: '🌟 解锁所有功能', color: '#FF5722' },
         { id: 'dev_battle', label: '⚔ 战斗调参', color: '#FF69B4' },

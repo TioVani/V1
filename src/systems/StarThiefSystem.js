@@ -108,7 +108,7 @@ export function createStarThiefSystem(deps) {
             damage -= absorb;
         }
         pd.playerHp = Math.max(0, pd.playerHp - damage);
-        addMessage('被偷星击中！-' + HIT_DAMAGE + 'HP', '#ff4444', true);
+        addMessage('被窃灵击中！-' + HIT_DAMAGE + '灵能', '#ff4444', true);
     }
 
     // 处理偷星点击
@@ -123,7 +123,7 @@ export function createStarThiefSystem(deps) {
             var thief = findThief();
             if (thief) {
                 thief.hp = Math.min(thief.maxHp, thief.hp + HP_RESTORE);
-                addMessage('偷星者恢复 ' + HP_RESTORE + 'HP！', '#44ff44', true);
+                addMessage('窃灵者恢复 ' + HP_RESTORE + '灵能！', '#44ff44', true);
             }
         }
         return true;
@@ -203,7 +203,7 @@ export function createStarThiefSystem(deps) {
     // 检查破防倒计时（每帧调用）
     function checkBreakTimer() {
         if (!isBroken) return;
-        // 偷星者已死亡则不再恢复防御
+        // 偷星者已消散则不再恢复防御
         if (!findThief()) {
             isBroken = false;
             breakValue = 0;
@@ -331,7 +331,7 @@ export function createStarThiefSystem(deps) {
         addMessage('偷星者出现了！点击破防星破解它的防御！', '#ff4444', true);
     }
 
-    // 处理偷星者击杀
+    // 处理偷星者净化
     function handleKill(monster, now) {
         var thiefTime = (now - startTime) / 1000;
         var starSourceReward;
@@ -357,9 +357,9 @@ export function createStarThiefSystem(deps) {
         resetState();
         updateStarSpawn();
 
-        addMessage('获得 ' + starSourceReward + ' 星源石！', '#FFD700', true);
+        addMessage('获得 ' + starSourceReward + ' 灵石！', '#FFD700', true);
         addMessage('获得 ' + fragments + ' 偷星碎片！', '#ff8866', true);
-        Logger.info('偷星者击杀奖励: 星源石', starSourceReward, '碎片', fragments, '用时', thiefTime.toFixed(1) + 's');
+        Logger.info('偷星者净化奖励: 灵石', starSourceReward, '碎片', fragments, '用时', thiefTime.toFixed(1) + 's');
     }
 
     // 帧更新（统一入口）

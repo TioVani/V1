@@ -152,7 +152,7 @@ function createUpgradeEngine(deps) {
     }
 
     function _getTypeName(type) {
-        var names = { character: '角色', equipment: '装备', skill: '技能', pet: '宠物', star: '星星' };
+        var names = { character: '角色', equipment: '装备', skill: '技能', pet: '宠物', star: '灵光' };
         return names[type] || type;
     }
 

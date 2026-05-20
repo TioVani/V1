@@ -33,7 +33,7 @@ function createInvariantChecker(deps) {
 
     var invariants = [];
 
-    // INV-1: 死亡怪物不应留在激活数组中
+    // INV-1: 消散怪物不应留在激活数组中
     invariants.push({
         id: 'dead_monster_in_active',
         check: function() {

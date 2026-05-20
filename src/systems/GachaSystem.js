@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { vibrateShort, showToast } from '../platform/BrowserAPI.js';
 /**
  * 抽卡系统（Gacha System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -19,19 +20,19 @@ const GACHA_POOL_ROTATION_DAYS = 14;
 
 // 稀有度 → 默认权重映射
 var RARITY_WEIGHT_MAP = {
-    'UC': 30,       // 精良
-    'N': 40,        // 普通
-    'R': 20,        // 稀有
-    'SR': 8,        // 超稀有
-    'SSR': 3,       // 传说
-    'UR': 0.3,      // 究极
-    'LR': 0.05,     // 传奇
-    'SP': 0.01      // 限定
+    'UC': 30,       // 粗品
+    'N': 40,        // 凡品
+    'R': 20,        // 良品
+    'SR': 8,        // 珍品
+    'SSR': 3,       // 瑰宝
+    'UR': 0.3,      // 国宝
+    'LR': 0.05,     // 传世
+    'SP': 0.01      // 镇馆之宝
 };
 
 // 排除列表：不在池中出现的物品
 var POOL_EXCLUSIONS = {
-    characters: ['char_001'],  // 星星使者，默认拥有
+    characters: ['char_001'],  // 玉蝉仙，默认拥有
     pets: [],
     stars: []  // 由 gacha 标记控制
 };
@@ -54,27 +55,27 @@ const GACHA_ANIMATION_CONFIG = {
     starSize: 60,
     glowPulseSpeed: 0.005,
     rarities: {
-        UC: { color: '#7CCD7C', glow: '#A8E6A8', name: '精良' },
-        N: { color: '#AAAAAA', glow: '#CCCCCC', name: '普通' },
-        R: { color: '#4A90D9', glow: '#6BB3FF', name: '稀有' },
-        SR: { color: '#9B59B6', glow: '#BB77DD', name: '超稀有' },
-        SSR: { color: '#F39C12', glow: '#FFD700', name: '传说' },
-        UR: { color: '#E74C3C', glow: '#FFD700', name: '究极' },
-        LR: { color: '#FF6B9D', glow: '#C084FC', name: '传奇' },
-        SP: { color: '#00D4FF', glow: '#8B5CF6', name: '限定' }
+        UC: { color: '#7CCD7C', glow: '#A8E6A8', name: '粗品' },
+        N: { color: '#AAAAAA', glow: '#CCCCCC', name: '凡品' },
+        R: { color: '#4A90D9', glow: '#6BB3FF', name: '良品' },
+        SR: { color: '#9B59B6', glow: '#BB77DD', name: '珍品' },
+        SSR: { color: '#F39C12', glow: '#FFD700', name: '瑰宝' },
+        UR: { color: '#E74C3C', glow: '#FFD700', name: '国宝' },
+        LR: { color: '#FF6B9D', glow: '#C084FC', name: '传世' },
+        SP: { color: '#00D4FF', glow: '#8B5CF6', name: '镇馆之宝' }
     }
 };
 
 const GACHA_POOLS = {
     stars: {
-        name: '星星召唤', emoji: '⭐', description: '抽取稀有星星类型',
+        name: '灵光唤灵', emoji: '⭐', description: '抽取稀有灵光类型',
         singlePrice: 30, tenPrice: 270, currency: 'starSource',
         items: [],
         pity: { sr: 10, ssr: 50 },
         dynamic: true
     },
     pets: {
-        name: '宠物召唤', emoji: '🐾', description: '抽取可爱宠物伙伴',
+        name: '灵兽召唤', emoji: '🐾', description: '抽取灵兽伙伴',
         singlePrice: 50, tenPrice: 450, currency: 'starSource',
         items: [],
         pity: { sr: 10, ssr: 50 },
@@ -97,14 +98,14 @@ const GACHA_POOLS = {
 };
 
 const STAR_CHEST_REWARDS = [
-    { id: 'star_single', name: '星星单抽券', emoji: '⭐', pool: 'stars', count: 1, weight: 20 },
-    { id: 'star_ten', name: '星星十连券', emoji: '🌟', pool: 'stars', count: 10, weight: 5 },
-    { id: 'pet_single', name: '宠物单抽券', emoji: '🐾', pool: 'pets', count: 1, weight: 18 },
-    { id: 'pet_ten', name: '宠物十连券', emoji: '🦊', pool: 'pets', count: 10, weight: 4 },
-    { id: 'char_single', name: '角色单抽券', emoji: '👤', pool: 'characters', count: 1, weight: 15 },
-    { id: 'char_ten', name: '角色十连券', emoji: '🎭', pool: 'characters', count: 10, weight: 3 },
-    { id: 'skill_single', name: '技能单抽券', emoji: '✨', pool: 'skills', count: 1, weight: 18 },
-    { id: 'skill_ten', name: '技能十连券', emoji: '💫', pool: 'skills', count: 10, weight: 4 }
+    { id: 'star_single', name: '灵光单唤券', emoji: '⭐', pool: 'stars', count: 1, weight: 20 },
+    { id: 'star_ten', name: '灵光共鸣券', emoji: '🌟', pool: 'stars', count: 10, weight: 5 },
+    { id: 'pet_single', name: '灵兽单唤券', emoji: '🐾', pool: 'pets', count: 1, weight: 18 },
+    { id: 'pet_ten', name: '灵兽共鸣券', emoji: '🦊', pool: 'pets', count: 10, weight: 4 },
+    { id: 'char_single', name: '角色单唤券', emoji: '👤', pool: 'characters', count: 1, weight: 15 },
+    { id: 'char_ten', name: '角色共鸣券', emoji: '🎭', pool: 'characters', count: 10, weight: 3 },
+    { id: 'skill_single', name: '技能单唤券', emoji: '✨', pool: 'skills', count: 1, weight: 18 },
+    { id: 'skill_ten', name: '技能共鸣券', emoji: '💫', pool: 'skills', count: 10, weight: 4 }
 ];
 
 const STAR_CHEST_DROP_RATE = 0.08;
@@ -361,7 +362,7 @@ function createGachaSystem(deps) {
             addToPlayerData(poolType, item);
         }
 
-        Logger.info('抽卡结果:', results);
+        Logger.info('唤灵结果:', results);
         return results;
     }
 
@@ -390,7 +391,7 @@ function createGachaSystem(deps) {
 
         setGameState('GACHA_ANIMATION');
 
-        try { wx.vibrateShort({ type: 'medium' }); } catch (e) {}
+        try { vibrateShort({ type: 'medium' }); } catch (e) {}
     }
 
     function updateGachaAnimation() {
@@ -421,7 +422,7 @@ function createGachaSystem(deps) {
                     animationState.revealedStars.push(animationState.results[animationState.currentRevealIndex]);
                     animationState.currentRevealIndex++;
                     animationState.lastRevealTime = now;
-                    try { wx.vibrateShort({ type: 'light' }); } catch (e) {}
+                    try { vibrateShort({ type: 'light' }); } catch (e) {}
                 } else {
                     animationState.phase = 'complete';
                 }
@@ -505,7 +506,7 @@ function createGachaSystem(deps) {
                 var results = performGacha(1, currentPool);
                 showGachaResults(results);
                 saveData();
-                wx.showToast({ title: '使用抽卡券抽奖！', icon: 'success', duration: 1500 });
+                showToast({ title: '使用唤灵券进行灵脉牵引！', icon: 'success', duration: 1500 });
                 return;
             }
 
@@ -515,8 +516,8 @@ function createGachaSystem(deps) {
                 showGachaResults(results);
                 saveData();
             } else {
-                var tip = isSkillPool ? '抽卡券或星源石不足' : '星源石不足';
-                wx.showToast({ title: tip, icon: 'none', duration: 1500 });
+                var tip = isSkillPool ? '唤灵券或灵石不足' : '灵石不足';
+                showToast({ title: tip, icon: 'none', duration: 1500 });
             }
             return;
         }
@@ -524,14 +525,14 @@ function createGachaSystem(deps) {
         var tenBtnX = getScreenWidth() / 2 + btnGap / 2;
         if (x >= tenBtnX && x <= tenBtnX + btnWidth &&
             y >= btnY && y <= btnY + btnHeight) {
-            Logger.info('点击十连抽');
+            Logger.info('点击古灵共鸣');
 
             if (isSkillPool && gachaTickets >= 10) {
                 pd.skills.gachaTickets -= 10;
                 var results = performGacha(10, currentPool);
                 showGachaResults(results);
                 saveData();
-                wx.showToast({ title: '使用抽卡券十连！', icon: 'success', duration: 1500 });
+                showToast({ title: '使用唤灵券进行古灵共鸣！', icon: 'success', duration: 1500 });
                 return;
             }
 
@@ -541,8 +542,8 @@ function createGachaSystem(deps) {
                 showGachaResults(results);
                 saveData();
             } else {
-                var tip2 = isSkillPool ? '抽卡券不足10张或星源石不足' : '星源石不足';
-                wx.showToast({ title: tip2, icon: 'none', duration: 1500 });
+                var tip2 = isSkillPool ? '唤灵券不足10张或灵石不足' : '灵石不足';
+                showToast({ title: tip2, icon: 'none', duration: 1500 });
             }
             return;
         }

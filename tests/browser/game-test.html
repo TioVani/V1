@@ -13,8 +13,6 @@ canvas { display:block; background:#000; image-rendering:pixelated; }
 <body>
 <canvas id="gameCanvas"></canvas>
 <script>
-// wx polyfill loaded from wx-mock.js (see script tag below)
-
 // Test API bridge
 window.__consoleLogs = [];
 window.__gameReady = false;
@@ -75,11 +73,6 @@ window.__testApi = {
     getError: function() { return window.__gameError; }
 };
 
-// Load wx-mock.js first (browser wx API compatibility layer)
-var s0 = document.createElement('script');
-s0.src = '../../wx-mock.js';
-s0.onload = function() {
-
 // Set canvas size
 var _testCanvas = document.getElementById('gameCanvas');
 _testCanvas.width = 375;
@@ -91,9 +84,7 @@ window.onerror = function(msg, url, line, col, err) {
     console.error('[INIT ERROR]', window.__gameError);
 };
 
-// Dynamic loading for browser play (via HTTP server)
-// Uses fetch + eval with const→var patching to avoid redeclaration errors
-// Skip if Playwright harness will handle loading (detect by checking for __playwright)
+// Load game via BrowserAPI
 if (!window.__playwright) {
 (function() {
     if (window.__skipBrowserLoad) return;
@@ -108,10 +99,8 @@ if (!window.__playwright) {
             var patched = patchConst(text)
                 .replace(/if\s*\(typeof module[^}]+\}\s*$/m, '')
                 .replace(/\/\/\s*#\s*sourceMappingURL[^\n]*/g, '');
-            // Execute modules in global scope
             (0, eval)(patched);
 
-            // Mock require for game.js
             window.require = function(path) {
                 if (path.indexOf('game-modules') !== -1 && typeof GameModules !== 'undefined') {
                     return GameModules;
@@ -126,15 +115,12 @@ if (!window.__playwright) {
                 .replace(/var _gameModules\s*=\s*require\(['"]\.\/dist\/game-modules\.js['"]\)/,
                     'var _gameModules = GameModules')
                 .replace(/require\(['"][^'"]+['"]\)/g, '({})');
-            // Execute game.js in global scope
             (0, eval)(patched);
 
-            // Call init
             if (typeof init === 'function') {
                 init();
                 console.log('[BROWSER] init() called');
             }
-            // Wait for ready
             function waitForReady() {
                 try {
                     if (typeof state !== 'undefined' && typeof playerData !== 'undefined') {
@@ -155,9 +141,6 @@ if (!window.__playwright) {
         });
 })();
 } // end if (!window.__playwright)
-
-}; // end s0.onload
-document.head.appendChild(s0);
 </script>
 </body>
 </html>

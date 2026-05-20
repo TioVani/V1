@@ -43,7 +43,7 @@ function createMenuRenderer(deps) {
     if (uiConfig) {
         uiConfig.register({
             id: 'menu_start_btn', renderer: 'menu', state: 'menu',
-            label: '开始游戏', category: 'button',
+            label: '踏入灵域', category: 'button',
             getPosition: function() {
                 var sc = getScreenScale();
                 var sw = getScreenWidth();
@@ -190,9 +190,9 @@ function createMenuRenderer(deps) {
         var btnWidth = Math.floor(100 * scale);
         var btnHeight = Math.floor(40 * scale);
         var startOv = uiConfig ? uiConfig.get('menu_start_btn') : { dx: 0, dy: 0 };
-        drawButton('开始游戏', screenWidth / 2 + startOv.dx * scale, screenHeight * 0.66 + startOv.dy * scale, btnWidth, btnHeight, '#ffd700');
+        drawButton('踏入灵域', screenWidth / 2 + startOv.dx * scale, screenHeight * 0.66 + startOv.dy * scale, btnWidth, btnHeight, '#ffd700');
 
-        // 以下UI只有在解锁星星使者（达到50分）后才显示
+        // 以下UI只有在解锁玉蝉仙（达到50分）后才显示
         if (hasUnlockedStarter) {
             // 闯关模式按钮（开始游戏下方）
             var stageOv = uiConfig ? uiConfig.get('menu_stage_btn') : { dx: 0, dy: 0 };
@@ -211,8 +211,8 @@ function createMenuRenderer(deps) {
                 { id: 'backpack', name: '背包', icon: '🎒', color: '#87CEEB' },
                 { id: 'shop', name: '商城', icon: '🛒', color: '#FF8C00' },
                 { id: 'leaderboard', name: '排行榜', icon: '🏆', color: '#9b59b6' },
-                { id: 'season', name: '赛季', icon: '⚔️', color: '#E74C3C' },
-                { id: 'boss', name: 'Boss战', icon: '👹', color: '#FF6B6B' },
+                { id: 'season', name: '赛季', icon: '⏳', color: '#E74C3C' },
+                { id: 'boss', name: '守护灵战', icon: '🏛️', color: '#FF6B6B' },
                 { id: 'tower', name: '无尽之塔', icon: '🏰', color: '#8B5CF6' },
                 { id: 'fusion', name: '融合', icon: '🔮', color: '#C084FC' },
                 { id: 'upgrade', name: '升级', icon: '⬆️', color: '#22C55E' }
@@ -450,9 +450,9 @@ function createMenuRenderer(deps) {
         var bestScoreTabColor = currentLeaderboardTab === 'best_score' ? '#ffd700' : '#4a4a6a';
         drawButton('⭐ 最高分', tabStartX + tabWidth / 2, tabY, tabWidth, tabHeight, bestScoreTabColor);
 
-        // 击杀数标签
+        // 净化数标签
         var killsTabColor = currentLeaderboardTab === 'total_kills' ? '#ff6b6b' : '#4a4a6a';
-        drawButton('⚔️ 击杀数', tabStartX + tabWidth + tabGap + tabWidth / 2, tabY, tabWidth, tabHeight, killsTabColor);
+        drawButton('✨ 净化数', tabStartX + tabWidth + tabGap + tabWidth / 2, tabY, tabWidth, tabHeight, killsTabColor);
 
         // 赛季分标签
         var seasonTabColor = currentLeaderboardTab === 'season_score' ? '#E74C3C' : '#4a4a6a';
@@ -622,7 +622,7 @@ function createMenuRenderer(deps) {
             if (seasonScore >= seasonBestScore && seasonScore > 0) {
                 message = '新赛季最高分！';
             } else if (seasonScore >= 1000) {
-                message = '传奇玩家！';
+                message = '传奇唤灵人！';
             } else if (seasonScore >= 500) {
                 message = '出色的表现！';
             }
@@ -637,7 +637,7 @@ function createMenuRenderer(deps) {
             drawButton('返回菜单', screenWidth / 2, screenHeight * 0.84, seasonBtnWidth, seasonBtnHeight, '#4a4a6a');
         } else {
             // ===== 普通模式结束界面 =====
-            drawText('游戏结束', screenWidth / 2, screenHeight / 3, Math.floor(48 * scale), '#ffd700');
+            drawText('净化中止', screenWidth / 2, screenHeight / 3, Math.floor(48 * scale), '#ffd700');
 
             drawText(score.toString(), screenWidth / 2, screenHeight / 2, Math.floor(64 * scale), '#ffd700');
 
@@ -648,9 +648,9 @@ function createMenuRenderer(deps) {
             if (score >= bestScore && score > 0) {
                 normalMsg = '新纪录！太棒了！';
             } else if (score >= 100) {
-                normalMsg = '传奇！不可思议！';
+                normalMsg = '唤灵传说！';
             } else if (score >= 50) {
-                normalMsg = '太厉害了！';
+                normalMsg = '灵光璀璨！';
             }
             drawText(normalMsg, screenWidth / 2, screenHeight * 0.6, Math.floor(24 * scale), '#ffffff');
 
@@ -679,7 +679,7 @@ function createMenuRenderer(deps) {
         ctx.fillRect(0, 0, screenWidth, screenHeight);
 
         // 标题
-        drawText('游戏暂停', screenWidth / 2, screenHeight * 0.35, Math.floor(48 * scale), '#ffd700');
+        drawText('灵域暂停', screenWidth / 2, screenHeight * 0.35, Math.floor(48 * scale), '#ffd700');
 
         // 返回菜单按钮
         drawButton('返回菜单', screenWidth / 2, screenHeight * 0.60, Math.floor(200 * scale), Math.floor(60 * scale), '#87CEEB');
@@ -688,7 +688,7 @@ function createMenuRenderer(deps) {
         drawButton('重新开始', screenWidth / 2, screenHeight * 0.70, Math.floor(200 * scale), Math.floor(60 * scale), '#4CAF50');
 
         // 继续游戏按钮
-        drawButton('继续游戏', screenWidth / 2, screenHeight * 0.80, Math.floor(200 * scale), Math.floor(60 * scale), '#FFA500');
+        drawButton('继续净化', screenWidth / 2, screenHeight * 0.80, Math.floor(200 * scale), Math.floor(60 * scale), '#FFA500');
     }
 
     return {

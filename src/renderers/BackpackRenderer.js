@@ -92,11 +92,11 @@ function createBackpackRenderer(deps) {
     var tabX = screenWidth - tabWidth;  // 右侧边缘
     var startTabY = Math.floor(100 * scale);
     
-    // 7个标签：材料、角色、星星、道具、装备、技能、宠物
+    // 8个标签：材料、古灵、灵光、道具、装备、技能、宠物、信仰
     var tabLabels = [
         { id: 'materials', name: '材料', icon: '📦' },
-        { id: 'characters', name: '角色', icon: '👤' },
-        { id: 'stars', name: '星星', icon: '⭐' },
+        { id: 'characters', name: '古灵', icon: '👤' },
+        { id: 'stars', name: '灵光', icon: '⭐' },
         { id: 'items', name: '道具', icon: '🧪' },
         { id: 'equipments', name: '装备', icon: '⚔️' },
         { id: 'skills', name: '技能', icon: '✨' },
@@ -268,13 +268,13 @@ function createBackpackRenderer(deps) {
             var usedCount = materialData.usedCount || 0;
             ctx.fillText('已用:' + usedCount + '次', Math.floor(100 * scale), itemY + Math.floor(70 * scale));
 
-            // 暴击冰晶特殊显示：额外暴击率
+            // 水灵暴晶特殊显示：额外暴击率
             if (materialId === 'critCrystal' && playerData.extraCritRate > 0) {
                 ctx.fillStyle = '#ffd700';
-                ctx.fillText('| 暴击率 +' + playerData.extraCritRate + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
+                ctx.fillText('| 会心感应 +' + playerData.extraCritRate + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
             }
             
-            // 爆伤火源特殊显示：额外暴击伤害
+            // 火灵爆源特殊显示：额外暴击伤害
             if (materialId === 'critFireSource' && playerData.extraCritDamage > 0) {
                 ctx.fillStyle = '#ffd700';
                 ctx.fillText('| 爆伤 +' + (playerData.extraCritDamage * 100) + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
@@ -420,8 +420,8 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
                         // 角色属性（显示完整属性，攻击力包含材料加成）
                         ctx.fillStyle = '#ffffff';
                         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
-                        ctx.fillText('HP:' + charStats.hp + ' 攻击:' + totalAttack + ' 暴击:' + charStats.critRate.toFixed(1) + '%', Math.floor(120 * scale), itemY + Math.floor(75 * scale));
-                        ctx.fillText('爆伤:' + (charStats.critDamage * 100).toFixed(0) + '% 防御:' + charStats.defense, Math.floor(120 * scale), itemY + Math.floor(92 * scale));
+                        ctx.fillText('灵能:' + charStats.hp + ' 灵光冲击:' + totalAttack + ' 会心感应:' + charStats.critRate.toFixed(1) + '%', Math.floor(120 * scale), itemY + Math.floor(75 * scale));
+                        ctx.fillText('会心威力:' + (charStats.critDamage * 100).toFixed(0) + '% 灵场护盾:' + charStats.defense, Math.floor(120 * scale), itemY + Math.floor(92 * scale));
             // 如果是当前角色，显示标记
             if (currentCharId === playerData.currentCharacterId) {
                 ctx.fillStyle = '#4CAF50';
@@ -459,7 +459,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
     ctx.fillStyle = '#87CEEB';
     ctx.font = 'bold ' + Math.floor(20 * scale) + 'px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('我的星星', Math.floor(20 * scale), startY - Math.floor(10 * scale));
+    ctx.fillText('我的灵光', Math.floor(20 * scale), startY - Math.floor(10 * scale));
 
     // 从SEASON_STAR_TYPES构建星星类型列表（已包含普通星星）
     var allStarTypes = SEASON_STAR_TYPES.map(function(s) {
@@ -502,10 +502,10 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('暂无星星', contentWidth/2, screenHeight/2);
+        ctx.fillText('暂无灵光', contentWidth/2, screenHeight/2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城抽卡获取', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
         return;
     }
     
@@ -544,7 +544,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(starType.name, Math.floor(100 * scale), itemY + Math.floor(28 * scale));
 
-        // 冰星星/火星星显示等级和升级按钮
+        // 水灵星/火灵星显示等级和升级按钮
         var isIceStar = (starType.id === 'ice');
         var isFireStar = (starType.id === 'fire');
         
@@ -552,7 +552,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
             var starLevel = isIceStar ? (playerData.iceStarLevel || 0) : (playerData.fireStarLevel || 0);
             var maxLevel = isIceStar ? (playerData.maxIceStarLevel || 10) : (playerData.maxFireStarLevel || 10);
             var materialId = isIceStar ? 'iceCrystal' : 'fireSource';
-            var materialName = isIceStar ? '冰晶' : '火源';
+            var materialName = isIceStar ? '水灵晶' : '火灵源';
             var materialData = playerData.materials && playerData.materials[materialId];
             var materialQuantity = materialData ? materialData.quantity : 0;
             
@@ -641,12 +641,12 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
 
     // 道具配置
     var itemsConfig = [
-        { id: 'starChest', name: '星辉宝箱', emoji: '🎁', description: '开启随机获得抽卡券' },
-        { id: 'healPotion', name: '治疗药水', emoji: '🧪', description: '恢复50点HP' },
-        { id: 'timePotion', name: '时间药水', emoji: '⏳', description: '增加10秒时间' },
-        { id: 'expPotionSmall', name: '经验药水(小)', emoji: '📜', description: '+50经验' },
-        { id: 'expPotionMedium', name: '经验药水(中)', emoji: '📔', description: '+100经验' },
-        { id: 'expPotionLarge', name: '经验药水(大)', emoji: '📖', description: '+150经验' }
+        { id: 'starChest', name: '星辉宝箱', emoji: '🎁', description: '开启随机获得唤灵券' },
+        { id: 'healPotion', name: '愈灵露', emoji: '🧪', description: '恢复50点灵能' },
+        { id: 'timePotion', name: '时序露', emoji: '⏳', description: '增加10秒战斗时间' },
+        { id: 'expPotionSmall', name: '灵悟卷(小)', emoji: '📜', description: '+50感悟' },
+        { id: 'expPotionMedium', name: '灵悟卷(中)', emoji: '📔', description: '+100感悟' },
+        { id: 'expPotionLarge', name: '灵悟卷(大)', emoji: '📖', description: '+150感悟' }
     ];
 
     // 检查是否有道具
@@ -766,7 +766,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
         ctx.fillText('暂无装备', contentWidth/2, screenHeight/2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城抽卡获取装备', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取装备', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
     } else {
         // 计算实际可显示的装备数量（排除无效装备）
         var validEquipCount = 0;
@@ -856,12 +856,12 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
             var attrText = '';
             var stats = equip.stats || {};
-            if (stats.attack) attrText += '攻击+' + stats.attack + ' ';
-            if (stats.defense) attrText += '防御+' + stats.defense + ' ';
-            if (stats.hp) attrText += '生命+' + stats.hp + ' ';
-            if (stats.critRate) attrText += '暴击+' + stats.critRate + '% ';
-            if (stats.critDamage) attrText += '爆伤+' + Math.floor(stats.critDamage * 100) + '% ';
-            if (stats.score) attrText += '分数+' + Math.floor(stats.score * 100) + '% ';
+            if (stats.attack) attrText += '灵光冲击+' + stats.attack + ' ';
+            if (stats.defense) attrText += '灵场护盾+' + stats.defense + ' ';
+            if (stats.hp) attrText += '灵能+' + stats.hp + ' ';
+            if (stats.critRate) attrText += '会心+' + stats.critRate + '% ';
+            if (stats.critDamage) attrText += '会威+' + Math.floor(stats.critDamage * 100) + '% ';
+            if (stats.score) attrText += '灵辉值+' + Math.floor(stats.score * 100) + '% ';
             ctx.fillText(attrText, Math.floor(90 * scale), itemY + Math.floor(50 * scale));
 
             // 装备描述
@@ -919,7 +919,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
         ctx.fillText('暂无技能', contentWidth/2, screenHeight/2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城抽卡获取技能', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取技能', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
     } else {
         // 内容区域起始位置（标题下方）
         var contentTop = startY + Math.floor(20 * scale);
@@ -989,7 +989,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             // 技能属性
             ctx.fillStyle = '#aaaaaa';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-            var attrText = skill.type === 'attack' ? '伤害:' + skill.damage + ' CD:' + skill.cooldown + 's' :
+            var attrText = skill.type === 'attack' ? '冲击:' + skill.damage + ' CD:' + skill.cooldown + 's' :
                           (skill.type === 'support' ? (skill.heal ? '治疗:' + skill.heal : (skill.timeAdd ? '时间+' + skill.timeAdd + 's' : (skill.shield ? '护盾:' + skill.shield : '增益效果'))) :
                           '被动效果');
             ctx.fillText(attrText, Math.floor(90 * scale), itemY + Math.floor(50 * scale));
@@ -1049,7 +1049,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
         ctx.fillText('暂无宠物', contentWidth/2, screenHeight/2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城抽卡获取宠物', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取宠物', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
     } else {
         // 内容区域裁剪（标题下方到屏幕底部）
         var contentTop = startY + Math.floor(20 * scale);
@@ -1132,8 +1132,8 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             // 宠物属性
             ctx.fillStyle = '#aaaaaa';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-            var attrText = '攻击:' + pet.attack + ' 攻速:' + pet.attackSpeed + 's';
-            if (pet.critRate) attrText += ' 暴击:' + pet.critRate + '%';
+            var attrText = '冲击:' + pet.attack + ' 节奏:' + pet.attackSpeed + 's';
+            if (pet.critRate) attrText += ' 会心:' + pet.critRate + '%';
             ctx.fillText(attrText, Math.floor(90 * scale), itemY + Math.floor(50 * scale));
 
             // 宠物描述
@@ -1288,9 +1288,9 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     // 属性加成列表
     var bonusAttrs = [
         { name: '攻击', key: 'attack', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'attack') },
-        { name: '生命', key: 'hp', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'hp') },
-        { name: '暴击率', key: 'critRate', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'critRate'), suffix: '%' },
-        { name: '暴击伤害', key: 'critDamage', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'critDamage'), suffix: '%' },
+        { name: '灵能', key: 'hp', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'hp') },
+        { name: '会心感应', key: 'critRate', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'critRate'), suffix: '%' },
+        { name: '会心威力', key: 'critDamage', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'critDamage'), suffix: '%' },
         { name: '防御', key: 'defense', value: getFaithSystem().getFaithAttributeBonus(currentCharId, 'defense') }
     ];
     

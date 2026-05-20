@@ -152,7 +152,7 @@ function createGameLifecycleSystem(deps) {
      * 开始游戏
      */
     function startGame() {
-        Logger.info('开始游戏');
+        Logger.info('踏入灵域');
         var playerData = getPlayerData();
         var activeBuffs = getActiveBuffs();
         var CONFIG = getCONFIG();

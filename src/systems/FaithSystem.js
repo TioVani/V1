@@ -39,7 +39,7 @@ export const FAITH_CONFIG = {
 
     // 专精路线配置
     specializations: {
-        offense: { name: '毁灭之路', attack: 5, critRate: 2, critDamage: 10 },
+        offense: { name: '破灵之路', attack: 5, critRate: 2, critDamage: 10 },
         survival: { name: '永恒之路', hp: 10, defense: 8, healBonus: 20 },
         support: { name: '守护之路', teamAttack: 5, teamDefense: 5, buffDuration: 20 },
         balance: { name: '均衡之路', allAttributes: 3 }
@@ -47,14 +47,14 @@ export const FAITH_CONFIG = {
 
     // 破格技能配置
     breakthroughSkills: {
-        faith_undying: { name: '不死之身', description: '生命值归零时免死一次，回复30%生命', effect: { revive: 30 } },
-        faith_burst_master: { name: '爆裂之主', description: '暴击伤害额外+100%', effect: { critDamage: 100 } },
-        faith_time_master: { name: '时间操控', description: '游戏时间延长30秒', effect: { timeExtend: 30 } },
-        faith_gold_master: { name: '财富之眼', description: '星币掉落+50%', effect: { goldBoost: 50 } },
-        faith_combo_master: { name: '连击宗师', description: '连击中断时间延长1秒', effect: { comboTimeout: 1 } },
-        faith_star_master: { name: '星辰之子', description: '特殊星星出现概率+20%', effect: { specialStar: 20 } },
-        faith_boss_slayer: { name: '屠龙者', description: '对Boss伤害+50%', effect: { bossDamage: 50 } },
-        faith_monster_hunter: { name: '怪物猎人', description: '击杀怪物回复5点生命', effect: { healOnKill: 5 } }
+        faith_undying: { name: '灵核不灭', description: '灵核归零时免消散一次，回复30%生命', effect: { revive: 30 } },
+        faith_burst_master: { name: '灵爆宗师', description: '会心威力倍增', effect: { critDamage: 100 } },
+        faith_time_master: { name: '时序掌控', description: '游戏时间延长30秒', effect: { timeExtend: 30 } },
+        faith_gold_master: { name: '灵币慧眼', description: '灵币呼唤力提升', effect: { goldBoost: 50 } },
+        faith_combo_master: { name: '连灵宗师', description: '连灵中断时间延长1秒', effect: { comboTimeout: 1 } },
+        faith_star_master: { name: '星辰之子', description: '灵域冥契增幅', effect: { specialStar: 20 } },
+        faith_boss_slayer: { name: '净化专精', description: '对守护灵压制增强', effect: { bossDamage: 50 } },
+        faith_monster_hunter: { name: '净化回响', description: '每净化一只邪灵回复5点灵能', effect: { healOnKill: 5 } }
     }
 };
 

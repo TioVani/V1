@@ -25,7 +25,7 @@
             display: block;
             image-rendering: auto;
         }
-        #wx-toast {
+        #game-toast {
             font-family: sans-serif;
         }
     </style>
@@ -35,16 +35,8 @@
         <canvas id="game-canvas"></canvas>
     </div>
 
-    <!-- 基础全局变量 -->
-    <script>
-        var __wxConfig = { envVersion: 'develop' };
-    </script>
-
     <!-- 游戏模块 (IIFE 打包 → window.GameModules) -->
     <script src="dist/game-modules.js"></script>
-
-    <!-- 微信 API 浏览器适配 -->
-    <script src="browser/wx-polyfill.js"></script>
 
     <script>
         // require() 适配 — game.js 用 require('./dist/game-modules.js') 加载模块

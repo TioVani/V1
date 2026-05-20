@@ -178,7 +178,7 @@ function createBossBattleAdapter(deps) {
         if (!currentBoss || !ctx.monster) return;
 
         if (hasSplit) {
-            // 分裂模式：清理死亡怪 + 切换 BattleEngine 目标
+            // 分裂模式：清理消散邪灵 + 切换 BattleEngine 目标
             if (ctx.monster.hp <= 0) {
                 ctx.monster.active = false;
                 var monsters = getMonsters();
@@ -201,12 +201,12 @@ function createBossBattleAdapter(deps) {
 
         var monster = ctx.monster;
 
-        // 毒液分裂检查（史莱姆王 HP <= 70%）
+        // 碎片溅射检查（碎瓷聚合体 HP <= 70%）
         if (currentBoss.id === 'slime_king' && !hasPoisonSplit && monster.hp <= bossMaxHp * 0.7) {
             triggerPoisonSplit();
         }
 
-        // 分裂检查（史莱姆王 HP <= 50%）
+        // 分裂检查（碎瓷聚合体 HP <= 50%）
         if (currentBoss.id === 'slime_king' && !hasSplit && monster.hp <= bossMaxHp * 0.5) {
             triggerSplit();
         }
@@ -218,7 +218,7 @@ function createBossBattleAdapter(deps) {
         // 分裂后：由 attackBoss 手动管理，不在 engine 死亡流程中触发
         if (hasSplit) return;
 
-        // 死亡前毒液
+        // 消散前毒液
         if (currentBoss.id === 'slime_king' && spawnPoisonPuddles) {
             triggerDeathPoison();
         }
@@ -226,15 +226,15 @@ function createBossBattleAdapter(deps) {
 
     function onMonsterDeathHandler(ctx) {
         if (hasSplit) {
-            // 分裂模式：检查是否所有小怪都已死亡
+            // 分裂模式：检查是否所有小怪都已消散
             var currentMonsters = getMonsters();
             var aliveCount = 0;
             for (var ai = 0; ai < currentMonsters.length; ai++) {
                 if (currentMonsters[ai].hp > 0) aliveCount++;
             }
             if (aliveCount > 0) return;
-            // 所有小怪死亡 → 结算
-            Logger.info('[BossDelay] 分裂小怪全部死亡 → end(true)');
+            // 所有小怪消散 → 结算
+            Logger.info('[BossDelay] 分裂小怪全部消散 → end(true)');
         } else {
             Logger.info('[BossDelay] onMonsterDeathHandler 被调用 → end(true)');
         }
@@ -275,7 +275,7 @@ function createBossBattleAdapter(deps) {
         setPlayerPoisonTickTime(Date.now() + 1000);
 
         if (addMonsterSkillAnimation) addMonsterSkillAnimation(getMonster(), 'poison_split', '毒液飞溅!');
-        addMessage('☠️ 史莱姆王吐出毒液! -' + poisonDmg + 'HP', '#00ff00', true);
+        addMessage('☠️ 聚合邪灵溅射碎片! -' + poisonDmg + '灵能', '#00ff00', true);
         if (spawnPoisonPuddles) {
             spawnPoisonPuddles(getScreenWidth() / 2, getScreenHeight() / 3, poisonSplitSkill);
         }
@@ -341,7 +341,7 @@ function createBossBattleAdapter(deps) {
         }
 
         if (addMonsterSkillAnimation) addMonsterSkillAnimation(getMonster(), 'split', '分裂成' + splitCount + '只' + (splitMonsterType ? splitMonsterType.name : '小怪') + '!');
-        addMessage('👾 分裂成' + splitCount + '只' + (splitMonsterType ? splitMonsterType.name : '小怪') + '!', '#ff6b6b');
+        addMessage('🌫️ 分裂成' + splitCount + '只' + (splitMonsterType ? splitMonsterType.name : '小怪') + '!', '#ff6b6b');
         vibrateShort({ type: 'heavy' });
     }
 
@@ -366,9 +366,9 @@ function createBossBattleAdapter(deps) {
         var deathSkill = Object.assign({}, deathPoisonSkill);
         if (instantKill) {
             deathSkill.puddleCount = 6;
-            addMessage('☠️ 史莱姆王被秒杀! 毒液爆发!', '#00ff00', true);
+            addMessage('☠️ 碎瓷聚合体被秒杀! 碎片爆发!', '#00ff00', true);
         } else {
-            addMessage('☠️ 史莱姆王临死反扑! 毒液飞溅!', '#00ff00', true);
+            addMessage('☠️ 碎瓷聚合体临死反扑! 碎片飞溅!', '#00ff00', true);
         }
         spawnPoisonPuddles(getScreenWidth() / 2, getScreenHeight() / 3, deathSkill);
     }
@@ -765,7 +765,7 @@ function createBossBattleAdapter(deps) {
         if (S.phase === 'finished') {
             if (S.finishReason === 'monsterDeath') {
                 if (hasSplit) {
-                    // 分裂后小怪死亡：检查剩余存活怪物
+                    // 分裂后小怪消散：检查剩余存活怪物
                     var currentMonsters = getMonsters();
                     var aliveMonsters = [];
                     for (var ai = 0; ai < currentMonsters.length; ai++) {
@@ -835,7 +835,7 @@ function createBossBattleAdapter(deps) {
     }
 
     /**
-     * 外部伤害入口（时间星星技能、贪婪、怒气等）
+     * 外部伤害入口（时序星技能、贪婪、怒气等）
      * 游戏内处理完特殊逻辑后调用此方法
      */
     function dealDamage(damage) {

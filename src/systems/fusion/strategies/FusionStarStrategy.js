@@ -1,6 +1,6 @@
 /**
- * FusionStarStrategy — 坍缩（星星融合）
- * 3颗同类型星星 + 时间结晶 → 新星类型
+ * FusionStarStrategy — 坍缩（灵光融合）
+ * 3颗同类型灵光 + 时序结晶 → 新星类型
  */
 import { FUSION_CONFIG, FUSION_TYPES } from '../../../config/FusionConfig.js';
 
@@ -26,7 +26,7 @@ function createFusionStarStrategy(deps) {
         var results = [];
         for (var i = 0; i < ids.length; i++) {
             var id = ids[i];
-            // 先在融合星星中按 uid 查找
+            // 先在融合灵光中按 uid 查找
             var found = null;
             for (var j = 0; j < fused.length; j++) {
                 if (fused[j].uid === id) { found = fused[j]; break; }
@@ -48,18 +48,18 @@ function createFusionStarStrategy(deps) {
 
     function validate(materials) {
         if (materials.length < FUSION_CONFIG.materialCount) {
-            return { valid: false, error: '需要' + FUSION_CONFIG.materialCount + '颗星星' };
+            return { valid: false, error: '需要' + FUSION_CONFIG.materialCount + '颗灵光' };
         }
         var st = materials[0].starType;
         for (var i = 1; i < materials.length; i++) {
-            if (materials[i].starType !== st) return { valid: false, error: '星星类型必须相同' };
+            if (materials[i].starType !== st) return { valid: false, error: '灵光类型必须相同' };
         }
         return { valid: true };
     }
 
     function checkExtraCost(playerData, materials) {
         var tc = playerData.materials && playerData.materials.timeCrystal;
-        if (!tc || tc.quantity < 1) return { canAfford: false, error: '需要1个时间结晶' };
+        if (!tc || tc.quantity < 1) return { canAfford: false, error: '需要1个时序结晶' };
         return { canAfford: true };
     }
 
@@ -136,12 +136,12 @@ function createFusionStarStrategy(deps) {
 
     function getAvailableMaterials(playerData) {
         var starTypes = getStarTypes();
-        // 从已解锁的星星类型 + 融合产出的星星 中获取可用材料
+        // 从已解锁的灵光类型 + 融合产出的灵光 中获取可用材料
         var unlocked = playerData.unlockedStarTypes || [];
         var fused = (playerData.fusionData && playerData.fusionData.fusionStars) || [];
         var result = [];
         var seen = {};
-        // 已解锁的星星类型（排除 normal 和 boss_star）
+        // 已解锁的灵光类型（排除 normal 和 boss_star）
         for (var i = 0; i < unlocked.length; i++) {
             var st = unlocked[i];
             if (st === 'normal' || st === 'boss_star') continue;
@@ -150,7 +150,7 @@ function createFusionStarStrategy(deps) {
             var c = starTypes[st];
             result.push({ id: st, starType: st, name: c ? c.name : st, rarity: (c && c.rarity) || 'R' });
         }
-        // 融合产出的星星
+        // 融合产出的灵光
         for (var j = 0; j < fused.length; j++) {
             var f = fused[j];
             if (seen[f.starType]) continue;
@@ -179,7 +179,7 @@ function createFusionStarStrategy(deps) {
     }
 
     function _genName(starType, layer) {
-        var names = { collapse: '坍缩星', freeze: '冻结星', supernova: '超新星', timesplit: '时裂星', void: '虚空星' };
+        var names = { collapse: '坍缩星', freeze: '冻结星', supernova: '超新星', timesplit: '时裂星' };
         var n = FUSION_CONFIG.naming;
         var base = names[starType] || '新星';
         if (layer === 'normal') return base;

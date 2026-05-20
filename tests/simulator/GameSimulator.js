@@ -2,7 +2,7 @@
  * GameSimulator.js — 游戏模拟器主类
  * 在 Node.js 环境中加载完整 game.js，提供程序化控制接口
  */
-var mockWx = require('./mock-wx.js');
+var mockPlatform = require('./mock-platform.js');
 var path = require('path');
 
 function GameSimulator(opts) {
@@ -23,7 +23,7 @@ function GameSimulator(opts) {
  */
 GameSimulator.prototype.init = function() {
     // 安装 mock
-    mockWx.install();
+    mockPlatform.install();
 
     // 清除 require 缓存（支持多次 init）
     var gamePath = path.resolve(__dirname, '../../game.js');
@@ -46,9 +46,8 @@ GameSimulator.prototype.init = function() {
  * 模拟一次点击（touchStart + touchEnd）
  */
 GameSimulator.prototype.tap = function(x, y) {
-    mockWx.fireTouch('touchStart', x, y);
-    // touchStart 处理中可能有 return，touchEnd 也需要触发
-    mockWx.fireTouch('touchEnd', x, y);
+    mockPlatform.fireTouch('touchStart', x, y);
+    mockPlatform.fireTouch('touchEnd', x, y);
     return this;
 };
 
@@ -56,7 +55,7 @@ GameSimulator.prototype.tap = function(x, y) {
  * 模拟手指按下
  */
 GameSimulator.prototype.touchStart = function(x, y) {
-    mockWx.fireTouch('touchStart', x, y);
+    mockPlatform.fireTouch('touchStart', x, y);
     return this;
 };
 
@@ -64,7 +63,7 @@ GameSimulator.prototype.touchStart = function(x, y) {
  * 模拟手指抬起
  */
 GameSimulator.prototype.touchEnd = function(x, y) {
-    mockWx.fireTouch('touchEnd', x, y);
+    mockPlatform.fireTouch('touchEnd', x, y);
     return this;
 };
 
@@ -72,7 +71,7 @@ GameSimulator.prototype.touchEnd = function(x, y) {
  * 模拟手指移动
  */
 GameSimulator.prototype.touchMove = function(x, y) {
-    mockWx.fireTouch('touchMove', x, y);
+    mockPlatform.fireTouch('touchMove', x, y);
     return this;
 };
 
@@ -85,7 +84,7 @@ GameSimulator.prototype.touchMove = function(x, y) {
  */
 GameSimulator.prototype.tick = function(n) {
     n = n || 1;
-    mockWx.tickRAF(n);
+    mockPlatform.tickRAF(n);
     return this;
 };
 
@@ -94,7 +93,6 @@ GameSimulator.prototype.tick = function(n) {
  */
 GameSimulator.prototype.advanceTime = async function(ms) {
     var frames = Math.ceil(ms / 16.67); // ~60fps
-    // 分批 tick + 短暂等待让 setInterval 生效
     var batchSize = 4; // 约 4 帧 = ~67ms
     var batches = Math.ceil(frames / batchSize);
     for (var i = 0; i < batches; i++) {
@@ -326,7 +324,6 @@ GameSimulator.prototype.towerSnapshot = function() {
     var grid = ts.grid;
     var rows = grid ? grid.length : 0;
     var cells = [];
-    // 只返回玩家周围的格子（优化输出）
     var px = ts.playerX;
     var py = ts.playerY;
     var range = 5;
@@ -447,14 +444,14 @@ GameSimulator.prototype.snapshot = function() {
  * 获取捕获的日志
  */
 GameSimulator.prototype.getLogs = function() {
-    return mockWx.getLogs();
+    return mockPlatform.getLogs();
 };
 
 /**
  * 清空日志
  */
 GameSimulator.prototype.clearLogs = function() {
-    mockWx.clearLogs();
+    mockPlatform.clearLogs();
     return this;
 };
 
@@ -462,7 +459,7 @@ GameSimulator.prototype.clearLogs = function() {
  * 过滤日志（按关键字）
  */
 GameSimulator.prototype.filterLogs = function(keyword) {
-    var logs = mockWx.getLogs();
+    var logs = mockPlatform.getLogs();
     return logs.filter(function(l) {
         return l.msg.indexOf(keyword) !== -1;
     });
@@ -472,7 +469,7 @@ GameSimulator.prototype.filterLogs = function(keyword) {
  * 打印最近的日志（调试用）
  */
 GameSimulator.prototype.printLogs = function(lastN) {
-    var logs = mockWx.getLogs();
+    var logs = mockPlatform.getLogs();
     var start = lastN ? Math.max(0, logs.length - lastN) : 0;
     for (var i = start; i < logs.length; i++) {
         console.log('[' + logs[i].level + '] ' + logs[i].msg);
@@ -488,8 +485,8 @@ GameSimulator.prototype.printLogs = function(lastN) {
  * 开启绘制命令捕获
  */
 GameSimulator.prototype.startCapture = function() {
-    mockWx.setCaptureMode(true);
-    mockWx.clearDrawCommands();
+    mockPlatform.setCaptureMode(true);
+    mockPlatform.clearDrawCommands();
     return this;
 };
 
@@ -497,31 +494,29 @@ GameSimulator.prototype.startCapture = function() {
  * 关闭绘制命令捕获
  */
 GameSimulator.prototype.stopCapture = function() {
-    mockWx.setCaptureMode(false);
+    mockPlatform.setCaptureMode(false);
     return this;
 };
 
 /**
  * 获取本帧绘制命令（原始数组）
- * 每个命令: { type: 'fillText'|'fillRect'|..., args: [...], styles: { fillStyle, font, ... } }
  */
 GameSimulator.prototype.getDrawCommands = function() {
-    return mockWx.getDrawCommands();
+    return mockPlatform.getDrawCommands();
 };
 
 /**
  * 获取绘制摘要（结构化：文字/形状/图像）
- * { texts: [{text, x, y, color}], shapes: [{type, x, y, w, h, color}], images: [{x, y, w, h}] }
  */
 GameSimulator.prototype.captureFrame = function() {
-    return mockWx.getDrawSummary();
+    return mockPlatform.getDrawSummary();
 };
 
 /**
- * 截取一帧并输出文字内容（快速查看屏幕上画了什么文字）
+ * 截取一帧并输出文字内容
  */
 GameSimulator.prototype.captureTexts = function() {
-    var summary = mockWx.getDrawSummary();
+    var summary = mockPlatform.getDrawSummary();
     var lines = [];
     for (var i = 0; i < summary.texts.length; i++) {
         var t = summary.texts[i];
@@ -534,7 +529,7 @@ GameSimulator.prototype.captureTexts = function() {
  * 清空绘制命令
  */
 GameSimulator.prototype.clearCapture = function() {
-    mockWx.clearDrawCommands();
+    mockPlatform.clearDrawCommands();
     return this;
 };
 
@@ -544,9 +539,6 @@ GameSimulator.prototype.clearCapture = function() {
 
 /**
  * 等待条件为真
- * @param {Function} conditionFn - 返回 boolean 的函数
- * @param {number} timeoutMs - 超时毫秒
- * @param {number} checkIntervalMs - 检查间隔
  */
 GameSimulator.prototype.waitFor = function(conditionFn, timeoutMs, checkIntervalMs) {
     var self = this;

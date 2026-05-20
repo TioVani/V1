@@ -117,7 +117,7 @@ function createUICoreRenderer(deps) {
             } else if (bigAssets.normalStarImage && bigAssets.normalStarImage.complete) {
                 ctx.drawImage(bigAssets.normalStarImage, x - bigSize / 2, y - bigSize / 2, bigSize, bigSize);
             } else {
-                var bigEmoji = (bigType === 'ice') ? '❄️' : '⭐';
+                var bigEmoji = (bigType === 'ice') ? '💧' : (bigType === 'fire') ? '🔥' : '⭐';
                 ctx.font = bigSize + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -158,10 +158,10 @@ function createUICoreRenderer(deps) {
         var emoji = starTypeConfig ? starTypeConfig.emoji : '⭐';
 
         var starColors = {
-            'normal': '#FFD700', 'ice': '#00BFFF', 'fire': '#FF4500',
-            'thunder': '#9370DB', 'holy': '#FFD700', 'dark': '#4B0082',
-            'wind': '#98FB98', 'earth': '#D2691E', 'light': '#FFFFE0',
-            'shadow': '#2F4F4F', 'rainbow': '#FF69B4', 'golden': '#FFD700',
+            'normal': '#FFD700', 'ice': '#4488FF', 'fire': '#FF4400',
+            'thunder': '#FFD700', 'holy': '#FFE4B5', 'dark': '#6644AA',
+            'wind': '#44CC66', 'earth': '#CC8844', 'light': '#E8E8FF',
+            'shadow': '#445566', 'rainbow': '#FF69B4', 'golden': '#FFD700',
             'crystal': '#E0FFFF', 'meteor': '#FF6347', 'cosmic': '#191970',
             'time': '#4169E1'
         };
@@ -175,7 +175,8 @@ function createUICoreRenderer(deps) {
         var scaledSize = size * scale * sizeMultiplier;
 
         if (starObj.type === 'golden' || starObj.type === 'rainbow' || starObj.type === 'cosmic' ||
-            starObj.type === 'meteor' || starObj.type === 'holy' || starObj.type === 'light' || starObj.type === 'time') {
+            starObj.type === 'meteor' || starObj.type === 'holy' || starObj.type === 'light' || starObj.type === 'time' ||
+            starObj.type === 'thunder' || starObj.type === 'dark' || starObj.type === 'ice') {
             ctx.shadowBlur = 15;
             ctx.shadowColor = color;
         }

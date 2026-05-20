@@ -11,36 +11,35 @@ import Logger from '../utils/Logger.js';
 // ==================== 任务配置 ====================
 
 export const GUIDE_TASKS = [
-    { id: 'guide_click_star', name: '点击星星', description: '点击你的第一颗星星', type: 'click_stars', target: 1, order: 1, rewards: { gold: 25 }, tip: '点击屏幕上的星星可以获得分数！' },
-    { id: 'guide_first_game', name: '完成一局', description: '完成你的第一局游戏', type: 'play_games', target: 1, order: 2, rewards: { gold: 50 }, tip: '每局游戏30秒，尽可能多地点星星！' },
-    { id: 'guide_first_combo', name: '连击达人', description: '达成20连击', type: 'max_combo', target: 20, order: 3, rewards: { gold: 75, exp: 25 }, tip: '连续快速点击星星可以触发连击，获得分数加成！' },
-    { id: 'guide_kill_monster', name: '怪物猎人', description: '击杀第一个怪物', type: 'kill_monsters', target: 1, order: 4, rewards: { gold: 50, healPotion: 1 }, tip: '500分后会出现怪物，点击星星攻击它！' },
-    { id: 'guide_switch_mode', name: '模式切换', description: '在设置中切换到下落模式', type: 'switch_mode', target: 1, order: 5, rewards: { gold: 50 }, tip: '下落模式像音游一样，星星从上方落下来！' },
-    { id: 'guide_perfect_click', name: '完美点击', description: '在下落模式达成一次完美点击', type: 'perfect_clicks', target: 1, order: 6, rewards: { gold: 50, exp: 15 }, tip: '在判定区域点击星星可以获得双倍分数！' },
-    { id: 'guide_super_perfect', name: '超级完美', description: '在下落模式达成一次超级完美点击', type: 'super_perfect_clicks', target: 1, order: 7, rewards: { gold: 75, exp: 25 }, tip: '在中间判定区域点击可以获得四倍分数！' },
-    { id: 'guide_kill_boss', name: 'Boss挑战者', description: '击杀第一个Boss', type: 'kill_boss', target: 1, order: 8, rewards: { gold: 150, exp: 50 }, tip: '2000分后会出现Boss，它更强但奖励也更丰厚！' },
-    { id: 'guide_use_ice_crystal', name: '冰晶强化', description: '在背包中使用一颗冰晶', type: 'use_ice_crystal', target: 1, order: 9, rewards: { gold: 75, exp: 25 }, tip: '冰晶可以解锁冰星星，提升攻击力！' },
-    { id: 'guide_high_score', name: '高分挑战', description: '单局获得2000分', type: 'score', target: 2000, order: 10, rewards: { gold: 100, timePotion: 1 }, tip: '挑战更高分数，解锁更多游戏内容！' }
+    { id: 'guide_click_star', name: '初触灵光', description: '触碰你的第一道灵光', type: 'click_stars', target: 1, order: 1, rewards: { gold: 25 }, tip: '触碰屏幕上的灵光可以获得灵辉值！' },
+    { id: 'guide_first_game', name: '初次净化', description: '完成你的第一次灵域净化', type: 'play_games', target: 1, order: 2, rewards: { gold: 50 }, tip: '每局净化30秒，尽可能多地触碰灵光！' },
+    { id: 'guide_first_combo', name: '连灵初成', description: '达成20连灵，灵光开始回应你的节奏', type: 'max_combo', target: 20, order: 3, rewards: { gold: 75, exp: 25 }, tip: '连续快速触碰灵光可以触发连灵，获得灵辉加成！' },
+    { id: 'guide_kill_monster', name: '净化初试', description: '净化第一只邪灵', type: 'kill_monsters', target: 1, order: 4, rewards: { gold: 50, healPotion: 1 }, tip: '500灵辉值后会出现邪灵，触碰灵光净化它！' },
+    { id: 'guide_perfect_click', name: '精准触碰', description: '在灵光映射模式达成一次精准触碰', type: 'perfect_clicks', target: 1, order: 6, rewards: { gold: 50, exp: 15 }, tip: '在判定区域触碰灵光可以获得双倍灵辉值！' },
+    { id: 'guide_super_perfect', name: '灵光合拍', description: '在灵光映射模式达成一次灵光合拍', type: 'super_perfect_clicks', target: 1, order: 7, rewards: { gold: 75, exp: 25 }, tip: '在核心判定区域触碰可以获得四倍灵辉值！' },
+    { id: 'guide_kill_boss', name: '守护灵净化', description: '净化第一只守护灵级邪灵', type: 'kill_boss', target: 1, order: 8, rewards: { gold: 150, exp: 50 }, tip: '2000灵辉值后会出现守护灵，它更强但净化奖励也更丰厚！' },
+    { id: 'guide_use_ice_crystal', name: '水行灵光·初醒', description: '使用一颗水灵晶唤醒水行灵光', type: 'use_ice_crystal', target: 1, order: 9, rewards: { gold: 75, exp: 25 }, tip: '水灵晶可以唤醒水灵光，提升灵光威力！' },
+    { id: 'guide_high_score', name: '灵辉汇聚', description: '单次净化获得2000灵辉值', type: 'score', target: 2000, order: 10, rewards: { gold: 100, timePotion: 1 }, tip: '挑战更高灵辉值，解锁更多灵域内容！' }
 ];
 
 export const DAILY_TASKS = [
-    { id: 'daily_click_50', name: '点击新手', description: '点击50颗星星', type: 'click_stars', target: 50, rewards: { gold: 50, exp: 12 } },
-    { id: 'daily_score_1000', name: '得分达人', description: '单局获得1000分', type: 'score', target: 1000, rewards: { gold: 75, exp: 20 } },
-    { id: 'daily_combo_10', name: '连击新手', description: '达成10连击', type: 'max_combo', target: 10, rewards: { gold: 40, exp: 10 } },
-    { id: 'daily_play_3', name: '游戏达人', description: '完成3局游戏', type: 'play_games', target: 3, rewards: { gold: 100, healPotion: 1 } },
-    { id: 'daily_perfect_5', name: '完美点击', description: '达成5次完美点击', type: 'perfect_clicks', target: 5, rewards: { gold: 60, timePotion: 1 } },
-    { id: 'daily_critical_3', name: '暴击大师', description: '达成3次暴击', type: 'critical_hits', target: 3, rewards: { gold: 50, exp: 15 } }
+    { id: 'daily_click_50', name: '触碰新手', description: '触碰50道灵光', type: 'click_stars', target: 50, rewards: { gold: 50, exp: 12 } },
+    { id: 'daily_score_1000', name: '灵辉达人', description: '单次净化获得1000灵辉值', type: 'score', target: 1000, rewards: { gold: 75, exp: 20 } },
+    { id: 'daily_combo_10', name: '连灵初试', description: '达成10连灵', type: 'max_combo', target: 10, rewards: { gold: 40, exp: 10 } },
+    { id: 'daily_play_3', name: '净化常客', description: '完成3次净化', type: 'play_games', target: 3, rewards: { gold: 100, healPotion: 1 } },
+    { id: 'daily_perfect_5', name: '精准触碰', description: '达成5次精准触碰', type: 'perfect_clicks', target: 5, rewards: { gold: 60, timePotion: 1 } },
+    { id: 'daily_critical_3', name: '会心初试', description: '达成3次会心一击', type: 'critical_hits', target: 3, rewards: { gold: 50, exp: 15 } }
 ];
 
 export const ACHIEVEMENT_TASKS = [
-    { id: 'ach_click_1000', name: '星星猎手', description: '累计点击1000颗星星', type: 'total_clicks', target: 1000, rewards: { gold: 250, exp: 50 } },
-    { id: 'ach_click_10000', name: '星星大师', description: '累计点击10000颗星星', type: 'total_clicks', target: 10000, rewards: { gold: 1000, exp: 200 } },
-    { id: 'ach_score_10000', name: '得分王者', description: '单局获得10000分', type: 'score', target: 10000, rewards: { gold: 500, exp: 125 } },
-    { id: 'ach_combo_50', name: '连击之神', description: '达成50连击', type: 'max_combo', target: 50, rewards: { gold: 400, exp: 100 } },
-    { id: 'ach_combo_100', name: '连击传说', description: '达成100连击', type: 'max_combo', target: 100, rewards: { gold: 1500, exp: 375 } },
-    { id: 'ach_play_100', name: '游戏老手', description: '累计完成100局游戏', type: 'total_games', target: 100, rewards: { gold: 750, exp: 150 } },
-    { id: 'ach_perfect_100', name: '完美主义', description: '累计达成100次完美点击', type: 'total_perfects', target: 100, rewards: { gold: 400, exp: 88 } },
-    { id: 'ach_critical_50', name: '暴击专家', description: '单局达成50次暴击', type: 'critical_hits', target: 50, rewards: { gold: 600, exp: 125 } }
+    { id: 'ach_click_1000', name: '灵光猎手', description: '累计触碰1000道灵光', type: 'total_clicks', target: 1000, rewards: { gold: 250, exp: 50 } },
+    { id: 'ach_click_10000', name: '灵光大成', description: '累计触碰10000道灵光', type: 'total_clicks', target: 10000, rewards: { gold: 1000, exp: 200 } },
+    { id: 'ach_score_10000', name: '灵辉王者', description: '单次净化获得10000灵辉值', type: 'score', target: 10000, rewards: { gold: 500, exp: 125 } },
+    { id: 'ach_combo_50', name: '连灵归一', description: '达成50连灵', type: 'max_combo', target: 50, rewards: { gold: 400, exp: 100 } },
+    { id: 'ach_combo_100', name: '连灵入圣', description: '达成100连灵', type: 'max_combo', target: 100, rewards: { gold: 1500, exp: 375 } },
+    { id: 'ach_play_100', name: '灵域常客', description: '累计完成100次净化', type: 'total_games', target: 100, rewards: { gold: 750, exp: 150 } },
+    { id: 'ach_perfect_100', name: '灵光合鸣', description: '累计达成100次灵光合拍', type: 'total_perfects', target: 100, rewards: { gold: 400, exp: 88 } },
+    { id: 'ach_critical_50', name: '会心名家', description: '单次净化达成50次会心一击', type: 'critical_hits', target: 50, rewards: { gold: 600, exp: 125 } }
 ];
 
 // ==================== 任务系统工厂函数 ====================

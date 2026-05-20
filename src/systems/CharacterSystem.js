@@ -305,10 +305,10 @@ function createCharacterSystem(deps) {
             }
         }
 
-        // 暴击冰晶额外暴击率（MaterialSystem.useMaterial 写入）
+        // 水灵暴晶额外暴击率（MaterialSystem.useMaterial 写入）
         stats.critRate += playerData.extraCritRate || 0;
 
-        // 爆伤火源额外暴击伤害（MaterialSystem.useMaterial 写入）
+        // 火灵爆源额外暴击伤害（MaterialSystem.useMaterial 写入）
         stats.critDamage += playerData.extraCritDamage || 0;
 
         return stats;

@@ -6,12 +6,12 @@ import { createBattleEngine } from './BattleEngine.js';
  *
  * 星星点击委托给 BattleEngine，战斗逻辑改一处全局生效：
  * - handleStarClick → battleEngine.handleStarClick + 扩展钩子
- * - 怪物死亡 + 分裂 + 掉落（adapter 回调处理）
+ * - 邪灵消散 + 分裂 + 掉落（adapter 回调处理）
  * - 怪物攻击玩家（含闪避修复）
  * - 中毒效果
  */
 
-var NON_DAMAGE_TYPES = ['heal', 'shield', 'time', 'greedy', 'unlucky', 'boss_star', 'dodge'];
+var NON_DAMAGE_TYPES = ['heal', 'shield', 'time', 'greedy', 'unlucky', 'boss_star', 'dodge', 'capture'];
 
 function createNormalBattleAdapter(deps) {
 
@@ -95,6 +95,12 @@ function createNormalBattleAdapter(deps) {
     var getPoisonPuddleSystem = deps.getPoisonPuddleSystem;
     var getActiveBuffs = deps.getActiveBuffs;
     var getSeasonSelection = deps.getSeasonSelection;
+    var getCaptureSystem = deps.getCaptureSystem || function() { return null; };
+
+    // ═══ D2-D5 战斗维度 ═══
+    var getRhythmSystem = deps.getRhythmSystem || function() { return null; };
+    var getLinkChainSystem = deps.getLinkChainSystem || function() { return null; };
+    var getDragSystem = deps.getDragSystem || function() { return null; };
 
     // ═══ 任务 ═══
     var updateTaskProgress = deps.updateTaskProgress;
@@ -112,7 +118,7 @@ function createNormalBattleAdapter(deps) {
     var removeBossStar = deps.removeBossStar;
     var tipShowTipOnce = deps.tipShowTipOnce;
 
-    // ═══ 击杀/掉落 deps ═══
+    // ═══ 净化/掉落 deps ═══
     var getMonsterTypes = deps.getMonsterTypes;
     var getMonstersConfig = deps.getMonstersConfig;
     var getMonsterSkillType = deps.getMonsterSkillType;
@@ -208,8 +214,38 @@ function createNormalBattleAdapter(deps) {
     // 扩展钩子
     // ═══════════════════════════════════════════════════════
 
-    // 前置处理：偷星者/毒星/毒液滩/掉落区域限制
+    // 前置处理：偷星者/毒星/毒液滩/掉落区域限制/收服灵光
     function onBeforeStarClickHook(star, x, y, index) {
+        // 收服灵光
+        if (star.isCaptureStar || star.type === 'capture') {
+            var capSys = getCaptureSystem();
+            if (capSys) {
+                var monster2 = getActiveMonster();
+                // 判定快速/超速点击
+                var tapInfo2 = { isPerfect: false, isSuperQuick: false };
+                if (star.falling && getStarMode() === getSTAR_MODE().FALLING) {
+                    var fcfg2 = getFallingConfig();
+                    var sh2 = getScreenHeight();
+                    var scl2 = getScreenScale();
+                    var totalZone2 = fcfg2.bottomHitZone;
+                    var superPerfectH2 = fcfg2.superPerfectZone;
+                    var hpBarTop2 = sh2 - Math.floor(50 * scl2);
+                    var zoneGap2 = Math.floor(10 * scl2);
+                    var superPerfectTopY2 = hpBarTop2 - zoneGap2 - totalZone2 + fcfg2.perfectZone;
+                    var superPerfectBotY2 = superPerfectTopY2 + superPerfectH2;
+                    if (star.y >= superPerfectTopY2 && star.y < superPerfectBotY2) {
+                        tapInfo2.isSuperQuick = true;
+                    } else {
+                        var perfectTopY2 = hpBarTop2 - zoneGap2 - totalZone2;
+                        if (star.y >= perfectTopY2 && star.y < perfectTopY2 + totalZone2) {
+                            tapInfo2.isPerfect = true;
+                        }
+                    }
+                }
+                var capResult = capSys.handleCaptureStarClick(star, monster2, tapInfo2);
+                return capResult;
+            }
+        }
         // 掉落星星区域限制
         if (star.falling && getStarMode() === getSTAR_MODE().FALLING) {
             if (star.y < getScreenHeight() * 0.6) {
@@ -343,6 +379,29 @@ function createNormalBattleAdapter(deps) {
         updateCombo();
         var comboCount = getComboCount();
 
+        // D5: 节拍判定
+        var rhythmResult = { grade: 'normal', damageMult: 1, scoreBonus: 0 };
+        var rhythmSys = getRhythmSystem();
+        if (rhythmSys && rhythmSys.isUnlocked()) {
+            rhythmResult = rhythmSys.judgeTiming(star);
+            if (rhythmResult.damageMult > 1 && !isNonDamageStar) {
+                starScore = Math.floor(starScore * rhythmResult.damageMult);
+                totalAttack = Math.floor(totalAttack * rhythmResult.damageMult);
+                totalDamage = Math.floor(totalDamage * rhythmResult.damageMult);
+            }
+        }
+
+        // D3: 拖拽聚合攻击加成
+        var dragSys = getDragSystem();
+        if (dragSys && dragSys.isUnlocked() && !isNonDamageStar) {
+            var dragBonus = dragSys.getAttackBonus();
+            if (dragBonus > 1) {
+                starScore = Math.floor(starScore * dragBonus);
+                totalAttack = Math.floor(totalAttack * dragBonus);
+                totalDamage = Math.floor(totalDamage * dragBonus);
+            }
+        }
+
         return {
             damage: totalDamage,
             isCrit: isCritical,
@@ -353,7 +412,8 @@ function createNormalBattleAdapter(deps) {
             isSuperQuickTap: isSuperQuickTap,
             starScore: starScore,
             totalAttack: totalAttack,
-            isNonDamageStar: isNonDamageStar
+            isNonDamageStar: isNonDamageStar,
+            rhythmGrade: rhythmResult.grade
         };
     }
 
@@ -383,8 +443,8 @@ function createNormalBattleAdapter(deps) {
                 monster.empowerType = star.type;
                 var healAmount = Math.floor(damage * (monster.healRate || 0.5));
                 monster.hp = Math.min(monster.hp + healAmount, monster.maxHp);
-                addMonsterSkillAnimationFn(monster, 'absorb', '+' + healAmount + ' HP');
-                addMessage('怪物吸收! +' + healAmount + 'HP', '#ff6b6b');
+                addMonsterSkillAnimationFn(monster, 'absorb', '+' + healAmount + ' 灵能');
+                addMessage('邪灵吸收! +' + healAmount + '灵能', '#ff6b6b');
                 vibrateShort({ type: 'heavy' });
                 return { prevented: true, absorbed: true, healAmount: healAmount };
             }
@@ -397,7 +457,7 @@ function createNormalBattleAdapter(deps) {
                     if (Math.random() < (monster.skills[di].chance || 0)) {
                         monster._dodgeAnimTime = Date.now();
                         addMonsterSkillAnimationFn(monster, 'dodge', '闪避!');
-                        addMessage('怪物闪避了攻击!', '#ff6b6b');
+                        addMessage('邪灵闪避了灵光冲击!', '#ff6b6b');
                         onMonsterDodgeFn(monster);
                         return { prevented: false, dodged: true, modifiedDamage: 0 };
                     }
@@ -431,7 +491,7 @@ function createNormalBattleAdapter(deps) {
         if (monster.awakeDodge && Math.random() < monster.awakeDodge) {
             monster._dodgeAnimTime = Date.now();
             addMonsterSkillAnimationFn(monster, 'dodge', '觉醒闪避!');
-            addMessage('💨 怪物觉醒闪避!', '#ff6b6b');
+            addMessage('💨 邪灵觉醒闪避!', '#ff6b6b');
             return { prevented: false, dodged: true, modifiedDamage: 0 };
         }
 
@@ -514,6 +574,19 @@ function createNormalBattleAdapter(deps) {
             handleThiefCrownCrit(pd);
         }
 
+        // D4: 联连充能
+        var linkSys = getLinkChainSystem();
+        if (linkSys && linkSys.isUnlocked() && !result.isNonDamageStar) {
+            var rhythmGrade = result.rhythmGrade || 'normal';
+            if (rhythmGrade === 'perfect') {
+                linkSys.addCharge(12);
+            } else if (rhythmGrade === 'great') {
+                linkSys.addCharge(8);
+            } else {
+                linkSys.addCharge(5);
+            }
+        }
+
         // 后置效果
         if (m && m.active) {
             var MonsterSkillType = getMonsterSkillType();
@@ -549,7 +622,7 @@ function createNormalBattleAdapter(deps) {
             // 狂暴
             triggerMonsterSkillFn(m, MonsterSkillType.RAGE);
 
-            // 史莱姆毒液分裂
+            // 碎瓷聚合体碎片溅射
             if (m.hp > 0 && !m.hasPoisonSplit) {
                 var poisonSplitSkill = null;
                 if (m.skills) {
@@ -577,13 +650,13 @@ function createNormalBattleAdapter(deps) {
                     fx.poisonDamage = poisonSplitSkill.poisonDamage || 8;
                     fx.poisonTickTime = Date.now() + 1000;
                     addMonsterSkillAnimationFn(m, 'poison_split', '毒液飞溅!');
-                    addMessage('☠️ 史莱姆王吐出毒液! -' + (poisonSplitSkill.damage || 20) + 'HP', '#00ff00', true);
+                    addMessage('☠️ 聚合邪灵溅射碎片! -' + (poisonSplitSkill.damage || 20) + '灵能', '#00ff00', true);
                     if (spawnPoisonPuddlesFn) spawnPoisonPuddlesFn(m.x, m.y, poisonSplitSkill);
                     vibrateShort({ type: 'heavy' });
                 }
             }
 
-            // 星渊吞噬者逃跑
+            // 灵脉吞噬者逃跑
             var starDevourerEscaped = getStarDevourerEscaped();
             if (m.id === 'star_devourer' && !starDevourerEscaped && m.hp > 0 && m.hp <= m.maxHp * getStarDevourerEscapeHpRatio()) {
                 setStarDevourerEscaped(true);
@@ -593,8 +666,8 @@ function createNormalBattleAdapter(deps) {
                 }
                 pd.bossKillCount = 0;
                 resetBossStarMechanicFn();
-                addMonsterSkillAnimationFn(m, 'escape', '遁入虚空!');
-                addMessage('🌀 星渊吞噬者遁入虚空，逃离了战斗！', '#ff6b6b');
+                addMonsterSkillAnimationFn(m, 'escape', '遁入灵隙!');
+                addMessage('🌀 灵脉吞噬者遁入灵隙，逃离了战斗！', '#ff6b6b');
                 vibrateShort({ type: 'heavy' });
                 return;
             }
@@ -624,7 +697,7 @@ function createNormalBattleAdapter(deps) {
         // 连击提示
         var comboState = getComboState();
         if (comboState.count >= 20) {
-            tipShowTipOnce('first_high_combo', '连击加成生效中！连续点击分数翻倍');
+            tipShowTipOnce('first_high_combo', '连灵加成生效中！连续触碰灵辉翻倍');
         }
     }
 
@@ -639,20 +712,20 @@ function createNormalBattleAdapter(deps) {
 
         switch (star.type) {
             case 'time':
-                // 时间星星等级加成
+                // 时序星等级加成
                 if (pd.timeStarLevel && pd.timeStarLevel > 0) {
                     addTimeLeft(pd.timeStarLevel);
                 }
                 break;
 
             case 'greedy':
-                // 贪婪星：对怪物造成 1 点伤害 + 检查死亡
+                // 贪婪星：对怪物造成 1 点伤害 + 净化检查
                 if (m && m.active) {
                     m.hp = Math.max(0, m.hp - 1);
                 }
                 if (combatState.greedyHpPool >= getGreedySkillThreshold() && !combatState.greedySkillUnlocked) {
                     combatState.greedySkillUnlocked = true;
-                    addMessage('😈 贪婪技能已解锁!', '#ff6b6b');
+                    addMessage('🌀 贪婪技能已解锁!', '#ff6b6b');
                     vibrateShort({ type: 'heavy' });
                 }
                 if (m && m.active && m.hp <= 0) {
@@ -661,7 +734,7 @@ function createNormalBattleAdapter(deps) {
                 break;
 
             case 'unlucky':
-                // 厄运星：怒气暴击击杀检查
+                // 厄运星：怒气暴击净化检查
                 if (pd.playerRage === 0 && m && m.active && m.hp <= 0) {
                     handleMonsterDeath(false, m, state, GAME_STATE, pd);
                 }
@@ -703,7 +776,7 @@ function createNormalBattleAdapter(deps) {
         }
     }
 
-    // 怪物死亡回调（由 BattleEngine preventFinish 触发）
+    // 邪灵消散回调（由 BattleEngine preventFinish 触发）
     function onMonsterDeathCallback(ctx) {
         var m = ctx.monster;
         if (!m) return;
@@ -769,6 +842,17 @@ function createNormalBattleAdapter(deps) {
 
     function update() {
         if (battleEngine) battleEngine.update();
+        // 收服灵光生成
+        var capSys = getCaptureSystem();
+        if (capSys) {
+            var monster2 = getActiveMonster();
+            if (capSys.shouldSpawnCaptureStar(monster2)) {
+                var captureStar = capSys.spawnCaptureStar();
+                var currentStars = getStars();
+                currentStars.push(captureStar);
+                setStars(currentStars);
+            }
+        }
     }
 
     function isActive() {
@@ -887,7 +971,7 @@ function createNormalBattleAdapter(deps) {
         fx.poisonEndTime = Date.now() + 3000;
         fx.poisonDamage = 5;
         fx.poisonTickTime = Date.now() + 1000;
-        addMessage('☠️ 毒星爆发! -15HP+中毒!', '#00ff00', true);
+        addMessage('☠️ 毒灵爆发! -15灵能+中毒!', '#00ff00', true);
         vibrateShort({ type: 'heavy' });
     }
 
@@ -911,12 +995,12 @@ function createNormalBattleAdapter(deps) {
         fx.poisonEndTime = Date.now() + 3000;
         fx.poisonDamage = 5;
         fx.poisonTickTime = Date.now() + 1000;
-        addMessage('☠️ 毒星爆发! -15HP+中毒!', '#00ff00', true);
+        addMessage('☠️ 毒灵爆发! -15灵能+中毒!', '#00ff00', true);
         vibrateShort({ type: 'heavy' });
     }
 
     // ═══════════════════════════════════════════════════════
-    // 怪物死亡处理
+    // 邪灵消散处理
     // ═══════════════════════════════════════════════════════
 
     function handleMonsterDeath(isElementalCombo, m, state, GAME_STATE, playerData) {
@@ -973,7 +1057,7 @@ function createNormalBattleAdapter(deps) {
                     monsters.push(newMonster);
                 }
 
-                addMessage('👾 分裂成' + splitCount + '只' + (splitMonsterType ? splitMonsterType.name : '小怪') + '!', '#ff6b6b');
+                addMessage('🌫️ 分裂成' + splitCount + '只' + (splitMonsterType ? splitMonsterType.name : '小怪') + '!', '#ff6b6b');
                 Logger.info('怪物分裂! 生成', splitCount, '只');
 
                 if (wasBoss) {
@@ -983,7 +1067,7 @@ function createNormalBattleAdapter(deps) {
             }
         }
 
-        // ===== 处理怪物死亡 =====
+        // ===== 处理邪灵消散 =====
         var isSplitFromBoss = m.splitFrom === 'boss';
 
         onMonsterDefeat(m);
@@ -1140,7 +1224,7 @@ function createNormalBattleAdapter(deps) {
         }
 
         savePlayerDataFn();
-        Logger.info('击杀怪物:', (monsterType ? monsterType.name : ''), '累积:', playerData.bossKillCount);
+        Logger.info('净化邪灵:', (monsterType ? monsterType.name : ''), '累积:', playerData.bossKillCount);
     }
 
     function handleStarDevourerDrops(m, monsterType, playerData) {
@@ -1233,9 +1317,9 @@ function createNormalBattleAdapter(deps) {
             var deathSkill = Object.assign({}, deathPoisonSkill);
             if (instantKill) {
                 deathSkill.puddleCount = 6;
-                addMessage('☠️ 史莱姆王被秒杀! 毒液爆发!', '#00ff00', true);
+                addMessage('☠️ 碎瓷聚合体被秒杀! 碎片爆发!', '#00ff00', true);
             } else {
-                addMessage('☠️ 史莱姆王临死反扑! 毒液飞溅!', '#00ff00', true);
+                addMessage('☠️ 碎瓷聚合体临死反扑! 碎片飞溅!', '#00ff00', true);
             }
             spawnPoisonPuddlesFn(m.x || getScreenWidth() / 2, m.y || getScreenHeight() / 3, deathSkill);
         }
@@ -1295,7 +1379,7 @@ function createNormalBattleAdapter(deps) {
             var newHp = Math.min(playerData.playerHp + healAmt, maxHp);
             playerData.playerHp = newHp;
             if (battleEngine) battleEngine.setPlayerState(newHp);
-            addMessage('偷星者之冠 暴击回复 +' + healAmt + 'HP', '#00ff88', true);
+            addMessage('窃灵冠 会心回复 +' + healAmt + '灵能', '#00ff88', true);
         }
     }
 
@@ -1325,7 +1409,7 @@ function createNormalBattleAdapter(deps) {
             damage = Math.floor(damage * (1 + m.awakeRage));
             if (!m._awakeRageNotified) {
                 m._awakeRageNotified = true;
-                addMessage('🔥 怪物觉醒狂暴！攻击力+' + Math.floor(m.awakeRage * 100) + '%', '#ff4444');
+                addMessage('🔥 邪灵觉醒狂暴！冲击力+' + Math.floor(m.awakeRage * 100) + '%', '#ff4444');
             }
         }
 
@@ -1335,7 +1419,7 @@ function createNormalBattleAdapter(deps) {
         var doubleResult = triggerMonsterSkillFn(m, MonsterSkillType.DOUBLE_ATTACK);
         if (doubleResult && doubleResult.triggered) {
             damage *= 2;
-            addMonsterSkillAnimationFn(m, 'doubleAttack', '连击!');
+            addMonsterSkillAnimationFn(m, 'doubleAttack', '连灵!');
         }
         if (m.damageBonus > 0) damage += m.damageBonus;
 
@@ -1351,7 +1435,7 @@ function createNormalBattleAdapter(deps) {
                 if (fx.dodging && Date.now() < fx.dodgeEndTime) {
                     var counterDamage = damage;
                     m.hp = Math.max(0, m.hp - counterDamage);
-                    addMessage('💫 闪避成功! -' + counterDamage + '伤害', '#00ff88');
+                    addMessage('💫 闪避成功! -' + counterDamage + '冲击', '#00ff88');
                     vibrateShort({ type: 'medium' });
                     createMeteorAnimation(getScreenWidth() / 2, getScreenHeight() / 2, counterDamage, false, 'dodge', 0, 1, null, null);
                     createMonsterDamageAnimationFn(m, counterDamage);
@@ -1402,7 +1486,7 @@ function createNormalBattleAdapter(deps) {
                             fx.stunned = true;
                             fx.stunEndTime = Date.now() + (m.skills[si].duration || 1000);
                             addMonsterSkillAnimationFn(m, 'stun', '打断!');
-                            addMessage('被怪物打断!', '#ff6b6b');
+                            addMessage('被邪灵打断!', '#ff6b6b');
                             break;
                         }
                     }
@@ -1414,7 +1498,7 @@ function createNormalBattleAdapter(deps) {
                             fx.poisonTickTime = Date.now() + 1000;
                             var pLabel = pd.playerShield > 0 ? '腐蚀!' : '中毒!';
                             createPlayerDamageAnimation(0, false, true, pLabel);
-                            addMessage('☠️ ' + pLabel + ' 每秒-' + (m.skills[pi].damage || 5) + 'HP', '#ff6b6b');
+                            addMessage('☠️ ' + pLabel + ' 每秒-' + (m.skills[pi].damage || 5) + '灵能', '#ff6b6b');
                             break;
                         }
                     }
@@ -1442,13 +1526,13 @@ function createNormalBattleAdapter(deps) {
                                 pd.playerHp = Math.max(0, pd.playerHp - summonDamage);
                                 Logger.info('[HP] summon | -' + summonDamage + ' | ' + _oldHp7 + ' → ' + pd.playerHp + ' | ' + m.type);
                                 addMonsterSkillAnimationFn(m, 'summon', '召唤' + summonCount + '只' + summonedMonster.name + '!');
-                                addMessage('👾 召唤' + summonCount + '只' + summonedMonster.name + '! -' + summonDamage + 'HP', '#ff6b6b');
+                                addMessage('🌫️ 召唤' + summonCount + '只' + summonedMonster.name + '! -' + summonDamage + '灵能', '#ff6b6b');
                             }
                         }
                     }
                 }
 
-                if (isBoss) addMessage('💥 Boss攻击！-' + damage + 'HP', '#ff6b6b');
+                if (isBoss) addMessage('💥 守护灵冲击！-' + damage + '灵能', '#ff6b6b');
 
                 var bossNow = Date.now();
                 if (score >= 2000 && m.type === 'boss' && !fx.stunned && bossNow - getLastBossStunTimeFn() >= 5000) {
@@ -1456,7 +1540,7 @@ function createNormalBattleAdapter(deps) {
                         setLastBossStunTimeFn(bossNow);
                         fx.stunned = true;
                         fx.stunEndTime = bossNow + getBossStunDurationFn();
-                        addMessage('💥 Boss打断！无法操作1秒', '#ff6b6b');
+                        addMessage('💥 守护灵打断！无法操作1秒', '#ff6b6b');
                     }
                 }
 
@@ -1557,8 +1641,8 @@ function createNormalBattleAdapter(deps) {
                     m.empowerType = starType;
                     var healAmount = Math.floor(damage * (m.healRate || 0.5));
                     m.hp = Math.min(m.hp + healAmount, m.maxHp);
-                    addMonsterSkillAnimationFn(m, 'absorb', '+' + healAmount + ' HP');
-                    addMessage('怪物吸收! +' + healAmount + 'HP', '#ff6b6b');
+                    addMonsterSkillAnimationFn(m, 'absorb', '+' + healAmount + ' 灵能');
+                    addMessage('邪灵吸收! +' + healAmount + '灵能', '#ff6b6b');
                     vibrateShort({ type: 'heavy' });
                     return { success: true, isElementalCombo: false, comboMultiplier: 0, isAbsorbed: true, dodged: false, reflected: 0 };
                 }
@@ -1572,7 +1656,7 @@ function createNormalBattleAdapter(deps) {
                         isDodged = true;
                         m._dodgeAnimTime = Date.now();
                         addMonsterSkillAnimationFn(m, 'dodge', '闪避!');
-                        addMessage('怪物闪避了攻击!', '#ff6b6b');
+                        addMessage('邪灵闪避了灵光冲击!', '#ff6b6b');
                         onMonsterDodgeFn(m);
                         return { success: true, isElementalCombo: false, comboMultiplier: 0, isAbsorbed: false, dodged: true, reflected: 0 };
                     }
@@ -1680,7 +1764,7 @@ function createNormalBattleAdapter(deps) {
                 fx.poisonDamage = poisonSplitSkill.poisonDamage || 8;
                 fx.poisonTickTime = Date.now() + 1000;
                 addMonsterSkillAnimationFn(m, 'poison_split', '毒液飞溅!');
-                addMessage('☠️ 史莱姆王吐出毒液! -' + (poisonSplitSkill.damage || 20) + 'HP', '#00ff00', true);
+                addMessage('☠️ 聚合邪灵溅射碎片! -' + (poisonSplitSkill.damage || 20) + '灵能', '#00ff00', true);
                 if (spawnPoisonPuddlesFn) spawnPoisonPuddlesFn(m.x, m.y, poisonSplitSkill);
                 vibrateShort({ type: 'heavy' });
             }
@@ -1696,8 +1780,8 @@ function createNormalBattleAdapter(deps) {
             var pd3 = getPlayerData();
             pd3.bossKillCount = 0;
             resetBossStarMechanicFn();
-            addMonsterSkillAnimationFn(m, 'escape', '遁入虚空!');
-            addMessage('🌀 星渊吞噬者遁入虚空，逃离了战斗！', '#ff6b6b');
+            addMonsterSkillAnimationFn(m, 'escape', '遁入灵隙!');
+            addMessage('🌀 灵脉吞噬者遁入灵隙，逃离了战斗！', '#ff6b6b');
             vibrateShort({ type: 'heavy' });
             return { success: true, isElementalCombo: isElementalCombo, comboMultiplier: comboMultiplier, isAbsorbed: false, dodged: false, reflected: reflectedDamage, escaped: true };
         }
@@ -1717,7 +1801,7 @@ function createNormalBattleAdapter(deps) {
         var pd = getPlayerData();
         var currentHp = pd.playerHp != null ? pd.playerHp : 100;
         if (currentHp <= 1) {
-            addMessage('血量不足', '#ff6b6b');
+            addMessage('灵核活性不足', '#ff6b6b');
             return false;
         }
         var hpToSacrifice = currentHp - 1;
@@ -1737,7 +1821,7 @@ function createNormalBattleAdapter(deps) {
             }
         }
 
-        addMessage('😈 贪婪爆发! -' + hpToSacrifice + 'HP → ' + totalDamage + '伤害', '#ff6b6b');
+        addMessage('🌀 贪婪爆发! -' + hpToSacrifice + '灵能 → ' + totalDamage + '冲击', '#ff6b6b');
         vibrateShort({ type: 'heavy' });
         setTimeout(function() { vibrateShort({ type: 'heavy' }); }, 100);
         setTimeout(function() { vibrateShort({ type: 'heavy' }); }, 200);

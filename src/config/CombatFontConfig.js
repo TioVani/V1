@@ -17,7 +17,7 @@ function createCombatFontConfig() {
         playerDmgBoss:{ base: 12, weight: 'normal' },   // 玩家受伤数字（Boss模式）
         timeDmg:     { base: 18, weight: 'normal' },   // 时间扣减飘字
         quickTap:    { base: 40, weight: 'bold'   },   // 快速点击 ×2/×4
-        goldDrop:    { base: 20, weight: 'normal' },   // 星币掉落
+        goldDrop:    { base: 20, weight: 'normal' },   // 灵币掉落
         elemental:   { base: 32, weight: 'bold'   },   // 元素连击文字（汽伤等）
         elementalSub:{ base: 20, weight: 'normal' },   // 元素连击副文字（×2伤害）
         skillEmoji:  { base: 20, weight: 'normal' },   // 技能伤害旁 emoji

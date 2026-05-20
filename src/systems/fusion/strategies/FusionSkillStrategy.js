@@ -1,6 +1,6 @@
 /**
  * FusionSkillStrategy — 泉涌（技能融合）
- * 3个同稀有度技能 + 星源石 → 复合技能
+ * 3个同稀有度技能 + 灵石 → 复合技能
  * skills.owned 格式: [{uid, id, level}, ...]
  */
 import { getNextRarity, FUSION_CONFIG, FUSION_TYPES } from '../../../config/FusionConfig.js';
@@ -69,7 +69,7 @@ function createFusionSkillStrategy(deps) {
 
     function checkExtraCost(playerData, materials) {
         if ((playerData.starSource || 0) < STAR_SOURCE_COST) {
-            return { canAfford: false, error: '需要' + STAR_SOURCE_COST + '星源石' };
+            return { canAfford: false, error: '需要' + STAR_SOURCE_COST + '灵石' };
         }
         return { canAfford: true };
     }

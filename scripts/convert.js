@@ -40,7 +40,39 @@ const CONFIGS = {
  */
 
 `,
-        exportLine: 'export { Characters };'
+        exportLine: 'export { Characters, getCharacterKey };',
+        footer: `
+function getCharacterKey(charId) {
+    var idToKey = {
+        'char_001': 'starter',
+        'char_002': 'warrior',
+        'char_003': 'mage',
+        'char_004': 'archer',
+        'char_005': 'dragon_knight',
+        'char_006': 'goddess',
+        'char_007': 'assassin',
+        'char_008': 'guardian',
+        'char_009': 'summoner',
+        'char_010': 'berserker',
+        'char_011': 'saint',
+        'char_012': 'ninja',
+        'char_013': 'priest',
+        'char_014': 'paladin',
+        'char_015': 'hunter',
+        'char_016': 'witch',
+        'char_017': 'monk',
+        'char_018': 'elementalist',
+        'char_019': 'necromancer',
+        'char_020': 'chronomancer',
+        'char_021': 'wanderer',
+        'char_022': 'alchemist',
+        'char_023': 'vampire',
+        'char_024': 'celestial',
+        'char_025': 'void_emperor',
+        'char_026': 'stellar_wanderer'
+    };
+    return idToKey[charId] || charId;
+}`
     },
     Equipments: {
         excelFile: 'Equipments.xlsx',
@@ -53,7 +85,7 @@ const CONFIGS = {
             ['vanishChance', '隐身概率'], ['vanishDuration', '隐身时长(秒)'], ['hpPerKill', '击杀回血'], ['critHealHp', '暴击回血']
         ],
         header: `/**
- * 装备配置
+ * 装备配置 — 文物主题
  * ⚠️ 此文件由 scripts/convert.js 从 data/Equipments.xlsx 自动生成
  * 如需修改数据，请编辑 Excel 文件后运行 npm run convert
  */
@@ -66,14 +98,14 @@ const EquipmentTypes = {
 };
 
 const EquipmentRarity = {
-    UNCOMMON: 'UC',     // 精良
-    COMMON: 'N',        // 普通
-    RARE: 'R',          // 稀有
-    EPIC: 'SR',         // 史诗
-    LEGENDARY: 'SSR',   // 传说
-    MYTHIC: 'UR',       // 神话
-    LEGEND_RARE: 'LR',  // 传奇
-    SPECIAL: 'SP'       // 限定
+    UNCOMMON: 'UC',     // 粗品
+    COMMON: 'N',        // 凡品
+    RARE: 'R',          // 良品
+    EPIC: 'SR',         // 珍品
+    LEGENDARY: 'SSR',   // 瑰宝
+    MYTHIC: 'UR',       // 国宝
+    LEGEND_RARE: 'LR',  // 传世
+    SPECIAL: 'SP'       // 镇馆之宝
 };
 
 `,
@@ -90,10 +122,10 @@ const EquipmentRarity = {
             ['goldBonus', '金币加成'], ['timeAdd', '增加秒数'],
             ['attack', '攻击力加成'], ['critRate', '暴击率加成'], ['critDamage', '暴伤加成'], ['defense', '防御力加成'],
             ['revive', '复活效果'], ['healPercent', '百分比治疗'],
-            ['expBonus', '经验加成'], ['hp', '生命加成'], ['comboBonus', '连击加成'], ['dropRate', '掉落率加成'], ['starScoreBonus', '星星分数加成'], ['evasion', '闪避加成']
+            ['expBonus', '经验加成'], ['hp', '生命加成'], ['comboBonus', '连击加成'], ['dropRate', '掉落率加成'], ['starScoreBonus', '灵辉加成'], ['evasion', '闪避加成']
         ],
         header: `/**
- * 技能配置
+ * 技能配置 — 灵光技能体系（唤灵人战斗技能）
  * ⚠️ 此文件由 scripts/convert.js 从 data/Skills.xlsx 自动生成
  * 如需修改数据，请编辑 Excel 文件后运行 npm run convert
  */
@@ -101,9 +133,9 @@ const EquipmentRarity = {
 import { EquipmentRarity } from './EquipmentConfig.js';
 
 const SkillTypes = {
-    ATTACK: 'attack',   // 攻击技能
-    SUPPORT: 'support', // 辅助技能
-    PASSIVE: 'passive'  // 被动技能
+    ATTACK: 'attack',   // 攻击灵光
+    SUPPORT: 'support', // 辅助灵光
+    PASSIVE: 'passive'  // 被动灵光
 };
 
 `,
@@ -122,20 +154,20 @@ const SkillTypes = {
             ['healChance', '治疗触发概率'], ['vanishChance', '隐身概率'], ['vanishDuration', '隐身时长(ms)'], ['damageMultiplier', '伤害倍率']
         ],
         header: `/**
- * 宠物配置
+ * 灵兽配置
  * ⚠️ 此文件由 scripts/convert.js 从 data/Pets.xlsx 自动生成
  * 如需修改数据，请编辑 Excel 文件后运行 npm run convert
  */
 
 const PetRarity = {
-    UNCOMMON: 'UC',     // 精良
-    COMMON: 'N',        // 普通
-    RARE: 'R',          // 稀有
-    EPIC: 'SR',         // 史诗
-    LEGENDARY: 'SSR',   // 传说
-    MYTHIC: 'UR',       // 神话
-    LEGEND_RARE: 'LR',  // 传奇
-    SPECIAL: 'SP'       // 限定
+    UNCOMMON: 'UC',     // 粗品
+    COMMON: 'N',        // 凡品
+    RARE: 'R',          // 良品
+    EPIC: 'SR',         // 珍品
+    LEGENDARY: 'SSR',   // 瑰宝
+    MYTHIC: 'UR',       // 国宝
+    LEGEND_RARE: 'LR',  // 传世
+    SPECIAL: 'SP'       // 镇馆之宝
 };
 
 `,
@@ -219,6 +251,9 @@ function excelToJS(configName) {
     });
 
     js += '};\n\n';
+    if (config.footer) {
+        js += config.footer + '\n\n';
+    }
     js += config.exportLine + '\n';
 
     // 写入文件
@@ -250,19 +285,25 @@ function jsToExcel(configName) {
     jsContent = jsContent.replace(/EquipmentTypes\.ARMOR/g, "'armor'");
     jsContent = jsContent.replace(/EquipmentTypes\.ACCESSORY/g, "'accessory'");
     jsContent = jsContent.replace(/EquipmentTypes\.SET/g, "'set'");
+    jsContent = jsContent.replace(/EquipmentRarity\.UNCOMMON/g, "'UC'");
     jsContent = jsContent.replace(/EquipmentRarity\.COMMON/g, "'N'");
     jsContent = jsContent.replace(/EquipmentRarity\.RARE/g, "'R'");
     jsContent = jsContent.replace(/EquipmentRarity\.EPIC/g, "'SR'");
     jsContent = jsContent.replace(/EquipmentRarity\.LEGENDARY/g, "'SSR'");
     jsContent = jsContent.replace(/EquipmentRarity\.MYTHIC/g, "'UR'");
+    jsContent = jsContent.replace(/EquipmentRarity\.LEGEND_RARE/g, "'LR'");
+    jsContent = jsContent.replace(/EquipmentRarity\.SPECIAL/g, "'SP'");
     jsContent = jsContent.replace(/SkillTypes\.ATTACK/g, "'attack'");
     jsContent = jsContent.replace(/SkillTypes\.SUPPORT/g, "'support'");
     jsContent = jsContent.replace(/SkillTypes\.PASSIVE/g, "'passive'");
+    jsContent = jsContent.replace(/PetRarity\.UNCOMMON/g, "'UC'");
     jsContent = jsContent.replace(/PetRarity\.COMMON/g, "'N'");
     jsContent = jsContent.replace(/PetRarity\.RARE/g, "'R'");
     jsContent = jsContent.replace(/PetRarity\.EPIC/g, "'SR'");
     jsContent = jsContent.replace(/PetRarity\.LEGENDARY/g, "'SSR'");
     jsContent = jsContent.replace(/PetRarity\.MYTHIC/g, "'UR'");
+    jsContent = jsContent.replace(/PetRarity\.LEGEND_RARE/g, "'LR'");
+    jsContent = jsContent.replace(/PetRarity\.SPECIAL/g, "'SP'");
 
     // 移除 import 语句（不能 eval）
     jsContent = jsContent.replace(/import .* from .*;\n/g, '');

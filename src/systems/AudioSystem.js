@@ -4,6 +4,8 @@
  * 使用 Web Audio API 实现变调点击音效
  */
 
+import { createWebAudioContext, getFileSystemManager, env } from '../platform/BrowserAPI.js';
+
 function createAudioSystem() {
     var ctx = null;
     var clickBuffer = null;
@@ -19,9 +21,8 @@ function createAudioSystem() {
     var monsterDodgeBuffer = null;
 
     function init() {
-        if (typeof wx === 'undefined') return;
         try {
-            ctx = wx.createWebAudioContext();
+            ctx = createWebAudioContext();
         } catch (e) {
             return;
         }
@@ -40,38 +41,11 @@ function createAudioSystem() {
         _loadBuffer('assets/audio/monster_dodge.mp3', function(buf) { monsterDodgeBuffer = buf; });
     }
 
-    function _tryDecode(data, cb) {
-        if (data instanceof ArrayBuffer) {
-            ctx.decodeAudioData(data, cb, function() {});
-        } else {
-            console.warn('[Audio] readFile 返回非 ArrayBuffer，跳过解码');
-        }
-    }
-
-    function _loadBuffer(src, callback) {
-        if (wx._isMocked) {
-            var url = src.charAt(0) === '/' ? src : '/' + src;
-            fetch(url).then(function(r) { return r.ok ? r.arrayBuffer() : null; })
-                .then(function(data) { if (data) ctx.decodeAudioData(data, callback, function() {}); })
-                .catch(function() {});
-        } else {
-            var fs = wx.getFileSystemManager();
-            fs.readFile({
-                filePath: wx.env.USER_DATA_PATH + '/' + src,
-                success: function(res) {
-                    _tryDecode(res.data, callback);
-                },
-                fail: function() {
-                    fs.readFile({
-                        filePath: src,
-                        success: function(res2) {
-                            _tryDecode(res2.data, callback);
-                        },
-                        fail: function() {}
-                    });
-                }
-            });
-        }
+function _loadBuffer(src, callback) {
+        var url = src.charAt(0) === '/' ? src : '/' + src;
+        fetch(url).then(function(r) { return r.ok ? r.arrayBuffer() : null; })
+            .then(function(data) { if (data) ctx.decodeAudioData(data, callback, function() {}); })
+            .catch(function() {});
     }
 
     // playbackRate 0.85~1.15 随机变调，听起来有变化但不突兀

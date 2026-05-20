@@ -1,11 +1,11 @@
 /**
- * UpgradeStarStrategy — 星星升级策略
+ * UpgradeStarStrategy — 灵光升级策略
  * 与现有 MaterialSystem 的 iceStarLevel/fireStarLevel/timeStarLevel 集成
  * 消耗材料而非金币：iceCrystal / fireSource / timeCrystal
  */
 import { UPGRADE_CONFIG } from '../../../config/UpgradeConfig.js';
 
-// 星星类型 → playerData 字段名 → 材料Key 的映射
+// 灵光类型 → playerData 字段名 → 材料Key 的映射
 var STAR_FIELD_MAP = {
     ice:   { field: 'iceStarLevel',  material: 'iceCrystal',   maxField: 'maxIceStarLevel' },
     fire:  { field: 'fireStarLevel', material: 'fireSource',    maxField: 'maxFireStarLevel' },
@@ -34,7 +34,7 @@ function createUpgradeStarStrategy(deps) {
     }
 
     function _getStarName(starId) {
-        var names = { ice: '冰星星', fire: '火星星', time: '时间星星' };
+        var names = { ice: '水灵星', fire: '火灵星', time: '时序星' };
         return names[starId] || starId;
     }
 
@@ -118,7 +118,7 @@ function createUpgradeStarStrategy(deps) {
         return result;
     }
 
-    // 星星用对应材料（冰晶/火源/时间结晶）代替同ID副本作为升星材料
+    // 灵光用对应材料（水灵晶/火灵源/时序结晶）代替同ID副本作为升星材料
     // 虚拟材料ID格式: 'starMat_{starUid}_{index}'
     var _lastStarUid = null;
 
@@ -126,7 +126,7 @@ function createUpgradeStarStrategy(deps) {
         _lastStarUid = entityUid;
         var map = STAR_FIELD_MAP[entityUid];
         if (!map) return [];
-        var matNames = { iceCrystal: '冰晶', fireSource: '火源', timeCrystal: '时间结晶' };
+        var matNames = { iceCrystal: '水灵晶', fireSource: '火灵源', timeCrystal: '时序结晶' };
         var matData = playerData.materials && playerData.materials[map.material];
         var qty = matData ? (matData.quantity || 0) : 0;
         var count = Math.floor(qty / 10);

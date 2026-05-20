@@ -72,7 +72,7 @@ function createBossRenderer(deps) {
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.textAlign = 'left';
 
-        ctx.fillText(`得分: ${result.score}`, panelX + Math.floor(30 * scale), lineY);
+        ctx.fillText(`灵辉值: ${result.score}`, panelX + Math.floor(30 * scale), lineY);
         lineY += Math.floor(30 * scale);
         ctx.fillText(`最高连击: ${result.maxCombo}`, panelX + Math.floor(30 * scale), lineY);
         lineY += Math.floor(30 * scale);
@@ -92,22 +92,22 @@ function createBossRenderer(deps) {
             const rewardIconSize = Math.floor(14 * scale);
 
             if (rewards.gold > 0) {
-                // 星币图标
+                // 灵币图标
                 if (Assets.goldIcon && Assets.goldIcon.complete) {
                     ctx.drawImage(Assets.goldIcon, panelX + Math.floor(30 * scale), lineY - Math.floor(10 * scale), rewardIconSize, rewardIconSize);
-                    ctx.fillText(`星币: +${rewards.gold}`, panelX + Math.floor(50 * scale), lineY);
+                    ctx.fillText(`灵币: +${rewards.gold}`, panelX + Math.floor(50 * scale), lineY);
                 } else {
-                    ctx.fillText(`💰 星币: +${rewards.gold}`, panelX + Math.floor(30 * scale), lineY);
+                    ctx.fillText(`💰 灵币: +${rewards.gold}`, panelX + Math.floor(30 * scale), lineY);
                 }
                 lineY += Math.floor(25 * scale);
             }
             if (rewards.starSource > 0) {
-                // 星源石图标
+                // 灵石图标
                 if (Assets.starSourceIcon && Assets.starSourceIcon.complete) {
                     ctx.drawImage(Assets.starSourceIcon, panelX + Math.floor(30 * scale), lineY - Math.floor(10 * scale), rewardIconSize, rewardIconSize);
-                    ctx.fillText(`星源石: +${rewards.starSource}`, panelX + Math.floor(50 * scale), lineY);
+                    ctx.fillText(`灵石: +${rewards.starSource}`, panelX + Math.floor(50 * scale), lineY);
                 } else {
-                    ctx.fillText(`💎 星源石: +${rewards.starSource}`, panelX + Math.floor(30 * scale), lineY);
+                    ctx.fillText(`💎 灵石: +${rewards.starSource}`, panelX + Math.floor(30 * scale), lineY);
                 }
                 lineY += Math.floor(25 * scale);
             }
@@ -167,7 +167,7 @@ function createBossRenderer(deps) {
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(28 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('⚔️ Boss挑战 ⚔️', screenWidth / 2, Math.floor(50 * scale));
+        ctx.fillText('⚔️ 守护灵净化 ⚔️', screenWidth / 2, Math.floor(50 * scale));
 
         // 计算列表区域
         var listTop = Math.floor(85 * scale);
@@ -218,7 +218,7 @@ function createBossRenderer(deps) {
 
             ctx.fillStyle = '#ffffff';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-            ctx.fillText('Lv.' + boss.level + ' | HP: ' + boss.hp + ' | 攻击: ' + boss.attack, itemX + Math.floor(80 * scale), itemY + Math.floor(55 * scale));
+            ctx.fillText('Lv.' + boss.level + ' | 灵核: ' + boss.hp + ' | 冲击: ' + boss.attack, itemX + Math.floor(80 * scale), itemY + Math.floor(55 * scale));
 
             ctx.fillStyle = '#87CEEB';
             ctx.font = Math.floor(11 * scale) + 'px sans-serif';

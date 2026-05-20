@@ -137,55 +137,55 @@ function createMaterialSystem(deps) {
         }
         playerData.usedMaterials[materialId].count++;
 
-        // 冰晶：解锁冰星星
+        // 水灵晶：解锁水灵星
         if (materialId === 'iceCrystal') {
             if (!playerData.unlockedStarTypes || !Array.isArray(playerData.unlockedStarTypes)) {
                 playerData.unlockedStarTypes = [];
             }
             if (playerData.unlockedStarTypes.indexOf('ice') === -1) {
                 playerData.unlockedStarTypes.push('ice');
-                showToast({ title: '解锁冰星星!', icon: 'none', duration: 2000 });
+                showToast({ title: '解锁水灵星!', icon: 'none', duration: 2000 });
             }
         }
 
-        // 火源：解锁火星星
+        // 火灵源：解锁火灵星
         if (materialId === 'fireSource') {
             if (!playerData.unlockedStarTypes || !Array.isArray(playerData.unlockedStarTypes)) {
                 playerData.unlockedStarTypes = [];
             }
             if (playerData.unlockedStarTypes.indexOf('fire') === -1) {
                 playerData.unlockedStarTypes.push('fire');
-                showToast({ title: '解锁火星星!', icon: 'none', duration: 2000 });
+                showToast({ title: '解锁火灵星!', icon: 'none', duration: 2000 });
             }
         }
 
-        // 时间结晶：解锁/升级时间星星
+        // 时序结晶：解锁/升级时序星
         if (materialId === 'timeCrystal') {
             if (!playerData.unlockedStarTypes || !Array.isArray(playerData.unlockedStarTypes)) {
                 playerData.unlockedStarTypes = [];
             }
             if (playerData.unlockedStarTypes.indexOf('time') === -1) {
                 playerData.unlockedStarTypes.push('time');
-                showToast({ title: '解锁时间星星!', icon: 'none', duration: 2000 });
+                showToast({ title: '解锁时序星!', icon: 'none', duration: 2000 });
             } else {
                 if (!playerData.timeStarLevel) playerData.timeStarLevel = 0;
                 playerData.timeStarLevel++;
-                showToast({ title: '时间星星升级! Lv.' + playerData.timeStarLevel, icon: 'none', duration: 2000 });
+                showToast({ title: '时序星升级! Lv.' + playerData.timeStarLevel, icon: 'none', duration: 2000 });
             }
         }
 
-        // 暴击冰晶：永久增加暴击率
+        // 水灵暴晶：永久增加暴击率
         if (materialId === 'critCrystal') {
             var critBonus = Materials['critCrystal'].attributes.critRate || 3;
             playerData.extraCritRate = (playerData.extraCritRate || 0) + critBonus;
-            showToast({ title: '暴击率 +' + critBonus + '%', icon: 'none', duration: 1500 });
+            showToast({ title: '会心感应 +' + critBonus + '%', icon: 'none', duration: 1500 });
         }
 
-        // 爆伤火源：永久增加暴击伤害
+        // 火灵爆源：永久增加暴击伤害
         if (materialId === 'critFireSource') {
             var critDmgBonus = Materials['critFireSource'].attributes.critDamage || 0.1;
             playerData.extraCritDamage = (playerData.extraCritDamage || 0) + critDmgBonus;
-            showToast({ title: '暴击伤害 +' + (critDmgBonus * 100) + '%', icon: 'none', duration: 1500 });
+            showToast({ title: '会心威力 +' + (critDmgBonus * 100) + '%', icon: 'none', duration: 1500 });
         }
 
         saveData();
@@ -197,18 +197,18 @@ function createMaterialSystem(deps) {
         var playerData = getPlayerData();
         var iceCrystalData = playerData.materials['iceCrystal'];
         if (!iceCrystalData) {
-            Logger.info('没有冰晶');
+            Logger.info('没有水灵晶');
             return false;
         }
 
         if (playerData.iceStarLevel >= playerData.maxIceStarLevel) {
-            Logger.info('冰星星已达到最高等级');
+            Logger.info('水灵星已达到最高等级');
             return false;
         }
 
         var upgradeCost = 5 * (playerData.iceStarLevel + 1);
         if (iceCrystalData.quantity < upgradeCost) {
-            showToast({ title: '冰晶不足，需要' + upgradeCost + '个', icon: 'none', duration: 1500 });
+            showToast({ title: '水灵晶不足，需要' + upgradeCost + '个', icon: 'none', duration: 1500 });
             return false;
         }
 
@@ -216,8 +216,8 @@ function createMaterialSystem(deps) {
         playerData.iceStarLevel++;
         saveData();
 
-        showToast({ title: '冰星星升到Lv.' + playerData.iceStarLevel, icon: 'success', duration: 1500 });
-        Logger.info('冰星星升级成功! 等级:', playerData.iceStarLevel);
+        showToast({ title: '水灵星升到Lv.' + playerData.iceStarLevel, icon: 'success', duration: 1500 });
+        Logger.info('水灵星升级成功! 等级:', playerData.iceStarLevel);
         return true;
     }
 
@@ -225,18 +225,18 @@ function createMaterialSystem(deps) {
         var playerData = getPlayerData();
         var fireSourceData = playerData.materials['fireSource'];
         if (!fireSourceData) {
-            Logger.info('没有火源');
+            Logger.info('没有火灵源');
             return false;
         }
 
         if (playerData.fireStarLevel >= playerData.maxFireStarLevel) {
-            Logger.info('火星星已达到最高等级');
+            Logger.info('火灵星已达到最高等级');
             return false;
         }
 
         var upgradeCost = 5 * (playerData.fireStarLevel + 1);
         if (fireSourceData.quantity < upgradeCost) {
-            showToast({ title: '火源不足，需要' + upgradeCost + '个', icon: 'none', duration: 1500 });
+            showToast({ title: '火灵源不足，需要' + upgradeCost + '个', icon: 'none', duration: 1500 });
             return false;
         }
 
@@ -244,8 +244,8 @@ function createMaterialSystem(deps) {
         playerData.fireStarLevel++;
         saveData();
 
-        showToast({ title: '火星星升到Lv.' + playerData.fireStarLevel, icon: 'success', duration: 1500 });
-        Logger.info('火星星升级成功! 等级:', playerData.fireStarLevel);
+        showToast({ title: '火灵星升到Lv.' + playerData.fireStarLevel, icon: 'success', duration: 1500 });
+        Logger.info('火灵星升级成功! 等级:', playerData.fireStarLevel);
         return true;
     }
 

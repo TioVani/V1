@@ -3,9 +3,7 @@
  * 生产环境自动静默，仅保留 error 输出
  */
 
-const isDev = typeof __wxConfig !== 'undefined'
-  ? __wxConfig.envVersion !== 'release'
-  : true;
+const isDev = true;
 
 class Logger {
   static info(...args) {

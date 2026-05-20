@@ -317,7 +317,7 @@ function createStageModeSystem(deps) {
 
         var wasBoss = currentMonsterType === 'boss';
         var settings = currentStageData.settings;
-        Logger.info('怪物被击败! 击杀数:', monstersKilled, '/', settings.monsterCount, 'wasBoss:', wasBoss);
+        Logger.info('邪灵被净化! 净化数:', monstersKilled, '/', settings.monsterCount, 'wasBoss:', wasBoss);
 
         // 如果击败的是Boss，关卡完成
         if (wasBoss) {
@@ -326,14 +326,14 @@ function createStageModeSystem(deps) {
             return;
         }
 
-        // 检查是否需要生成Boss（击杀数达标且关卡有Boss）
+        // 检查是否需要生成守护灵（净化数达标且关卡有守护灵）
         if (settings.bossType && settings.monsterCount && monstersKilled >= settings.monsterCount) {
             Logger.info('普通怪物已全部击败，准备生成Boss:', settings.bossType);
             spawnBoss(settings.bossType);
             return;
         }
 
-        // 没有Boss的关卡，击杀数达标后完成
+        // 没有守护灵的关卡，净化数达标后完成
         if (settings.monsterCount && monstersKilled >= settings.monsterCount && !settings.bossType) {
             Logger.info('没有Boss的关卡，直接完成');
             end(true);

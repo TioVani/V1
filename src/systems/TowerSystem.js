@@ -1,6 +1,7 @@
 import Logger from '../utils/Logger.js';
 import TimerManager from '../utils/TimerManager.js';
 import { TOWER_COMBAT_OVERRIDES, TOWER_COMBAT_FEATURES } from '../config/CombatSpec.js';
+import { vibrateShort } from '../platform/BrowserAPI.js';
 /**
  * 爬塔系统（无尽之塔）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -61,15 +62,15 @@ const TOWER_CONFIG = {
     // 30秒可打约20颗有效伤害星 + combo星/宠物 ≈ 总伤害 floor1≈100k, floor15≈500k
     // difficultyScale=1.04: floor1=1x, floor10=1.42x, floor20=2.11x, floor50=6.83x
     monsters: [
-        { id: 'slime', name: '史莱姆', emoji: '🟢', hp: 100000, attack: 40, attackInterval: 2000, minFloor: 1, sizeType: 'normal', skills: [{ type: 'poison', damage: 3, duration: 3 }] },
-        { id: 'goblin', name: '哥布林', emoji: '👺', hp: 150000, attack: 50, attackInterval: 2000, minFloor: 3, sizeType: 'normal' },
-        { id: 'skeleton', name: '骷髅兵', emoji: '💀', hp: 200000, attack: 60, attackInterval: 1800, minFloor: 5, sizeType: 'normal' },
-        { id: 'orc', name: '兽人', emoji: '👹', hp: 300000, attack: 70, attackInterval: 1800, minFloor: 10, sizeType: 'normal' },
-        { id: 'demon', name: '恶魔', emoji: '😈', hp: 400000, attack: 80, attackInterval: 1500, minFloor: 15, sizeType: 'normal' },
-        { id: 'dragon', name: '幼龙', emoji: '🐉', hp: 500000, attack: 90, attackInterval: 1500, minFloor: 20, sizeType: 'normal' },
-        { id: 'ancient_dragon', name: '远古巨龙', emoji: '🐲', hp: 700000, attack: 100, attackInterval: 1500, minFloor: 30, sizeType: 'normal' },
-        { id: 'void_creature', name: '虚空生物', emoji: '👾', hp: 1000000, attack: 110, attackInterval: 1500, minFloor: 40, sizeType: 'normal' },
-        { id: 'abyss_lord', name: '深渊领主', emoji: '👿', hp: 1500000, attack: 120, attackInterval: 1500, minFloor: 50, sizeType: 'normal' }
+        { id: 'slime', name: '铜锈碎片', emoji: '🟤', hp: 100000, attack: 40, attackInterval: 2000, minFloor: 1, sizeType: 'normal', skills: [{ type: 'poison', damage: 3, duration: 3 }] },
+        { id: 'goblin', name: '戈魂', emoji: '🔱', hp: 150000, attack: 50, attackInterval: 2000, minFloor: 3, sizeType: 'normal' },
+        { id: 'skeleton', name: '断璧灵', emoji: '💍', hp: 200000, attack: 60, attackInterval: 1800, minFloor: 5, sizeType: 'normal' },
+        { id: 'orc', name: '铜戈战魂', emoji: '⚔️', hp: 300000, attack: 70, attackInterval: 1800, minFloor: 10, sizeType: 'normal' },
+        { id: 'demon', name: '狂草灵', emoji: '🎨', hp: 400000, attack: 80, attackInterval: 1500, minFloor: 15, sizeType: 'normal' },
+        { id: 'dragon', name: '铜龙幼灵', emoji: '🐲', hp: 500000, attack: 90, attackInterval: 1500, minFloor: 20, sizeType: 'normal' },
+        { id: 'ancient_dragon', name: '龙纹鼎灵', emoji: '🔥', hp: 700000, attack: 100, attackInterval: 1500, minFloor: 30, sizeType: 'normal' },
+        { id: 'void_creature', name: '灵脉裂片', emoji: '🌀', hp: 1000000, attack: 110, attackInterval: 1500, minFloor: 40, sizeType: 'normal' },
+        { id: 'abyss_lord', name: '渊默邪灵', emoji: '🌑', hp: 1500000, attack: 120, attackInterval: 1500, minFloor: 50, sizeType: 'normal' }
     ],
 
     bosses: [
@@ -77,23 +78,23 @@ const TOWER_CONFIG = {
         { floor: 10, name: '层主·初级', emoji: '⚔️', hp: 600000, attack: 70, attackInterval: 1800 },
         { floor: 15, name: '层主·中级', emoji: '🛡️', hp: 900000, attack: 80, attackInterval: 1500, skills: [{ type: 'poison', damage: 3, duration: 3 }] },
         { floor: 20, name: '层主·高级', emoji: '🗡️', hp: 1500000, attack: 90, attackInterval: 1500 },
-        { floor: 25, name: '深渊骑士', emoji: '🐴', hp: 2200000, attack: 100, attackInterval: 1500, skills: [{ type: 'poison', damage: 5, duration: 4 }] },
-        { floor: 30, name: '虚空领主', emoji: '🌌', hp: 3500000, attack: 110, attackInterval: 1500 },
-        { floor: 40, name: '混沌之王', emoji: '👑', hp: 6000000, attack: 120, attackInterval: 1500, skills: [{ type: 'stun', chance: 0.2, duration: 1500 }, { type: 'poison', damage: 5, duration: 5 }] },
-        { floor: 50, name: '深渊之主', emoji: '👿', hp: 10000000, attack: 130, attackInterval: 1500, skills: [{ type: 'poison', damage: 8, duration: 5 }] }
+        { floor: 25, name: '灵域骑士', emoji: '🐴', hp: 2200000, attack: 100, attackInterval: 1500, skills: [{ type: 'poison', damage: 5, duration: 4 }] },
+        { floor: 30, name: '灵脉领主', emoji: '🌀', hp: 3500000, attack: 110, attackInterval: 1500 },
+        { floor: 40, name: '古器邪灵', emoji: '🗿', hp: 6000000, attack: 120, attackInterval: 1500, skills: [{ type: 'stun', chance: 0.2, duration: 1500 }, { type: 'poison', damage: 5, duration: 5 }] },
+        { floor: 50, name: '渊默邪灵', emoji: '🌑', hp: 10000000, attack: 130, attackInterval: 1500, skills: [{ type: 'poison', damage: 8, duration: 5 }] }
     ],
 
     treasureTypes: [
-        { name: '普通宝箱', emoji: '📦', gold: [20, 50], materialChance: 0.3 },
-        { name: '稀有宝箱', emoji: '🎁', gold: [50, 150], materialChance: 0.5, equipmentChance: 0.025 },
-        { name: '传说宝箱', emoji: '💎', gold: [100, 300], materialChance: 0.8, equipmentChance: 0.075, skillChance: 0.1 }
+        { name: '铜纹宝匣', emoji: '📦', gold: [20, 50], materialChance: 0.3 },
+        { name: '银纹宝匣', emoji: '🎁', gold: [50, 150], materialChance: 0.5, equipmentChance: 0.025 },
+        { name: '金纹宝匣', emoji: '🪨', gold: [100, 300], materialChance: 0.8, equipmentChance: 0.075, skillChance: 0.1 }
     ],
 
     materialTypes: [
-        { id: 'iceCrystal', name: '冰晶', emoji: '❄️', amount: [1, 3] },
-        { id: 'fireSource', name: '火源', emoji: '🔥', amount: [1, 2] },
-        { id: 'critCrystal', name: '暴击冰晶', emoji: '💠', amount: [1, 2], minFloor: 5 },
-        { id: 'critFireSource', name: '爆伤火源', emoji: '💥', amount: [1, 2], minFloor: 10 }
+        { id: 'iceCrystal', name: '水灵晶', emoji: '💧', amount: [1, 3] },
+        { id: 'fireSource', name: '火灵源', emoji: '🔥', amount: [1, 2] },
+        { id: 'critCrystal', name: '水灵暴晶', emoji: '💠', amount: [1, 2], minFloor: 5 },
+        { id: 'critFireSource', name: '火灵爆源', emoji: '💥', amount: [1, 2], minFloor: 10 }
     ],
 
     trapTypes: [
@@ -650,8 +651,8 @@ function createTowerSystem(deps) {
         var config = TOWER_CONFIG;
         var difficultyMult = Math.pow(config.difficultyScale, floor - 1);
 
-        var bossNames = ['守护者', '守门人', '看门兽', '守卫魔', '把门龙'];
-        var bossEmojis = ['👹', '👺', '💀', '😈', '🐉'];
+        var bossNames = ['守护者', '守门人', '看门灵', '守卫灵', '盘门龙'];
+        var bossEmojis = ['🏛️', '🐉', '🦅', '🐢', '🐯'];
         var idx = Math.floor(Math.random() * bossNames.length);
 
         var baseHp = 3000 * difficultyMult;
@@ -712,7 +713,7 @@ function createTowerSystem(deps) {
                     exploredCells.push({x: occCells[i].x, y: occCells[i].y});
                 }
             }
-            Logger.info('发现' + (cell.monster.sizeType === 'elite' ? '精英' : 'Boss') + '怪物，自动解锁其占据的格子');
+            Logger.info('发现' + (cell.monster.sizeType === 'elite' ? '精英' : '守护灵') + '怪物，自动解锁其占据的格子');
         }
 
         if (cell.type === 'monster_part' && cell.occupiedBy) {
@@ -772,7 +773,7 @@ function createTowerSystem(deps) {
         if (targetCell && targetCell.type === 'monster_part') {
             var mainMonster = grid[targetCell.occupiedBy.y] && grid[targetCell.occupiedBy.y][targetCell.occupiedBy.x];
             if (mainMonster && mainMonster.monster) {
-                var typeName = mainMonster.monster.sizeType === 'elite' ? '精英' : 'Boss';
+                var typeName = mainMonster.monster.sizeType === 'elite' ? '精英' : '守护灵';
                 addFloatText('⚔️ 无法通过' + typeName + '怪物！', '#FF6B6B');
                 return;
             }
@@ -1017,8 +1018,8 @@ function createTowerSystem(deps) {
                     combatTime = Math.max(0, combatTime - timeDamage);
                     createPlayerDamageAnimation(damage, false);
                     createTimeDamageAnimation(timeDamage);
-                    addGameMessage('-' + damage + ' HP', '#ff6b6b');
-                    try { wx.vibrateShort({ type: 'heavy' }); } catch (e) {}
+                    addGameMessage('-' + damage + ' 灵能', '#ff6b6b');
+                    try { vibrateShort({ type: 'heavy' }); } catch (e) {}
                 }
 
                 Logger.info('怪物攻击玩家! 伤害:', damage, '护盾吸收:', shieldAbsorb, '剩余HP:', playerHp);
@@ -1040,7 +1041,7 @@ function createTowerSystem(deps) {
                         playerPoisonTickTime = Date.now() + 1000;
                         var poisonLabel = playerShield > 0 ? '腐蚀!' : '中毒!';
                         createPlayerDamageAnimation(0, false, true, poisonLabel);
-                        addGameMessage('☠️ ' + poisonLabel + ' 每秒-' + playerPoisonDamage + 'HP', '#ff6b6b');
+                        addGameMessage('☠️ ' + poisonLabel + ' 每秒-' + playerPoisonDamage + '灵能', '#ff6b6b');
                     }
                 }
 
@@ -1142,7 +1143,7 @@ function createTowerSystem(deps) {
                 var actualHeal = Math.min(healAmt, maxHp - playerHp);
                 if (actualHeal <= 0) return false;
                 playerHp = Math.min(playerHp + healAmt, maxHp);
-                addGameMessage(skill.emoji + ' +' + actualHeal + 'HP', '#00ff88');
+                addGameMessage(skill.emoji + ' +' + actualHeal + '灵能', '#00ff88');
                 success = true;
                 break;
             case 'shield':
@@ -1186,7 +1187,7 @@ function createTowerSystem(deps) {
                 lastUseTime: now,
                 cooldownMs: skill.cooldown * 1000
             };
-            try { wx.vibrateShort({ type: 'medium' }); } catch (e) {}
+            try { vibrateShort({ type: 'medium' }); } catch (e) {}
         }
         return success;
     }
@@ -1399,7 +1400,7 @@ function createTowerSystem(deps) {
         var goldReward = Math.floor(randomRange(10, 30) * floor * goldMult);
         var materialReward = rollMaterialDrop(0.0008, 0.05);
         if (materialReward) {
-            Logger.info('🎉 稀有掉落！获得极品材料:', materialReward.id);
+            Logger.info('🎉 稀有掉落！获得稀世材料:', materialReward.id);
         }
         var expReward = randomRange(5, 15) * floor;
 
@@ -1417,7 +1418,7 @@ function createTowerSystem(deps) {
             exp: expReward
         });
 
-        Logger.info('击败怪物！奖励:', goldReward, '星币', expReward, '经验', materialReward);
+        Logger.info('击败怪物！奖励:', goldReward, '灵币', expReward, '感悟', materialReward);
 
         victoryPopup = {
             gold: goldReward,
@@ -1486,10 +1487,10 @@ function createTowerSystem(deps) {
 
         if (material) {
             var matNames = {
-                'iceCrystal': '❄️ 冰晶',
-                'fireSource': '🔥 火源',
-                'critCrystal': '💠 暴击冰晶',
-                'critFireSource': '💥 爆伤火源',
+                'iceCrystal': '💧 水灵晶',
+                'fireSource': '🔥 火灵源',
+                'critCrystal': '💠 水灵暴晶',
+                'critFireSource': '💥 火灵爆源',
                 'devourerResidue': '✨ 吞噬残辉'
             };
             var isRare = material.id === 'critCrystal' || material.id === 'critFireSource' || material.id === 'devourerResidue';
@@ -1551,7 +1552,7 @@ function createTowerSystem(deps) {
                 starSource: starSource
             });
 
-            Logger.info('Boss层奖励！星币:', goldReward, '星源石:', starSource);
+            Logger.info('Boss层奖励！灵币:', goldReward, '灵石:', starSource);
         }
     }
 
@@ -1567,7 +1568,7 @@ function createTowerSystem(deps) {
 
         if (Math.random() < treasure.materialChance) {
             var materials = ['iceCrystal', 'fireSource'];
-            var matNames = { 'iceCrystal': '❄️ 冰晶', 'fireSource': '🔥 火源' };
+            var matNames = { 'iceCrystal': '💧 水灵晶', 'fireSource': '🔥 火灵源' };
             var matId = materials[Math.floor(Math.random() * materials.length)];
             if (!pd.materials[matId]) {
                 pd.materials[matId] = {quantity: 0, usedCount: 0};
@@ -1577,7 +1578,7 @@ function createTowerSystem(deps) {
             addFloatText(matNames[matId] + ' +1', '#00BFFF');
         }
 
-        Logger.info('打开宝箱！获得星币:', treasure.gold);
+        Logger.info('打开宝箱！获得灵币:', treasure.gold);
     }
 
     function collectMaterial(cell) {
@@ -1593,10 +1594,10 @@ function createTowerSystem(deps) {
         collectedRewards.push({type: 'material', id: material.id, amount: material.amount});
 
         var matNames = {
-            'iceCrystal': '❄️ 冰晶',
-            'fireSource': '🔥 火源',
-            'critCrystal': '💠 暴击冰晶',
-            'critFireSource': '💥 爆伤火源',
+            'iceCrystal': '💧 水灵晶',
+            'fireSource': '🔥 火灵源',
+            'critCrystal': '💠 水灵暴晶',
+            'critFireSource': '💥 火灵爆源',
             'devourerResidue': '✨ 吞噬残辉'
         };
         var isRare = material.id === 'critCrystal' || material.id === 'critFireSource' || material.id === 'devourerResidue';
@@ -1750,7 +1751,7 @@ function createTowerSystem(deps) {
     }
 
     function playerDeath() {
-        Logger.info('玩家死亡！爬塔结束');
+        Logger.info('灵核归零！爬塔结束');
 
         cleanupCombat();
 
@@ -1926,7 +1927,7 @@ function createTowerSystem(deps) {
         stopCombatTimers();
 
         setGameState('MENU');
-        showToast({ title: '放弃挑战！获得' + totalGold + '星币', icon: 'none', duration: 2000 });
+        showToast({ title: '放弃挑战！获得' + totalGold + '灵币', icon: 'none', duration: 2000 });
         saveData();
     }
 

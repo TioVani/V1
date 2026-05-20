@@ -62,6 +62,7 @@ import { createBattleEngine, BATTLE_CONSTANTS } from './systems/BattleEngine.js'
 import { createBossBattleAdapter } from './systems/BossBattleAdapter.js';
 import { createDevBattleSystem } from './systems/DevBattleSystem.js';
 import { createNormalBattleAdapter } from './systems/NormalBattleAdapter.js';
+import { createCaptureSystem, CAPTURE_STAR_TYPE, CAPTURE_CONFIG } from './systems/CaptureSystem.js';
 import { createInvariantChecker } from './systems/InvariantChecker.js';
 import { createModeLifecycleManager } from './systems/ModeLifecycleManager.js';
 import { createUICoreRenderer } from './renderers/UICoreRenderer.js';
@@ -105,6 +106,12 @@ import { createUpgradeSkillStrategy } from './systems/upgrade/strategies/Upgrade
 import { createUpgradePetStrategy } from './systems/upgrade/strategies/UpgradePetStrategy.js';
 import { createUpgradeStarStrategy } from './systems/upgrade/strategies/UpgradeStarStrategy.js';
 import { createUpgradeRenderer } from './renderers/UpgradeRenderer.js';
+import { createRhythmSystem } from './systems/RhythmSystem.js';
+import { createChargeSystem } from './systems/ChargeSystem.js';
+import { createDragSystem } from './systems/DragSystem.js';
+import { createLinkChainSystem } from './systems/LinkChainSystem.js';
+import { createTouchGestureSystem } from './systems/TouchGestureSystem.js';
+import * as BrowserAPI from './platform/BrowserAPI.js';
 
 var GameModules = {
     createStarThiefSystem: createStarThiefSystem,
@@ -223,6 +230,9 @@ var GameModules = {
     BATTLE_CONSTANTS: BATTLE_CONSTANTS,
     createBossBattleAdapter: createBossBattleAdapter,
     createNormalBattleAdapter: createNormalBattleAdapter,
+    createCaptureSystem: createCaptureSystem,
+    CAPTURE_STAR_TYPE: CAPTURE_STAR_TYPE,
+    CAPTURE_CONFIG: CAPTURE_CONFIG,
     createInvariantChecker: createInvariantChecker,
     createModeLifecycleManager: createModeLifecycleManager,
     createStateMachine: createStateMachine,
@@ -280,10 +290,20 @@ var GameModules = {
     createUpgradeStarStrategy: createUpgradeStarStrategy,
     createUpgradeRenderer: createUpgradeRenderer,
 
+    // D2-D5 战斗维度
+    createRhythmSystem: createRhythmSystem,
+    createChargeSystem: createChargeSystem,
+    createDragSystem: createDragSystem,
+    createLinkChainSystem: createLinkChainSystem,
+    createTouchGestureSystem: createTouchGestureSystem,
+
     // UI编辑器
     createUIConfig: createUIConfig,
     createCombatFontConfig: createCombatFontConfig,
-    createUIEditorSystem: createUIEditorSystem
+    createUIEditorSystem: createUIEditorSystem,
+
+    // 浏览器平台 API
+    BrowserAPI: BrowserAPI
 };
 
 // CommonJS 环境

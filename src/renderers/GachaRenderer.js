@@ -144,7 +144,7 @@ function createGachaRenderer(deps) {
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('✨ 抽卡结果 ✨', screenWidth / 2, startY - Math.floor(60 * scale));
+        ctx.fillText('&#x2728; 唤灵结果 &#x2728;', screenWidth / 2, startY - Math.floor(60 * scale));
         ctx.restore();
 
         for (let i = 0; i < results.length; i++) {

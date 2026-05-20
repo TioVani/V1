@@ -49,33 +49,34 @@ var SEASON_PETS = [
     'pet_world_eater', 'pet_nebula_serpent', 'pet_festival_lantern', 'pet_meteor_fox'
 ];
 
-// 赛季星星类型池
+// 赛季星星类型池（五行 + 阴阳 + 特殊）
 var SEASON_STAR_TYPES = [
-    { id: 'normal', name: '普通星星', emoji: '⭐', description: '基础星星，无特殊效果', multiplier: 1 },
-    { id: 'ice', name: '冰星星', emoji: '❄️', description: '分数×3，可升级', multiplier: 3, rarity: 'R', gacha: true },
-    { id: 'fire', name: '火星星', emoji: '🔥', description: '分数×5，可升级', multiplier: 5, rarity: 'R', gacha: true },
-    { id: 'thunder', name: '雷星星', emoji: '⚡', description: '分数×4，连击加成+20%', multiplier: 4, rarity: 'R', gacha: true },
-    { id: 'holy', name: '圣星星', emoji: '✨', description: '分数×6，暴击率+10%', multiplier: 6, rarity: 'SSR', gacha: true },
-    { id: 'dark', name: '暗星星', emoji: '🌑', description: '分数×4.5，爆伤+30%', multiplier: 4.5, rarity: 'SSR', gacha: true },
-    { id: 'wind', name: '风星星', emoji: '🌪️', description: '分数×2.5，连击时间+0.5秒', multiplier: 2.5, rarity: 'R', gacha: true },
-    { id: 'earth', name: '土星星', emoji: '🪨', description: '分数×3.5，防御+20%', multiplier: 3.5, rarity: 'R', gacha: true },
-    { id: 'light', name: '光星星', emoji: '💫', description: '分数×7，出现概率降低', multiplier: 7, rarity: 'SR', gacha: true },
-    { id: 'shadow', name: '影星星', emoji: '👤', description: '分数×5，攻击力+15%', multiplier: 5, rarity: 'SSR', gacha: true },
-    { id: 'rainbow', name: '彩虹星', emoji: '🌈', description: '分数×8，全属性+5%', multiplier: 8, rarity: 'SSR', gacha: true },
-    { id: 'golden', name: '黄金星', emoji: '🌟', description: '分数×10，星币掉落×2', multiplier: 10, rarity: 'SR', gacha: true },
-    { id: 'crystal', name: '水晶星', emoji: '💎', description: '分数×6，材料掉落率+20%', multiplier: 6, rarity: 'SSR', gacha: true },
-    { id: 'meteor', name: '流星', emoji: '☄️', description: '分数×9，时间+2秒', multiplier: 9, rarity: 'UR', gacha: true },
-    { id: 'cosmic', name: '宇宙星', emoji: '🌌', description: '分数×12，最稀有的星星', multiplier: 12, rarity: 'UR', gacha: true },
-    { id: 'time', name: '时间星', emoji: '⏰', description: '点击+3秒，主动技能：消耗时间造成伤害', multiplier: 2, timeBonus: 3 },
-    { id: 'heal', name: '治疗星', emoji: '💚', description: '点击恢复15点HP', multiplier: 1, healBonus: 15 },
-    { id: 'shield', name: '护盾星', emoji: '🛡️', description: '点击获得10点护盾', multiplier: 1, shieldBonus: 10 },
-    { id: 'unlucky', name: '倒霉星', emoji: '💀', description: '点击-5HP，+1怒气，怒气满3触发随机效果', multiplier: 2, rageBonus: 1, hpCost: 5 },
-    { id: 'greedy', name: '贪婪星', emoji: '😈', description: '点击不加分，扣1HP，累计20HP解锁贪婪技能', multiplier: 0, hpCost: 1, greedyBonus: true },
-    { id: 'combo', name: '连击星', emoji: '🔄', description: '点击后持续10秒，每0.2秒自动发射星星攻击敌人', multiplier: 3, comboDuration: 10000, comboInterval: 200 },
-    { id: 'dodge', name: '闪避星', emoji: '💫', description: '点击后1秒内闪避怪物攻击并反击造成伤害', multiplier: 0, dodgeDuration: 1000, spawnInterval: 1200, lifetime: 1000 },
-    { id: 'boss_star', name: 'Boss星', emoji: '⭕', description: 'Boss召唤的星星，漏掉会触发惩罚', multiplier: 1, isBossStar: true },
-    { id: 'supernova', name: '超新星', emoji: '💫', description: '分数x15，点击后3秒内周围星星自动收集', multiplier: 15, rarity: 'LR', gacha: true },
-    { id: 'eclipse', name: '日蚀星', emoji: '🌑', description: '分数x11，切换月蚀模式5秒，怪物受双倍伤害', multiplier: 11, rarity: 'SP', gacha: true }
+    { id: 'normal', name: '基础灵光', emoji: '⭐', description: '基础灵光，无特殊效果', multiplier: 1 },
+    { id: 'ice', name: '水灵光', emoji: '💧', description: '灵辉值×3，水行之力，升级提升倍率', multiplier: 3, rarity: 'R', gacha: true },
+    { id: 'fire', name: '火灵光', emoji: '🔥', description: '灵辉值×5，火行之力，升级提升倍率', multiplier: 5, rarity: 'R', gacha: true },
+    { id: 'thunder', name: '金灵光', emoji: '⚜️', description: '灵辉值×4，金行之力，连灵加成+20%', multiplier: 4, rarity: 'R', gacha: true },
+    { id: 'holy', name: '阳灵光', emoji: '☀️', description: '灵辉值×6，阳之灵力，会心感应提升', multiplier: 6, rarity: 'SSR', gacha: true },
+    { id: 'dark', name: '阴灵光', emoji: '🌙', description: '灵辉值×4.5，阴之灵力，会心威力提升', multiplier: 4.5, rarity: 'SSR', gacha: true },
+    { id: 'wind', name: '木灵光', emoji: '🌿', description: '灵辉值×2.5，木行之力，连击时间+0.5秒', multiplier: 2.5, rarity: 'R', gacha: true },
+    { id: 'earth', name: '土灵光', emoji: '🏔️', description: '灵辉值×3.5，土行之力，灵场屏障强化', multiplier: 3.5, rarity: 'R', gacha: true },
+    { id: 'light', name: '乾元灵光', emoji: '☯️', description: '灵辉值×7，乾天之力，出现概率较低', multiplier: 7, rarity: 'SR', gacha: true },
+    { id: 'shadow', name: '坤灵光', emoji: '🌘', description: '灵辉值×5，坤地之力，灵光冲击强化', multiplier: 5, rarity: 'SSR', gacha: true },
+    { id: 'rainbow', name: '虹灵光', emoji: '🌈', description: '灵辉值×8，五行交融，全域增幅', multiplier: 8, rarity: 'SSR', gacha: true },
+    { id: 'golden', name: '金运灵光', emoji: '🪙', description: '灵辉值×10，灵币掉落×2', multiplier: 10, rarity: 'SR', gacha: true },
+    { id: 'crystal', name: '晶石灵光', emoji: '🪨', description: '灵辉值×6，材料掉落率+20%', multiplier: 6, rarity: 'SSR', gacha: true },
+    { id: 'meteor', name: '陨灵光', emoji: '☄️', description: '灵辉值×9，时间+2秒', multiplier: 9, rarity: 'UR', gacha: true },
+    { id: 'cosmic', name: '太虚灵光', emoji: '🔮', description: '灵辉值×12，最稀有的灵光', multiplier: 12, rarity: 'UR', gacha: true },
+    { id: 'time', name: '时序灵光', emoji: '⏰', description: '点击+3秒，主动技能：消耗时间造成冲击', multiplier: 2, timeBonus: 3 },
+    { id: 'heal', name: '愈灵光', emoji: '💚', description: '点击恢复15点灵能', multiplier: 1, healBonus: 15 },
+    { id: 'shield', name: '御灵光', emoji: '🛡️', description: '点击获得10点护盾', multiplier: 1, shieldBonus: 10 },
+    { id: 'unlucky', name: '厄灵光', emoji: '🔻', description: '点击-5灵能，+1怒气，怒气满3触发随机效果', multiplier: 2, rageBonus: 1, hpCost: 5 },
+    { id: 'greedy', name: '贪灵光', emoji: '🌀', description: '点击不加分，扣1灵能，累计20灵能解锁贪灵技能', multiplier: 0, hpCost: 1, greedyBonus: true },
+    { id: 'combo', name: '连击灵光', emoji: '🔄', description: '点击后持续10秒，每0.2秒自动发射灵光攻击邪灵', multiplier: 3, comboDuration: 10000, comboInterval: 200 },
+    { id: 'dodge', name: '闪避灵光', emoji: '💫', description: '点击后1秒内闪避邪灵攻击并反击造成冲击', multiplier: 0, dodgeDuration: 1000, spawnInterval: 1200, lifetime: 1000 },
+    { id: 'boss_star', name: '守护灵光', emoji: '⭕', description: '守护灵召唤的灵光，漏掉会触发惩罚', multiplier: 1, isBossStar: true },
+    { id: 'supernova', name: '煌灵光', emoji: '💫', description: '灵辉值x15，点击后3秒内周围灵光自动收集', multiplier: 15, rarity: 'LR', gacha: true },
+    { id: 'eclipse', name: '蚀灵光', emoji: '🌑', description: '灵辉值x11，切换阴蚀模式5秒，古灵受双倍冲击', multiplier: 11, rarity: 'SP', gacha: true },
+    { id: 'capture', name: '收服灵光', emoji: '⛓️', description: '收服器灵：点击尝试捕获当前古灵', multiplier: 0, isCaptureStar: true }
 ];
 
 function createSeasonSystem(deps) {
@@ -265,8 +266,8 @@ function createSeasonSystem(deps) {
     }
 
     function generateMockSeasonLeaderboard() {
-        var names = ['星耀王者', '传奇猎人', '永恒之星', '暗夜猎手', '光明使者',
-                     '风暴领主', '冰霜女王', '烈焰战神', '雷霆霸主', '幻影刺客'];
+        var names = ['星耀王者', '传奇猎人', '永恒之星', '阴灵猎手', '光明使者',
+                     '木灵领主', '水灵女王', '烈焰战神', '金雷霸主', '幻影刺客'];
         var scores = [15000, 12000, 10000, 8500, 7000, 5800, 4500, 3200, 2000, 1000];
         var sc = getSeasonContent();
 

@@ -36,12 +36,12 @@ function createDebugSystem(deps) {
                 var SEASON_STAR_TYPES = getSeasonStarTypes();
                 var starTypes = SEASON_STAR_TYPES.map(function(s) { return s.id; });
                 playerData.unlockedStarTypes = starTypes;
-                showToast('✅ 已解锁所有星星', 'none', 1500);
+                showToast('✅ 已解锁所有灵光', 'none', 1500);
                 break;
 
             case 'add_gold':
                 playerData.gold = (playerData.gold || 0) + 10000;
-                showToast('✅ +10000星币', 'none', 1500);
+                showToast('✅ +10000灵币', 'none', 1500);
                 break;
 
             case 'add_materials':
@@ -58,7 +58,7 @@ function createDebugSystem(deps) {
 
             case 'add_starSource':
                 playerData.starSource = (playerData.starSource || 0) + 1000;
-                showToast('✅ +1000星源石', 'none', 1500);
+                showToast('✅ +1000灵石', 'none', 1500);
                 break;
 
             case 'max_level':
@@ -142,7 +142,7 @@ function createDebugSystem(deps) {
                 // 解锁所有星星
                 SEASON_STAR_TYPES = getSeasonStarTypes();
                 playerData.unlockedStarTypes = SEASON_STAR_TYPES.map(function(s) { return s.id; });
-                // 满材料 + 星币 + 星源石（保留已有字段）
+                // 满材料 + 灵币 + 灵石（保留已有字段）
                 var mats = playerData.materials || {};
                 playerData.materials = {
                     iceCrystal: Object.assign({}, mats.iceCrystal || {}, { quantity: 999 }),

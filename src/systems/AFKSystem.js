@@ -139,7 +139,7 @@ function createAFKSystem(deps) {
         var normalMaterialTypes = ['iceCrystal', 'fireSource'];
         var materialsGained = {};
         for (let i = 0; i < materialDropCount; i++) {
-            // 暴击冰晶和爆伤火源极低概率掉落（0.06%）
+            // 水灵暴晶和火灵爆源极低概率掉落（0.06%）
             var roll = Math.random() * 100;
             var randomMaterial;
             if (roll < 0.06) {

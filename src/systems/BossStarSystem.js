@@ -52,7 +52,7 @@ function createBossStarSystem(deps) {
         Logger.info('🌀 Boss星星技能触发! 生成', BOSS_STAR_COUNT, '颗Boss星星');
 
         // 显示提示
-        addMessage('🌀 器渊试炼开始!', '#cc88ff');
+        addMessage('🌀 灵脉试炼开始!', '#cc88ff');
 
         // 震动提示
         vibrateShort({ type: 'heavy' });
@@ -205,7 +205,7 @@ function createBossStarSystem(deps) {
                 bossMonster.hp = Math.min(bossMonster.maxHp, bossMonster.hp + healAmount);
             }
 
-            addMessage('💀 试炼失败! -' + actualDamage + 'HP Boss回复' + healAmount, '#ff6b6b');
+            addMessage('🔻 试炼失败! -' + actualDamage + '灵能 守护灵回复' + healAmount, '#ff6b6b');
 
             // 强烈震动
             vibrateShort({ type: 'heavy' });
@@ -260,7 +260,7 @@ function createBossStarSystem(deps) {
      */
     function incrementBossAttackCount() {
         bossAttackCount++;
-        Logger.info('星渊吞噬者攻击计数:', bossAttackCount);
+        Logger.info('灵脉吞噬者攻击计数:', bossAttackCount);
 
         var shouldTrigger = false;
         if (bossAttackCount === BOSS_FIRST_TRIGGER) {

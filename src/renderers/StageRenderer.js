@@ -176,7 +176,7 @@ function createStageRenderer(deps) {
         // 统计数据
         ctx.fillStyle = '#aaaaaa';
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
-        ctx.fillText('得分: ' + result.score + '  连击: ' + result.maxCombo + '  击杀: ' + result.monstersKilled, Math.floor(50 * scale), startY + Math.floor(120 * scale));
+        ctx.fillText('灵辉值: ' + result.score + '  连击: ' + result.maxCombo + '  净化: ' + result.monstersKilled, Math.floor(50 * scale), startY + Math.floor(120 * scale));
 
         // 奖励显示（只显示实际获得的奖励）
         var rewardsObtained = stageModeSystem.getRewardsObtained() || { gold: 0, exp: 0, materials: {} };
@@ -191,10 +191,10 @@ function createStageRenderer(deps) {
             const stageRewardIconSize = Math.floor(16 * scale);
             var rewardLineY = startY + Math.floor(190 * scale);
 
-            // 星币奖励
+            // 灵币奖励
             if (rewardsObtained.gold > 0) {
                 if (Assets.goldIcon && Assets.goldIcon.complete) {
-                    const goldText = '星币×' + rewardsObtained.gold;
+                    const goldText = '灵币×' + rewardsObtained.gold;
                     const textWidth = ctx.measureText(goldText).width;
                     const totalWidth = stageRewardIconSize + Math.floor(5 * scale) + textWidth;
                     const startX = screenWidth / 2 - totalWidth / 2;
@@ -207,7 +207,7 @@ function createStageRenderer(deps) {
                 } else {
                     ctx.fillStyle = '#ffffff';
                     ctx.font = Math.floor(16 * scale) + 'px sans-serif';
-                    ctx.fillText('💰 星币×' + rewardsObtained.gold, screenWidth / 2, rewardLineY);
+                    ctx.fillText('💰 灵币×' + rewardsObtained.gold, screenWidth / 2, rewardLineY);
                 }
                 rewardLineY += Math.floor(25 * scale);
             }
@@ -216,7 +216,7 @@ function createStageRenderer(deps) {
             if (rewardsObtained.exp > 0) {
                 ctx.fillStyle = '#ffffff';
                 ctx.font = Math.floor(16 * scale) + 'px sans-serif';
-                ctx.fillText('✨ 经验×' + rewardsObtained.exp, screenWidth / 2, rewardLineY);
+                ctx.fillText('&#x2728; 感悟×' + rewardsObtained.exp, screenWidth / 2, rewardLineY);
                 rewardLineY += Math.floor(25 * scale);
             }
 

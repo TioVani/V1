@@ -1,5 +1,6 @@
 import Logger from '../utils/Logger.js';
 import deepClone from '../utils/DeepClone.js';
+import { setStorageSync, getStorageSync, removeStorageSync, setUserCloudStorage } from '../platform/BrowserAPI.js';
 /**
  * 存档系统（Storage System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -65,7 +66,7 @@ function createStorageSystem(deps) {
             }
 
             var dataToSave = deepClone(playerData);
-            wx.setStorageSync('playerData', dataToSave);
+            setStorageSync('playerData', dataToSave);
             Logger.info('✓ 数据已保存');
         } catch (error) {
             console.error('保存玩家数据失败:', error);
@@ -74,7 +75,7 @@ function createStorageSystem(deps) {
 
     function loadBestScore() {
         try {
-            var score = wx.getStorageSync('bestScore') || 0;
+            var score = getStorageSync('bestScore') || 0;
             setBestScore(score);
             Logger.info('最高分:', score);
         } catch (e) {
@@ -89,7 +90,7 @@ function createStorageSystem(deps) {
             var currentBest = getBestScore();
             if (currentScore > currentBest) {
                 setBestScore(currentScore);
-                wx.setStorageSync('bestScore', currentScore);
+                setStorageSync('bestScore', currentScore);
                 Logger.info('保存新最高分:', currentScore);
             }
         } catch (e) {
@@ -102,7 +103,7 @@ function createStorageSystem(deps) {
      */
     function uploadToCloudStorage(kvDataList) {
         try {
-            wx.setUserCloudStorage({
+            setUserCloudStorage({
                 KVDataList: kvDataList,
                 success: function() {
                     Logger.info('云存储上传成功:', kvDataList.map(function(kv) { return kv.key + '=' + kv.value; }).join(', '));
@@ -117,7 +118,7 @@ function createStorageSystem(deps) {
     }
 
     /**
-     * 上传排行榜相关数据（最高分 + 击杀数）
+     * 上传排行榜相关数据（最高分 + 净化数）
      */
     function uploadLeaderboardData() {
         var playerData = getPlayerData();
@@ -154,13 +155,13 @@ function createStorageSystem(deps) {
 
     function clearGameData() {
         try {
-            wx.removeStorageSync('playerData');
-            wx.removeStorageSync('bestScore');
+            removeStorageSync('playerData');
+            removeStorageSync('bestScore');
 
             // 重置为默认值
             setPlayerData({
                 id: 'player_001',
-                name: '玩家',
+                name: '唤灵人',
                 gold: 0,
                 starSource: 9999,
                 starStones: 0,
@@ -193,7 +194,7 @@ function createStorageSystem(deps) {
             setBestScore(0);
 
             Logger.info('游戏数据已清除');
-            showToastFn({ title: '游戏数据已清除', icon: 'success', duration: 2000 });
+            showToastFn({ title: '灵域数据已重置', icon: 'success', duration: 2000 });
         } catch (error) {
             console.error('清除游戏数据失败:', error);
             showToastFn({ title: '清除失败', icon: 'error', duration: 2000 });

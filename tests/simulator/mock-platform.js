@@ -1,6 +1,6 @@
 /**
- * mock-wx.js — 游戏 API mock
- * 在 require('../game.js') 之前加载，注入 global.wx 和其他环境变量
+ * mock-platform.js — 游戏 API mock
+ * 在 require('../game.js') 之前加载，注入 global.__platform 和其他环境变量
  */
 
 // ============================================================
@@ -172,7 +172,6 @@ function createMockImage() {
             if (v && this.onload) {
                 var self = this;
                 self._loaded = true;
-                // 异步触发，模拟真实加载
                 setTimeout(function() { if (self.onload) self.onload(); }, 0);
             }
         },
@@ -224,7 +223,7 @@ function captureLog(level, args) {
 }
 
 // ============================================================
-// 构建 global.wx
+// 构建 global.__platform
 // ============================================================
 function install() {
     // 捕获日志
@@ -241,9 +240,6 @@ function install() {
         _origConsoleError.apply(console, arguments);
     };
 
-    // 环境标记
-    global.__wxConfig = { envVersion: 'develop' };
-
     // requestAnimationFrame / cancelAnimationFrame
     global.requestAnimationFrame = function(cb) {
         var id = ++_rafIdCounter;
@@ -259,8 +255,8 @@ function install() {
         }
     };
 
-    // wx 全局对象
-    global.wx = {
+    // 平台 API mock
+    global.__platform = {
         createCanvas: function() {
             return createMockCanvas();
         },
@@ -362,7 +358,6 @@ function tickRAF(n) {
         if (_rafQueue.length === 0) break;
         var frame = _rafQueue.shift();
         frame.cb();
-        // renderLoop 会重新注册 RAF，新帧会追加到队列
     }
 }
 
@@ -421,7 +416,6 @@ function reset() {
     _capturedLogs.length = 0;
     _onHideCallbacks.length = 0;
     _onShowCallbacks.length = 0;
-    // 不清除 _storage — 保持游戏存档
 }
 
 module.exports = {
@@ -434,7 +428,6 @@ module.exports = {
     reset: reset,
     createMockCanvas: createMockCanvas,
     createNoopCtx: createNoopCtx,
-    // 绘制命令捕获
     setCaptureMode: setCaptureMode,
     getDrawCommands: getDrawCommands,
     getDrawSummary: getDrawSummary,
