@@ -44,3 +44,6 @@ project.private.config.json
 
 # lock 文件
 package-lock.json
+
+# 文案包装迭代文档
+文案包装*
