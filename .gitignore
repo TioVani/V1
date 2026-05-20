@@ -31,6 +31,9 @@ browser/test_*.png
 # 异常目录
 E:AIGameV1browser/
 
+# GitHub Actions（本地保留，不上传）
+.github/workflows/
+
 # 启动脚本（本地使用）
 启动Claude Code.bat
 启动CodeBuddy.bat
