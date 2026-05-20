@@ -28,3 +28,10 @@ dist/
 # 系统文件
 Thumbs.db
 Desktop.ini
+# Claude Code 本地配置（不应提交）
+.claude/
+
+# 启动脚本（本地使用，不应提交）
+启动Claude Code.bat
+启动CodeBuddy.bat
+启动iFlow.bat
