@@ -11,6 +11,7 @@ game.js
 *.backup_*
 *副本*
 * - 副本.*
+assets/audio/*副本*
 
 # 系统文件
 Thumbs.db
@@ -29,3 +30,17 @@ browser/test_*.png
 
 # 异常目录
 E:AIGameV1browser/
+
+# 启动脚本（本地使用）
+启动Claude Code.bat
+启动CodeBuddy.bat
+启动iFlow.bat
+
+# 微信开发者工具私有配置
+project.private.config.json
+
+# 构建脚本（本地使用）
+一键构建.bat
+
+# lock 文件
+package-lock.json
