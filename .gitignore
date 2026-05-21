@@ -5,7 +5,6 @@ node_modules/
 
 # 构建输出（由构建工具自动生成）
 dist/
-game.js
 
 # 备份文件
 *.backup_*
