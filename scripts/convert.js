@@ -139,7 +139,25 @@ const SkillTypes = {
 };
 
 `,
-        exportLine: 'export { SkillTypes, Skills };'
+        exportLine: 'export { SkillTypes, Skills };',
+        footer: `
+
+// 技能伤害百分比化：稀有度 → attackRatio
+function getSkillAttackRatio(rarity) {
+    var map = {
+        'UC': 0.4,
+        'N': 0.7,
+        'R': 1.0,
+        'SR': 2.5,
+        'SSR': 4.0,
+        'UR': 10.0,
+        'LR': 15.0,
+        'SP': 6.0
+    };
+    return map[rarity] || 1.0;
+}
+
+export { getSkillAttackRatio };`
     },
     Pets: {
         excelFile: 'Pets.xlsx',

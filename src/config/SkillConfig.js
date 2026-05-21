@@ -72,7 +72,7 @@ const Skills = {
     skill_seasons_blessing: { id: 'skill_seasons_blessing', name: '赛季灵场', type: SkillTypes.PASSIVE, rarity: EquipmentRarity.SPECIAL, description: '在本赛季的灵域主题下，灵场与灵域更加契合', emoji: '🎪', effect: 'passive', comboBonus: 0.1, starScoreBonus: 1.15 }
 };
 
-export { SkillTypes, Skills };
+
 
 // 技能伤害百分比化：稀有度 → attackRatio
 function getSkillAttackRatio(rarity) {
@@ -90,3 +90,5 @@ function getSkillAttackRatio(rarity) {
 }
 
 export { getSkillAttackRatio };
+
+export { SkillTypes, Skills };
