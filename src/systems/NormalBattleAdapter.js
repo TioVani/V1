@@ -1,5 +1,6 @@
 import Logger from '../utils/Logger.js';
 import { createBattleEngine } from './BattleEngine.js';
+import { SATURATION_COSTS } from './SaturationState.js';
 
 /**
  * NormalBattleAdapter — BattleEngine 委托模式
@@ -101,6 +102,7 @@ function createNormalBattleAdapter(deps) {
     var getRhythmSystem = deps.getRhythmSystem || function() { return null; };
     var getLinkChainSystem = deps.getLinkChainSystem || function() { return null; };
     var getDragSystem = deps.getDragSystem || function() { return null; };
+    var getSaturationState = deps.getSaturationState || function() { return null; };
 
     // ═══ 任务 ═══
     var updateTaskProgress = deps.updateTaskProgress;
@@ -216,6 +218,9 @@ function createNormalBattleAdapter(deps) {
 
     // 前置处理：偷星者/毒星/毒液滩/掉落区域限制/收服灵光
     function onBeforeStarClickHook(star, x, y, index) {
+        // 跳过蓄力持有的灵光
+        if (star._charging) return { skip: true };
+
         // 收服灵光
         if (star.isCaptureStar || star.type === 'capture') {
             var capSys = getCaptureSystem();
@@ -575,9 +580,9 @@ function createNormalBattleAdapter(deps) {
         }
 
         // D4: 联连充能
+        var rhythmGrade = result.rhythmGrade || 'normal';
         var linkSys = getLinkChainSystem();
         if (linkSys && linkSys.isUnlocked() && !result.isNonDamageStar) {
-            var rhythmGrade = result.rhythmGrade || 'normal';
             if (rhythmGrade === 'perfect') {
                 linkSys.addCharge(12);
             } else if (rhythmGrade === 'great') {
@@ -585,6 +590,12 @@ function createNormalBattleAdapter(deps) {
             } else {
                 linkSys.addCharge(5);
             }
+        }
+
+        // D1 Perfect: 饱和度恢复
+        var satState = getSaturationState();
+        if (satState && !result.isNonDamageStar && rhythmGrade === 'perfect') {
+            satState.recover(SATURATION_COSTS.PERFECT_RECOVERY);
         }
 
         // 后置效果

@@ -505,6 +505,8 @@ function createStarSystem(deps) {
         var changed = false;
         var newStars = stars.filter(function(star) {
             if (star.isThiefStar) return true;  // 偷星由 StarThiefSystem 管理
+            if (star._charging) return true;    // 蓄力灵光由 ChargeSystem 管理生命周期
+            if (star._dragging) return true;    // 拖拽灵光由 DragSystem 管理生命周期
             var keep = star.disappearTime > currentTime && star.visible;
             if (!keep) changed = true;
             return keep;

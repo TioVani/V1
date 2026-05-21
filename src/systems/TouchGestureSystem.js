@@ -5,9 +5,9 @@ import Logger from '../utils/Logger.js';
  *
  * 在 touchstart/touchmove/touchend 时判断手势类型，分发给对应的 D 系统：
  * - D4 联连窗口激活 → 全屏划链
- * - 命中灵光 → D1 + D5（走现有流程）
+ * - 命中灵光 → D1（短触）或 D2 监控（长按）
  * - 命中角色区域 → D3 拖拽
- * - 空白区域按住 → D2 蓄力监控
+ * - 空白区域 → 无操作
  *
  * 各 D 系统作为依赖注入，此模块只做协调，不实现任何维度逻辑。
  */
@@ -20,7 +20,8 @@ var GESTURE_TYPE = {
     D4_SWIPE: 'd4_swipe'        // 联连划链
 };
 
-var D2_MONITOR_DELAY_MS = 500;
+var D2_MONITOR_DELAY_MS = 150;
+var DRAG_SWITCH_THRESHOLD = 15;
 
 function createTouchGestureSystem(deps) {
     // 注入各 D 系统
@@ -37,6 +38,8 @@ function createTouchGestureSystem(deps) {
     var activeGesture = {
         type: GESTURE_TYPE.NONE,
         touchId: null,
+        startX: 0,
+        startY: 0,
         d2TimerId: null
     };
 
@@ -46,6 +49,7 @@ function createTouchGestureSystem(deps) {
     function hitTestStar(x, y, stars) {
         for (var i = stars.length - 1; i >= 0; i--) {
             var star = stars[i];
+            if (star._charging) continue;
             var hitRadius = star.size > 50 ? star.size : star.size / 2 + 10;
             var dx = x - star.x;
             var dy = y - star.y;
@@ -77,6 +81,8 @@ function createTouchGestureSystem(deps) {
      */
     function handleGestureStart(x, y, touchId) {
         if (isStunned()) return false;
+        activeGesture.startX = x;
+        activeGesture.startY = y;
 
         // 1. D4 联连窗口激活 → 全屏划链
         if (linkChainSystem && linkChainSystem.isActive()) {
@@ -88,14 +94,28 @@ function createTouchGestureSystem(deps) {
 
         var stars = getStars();
 
-        // 2. 命中灵光 → D1 + D5（走现有流程）
+        // 2. 命中灵光 → D1（短触）或 D2 监控（长按）
         var hitStar = hitTestStar(x, y, stars);
         if (hitStar) {
+            // D2 已解锁 → 先监控，可能转蓄力
+            if (chargeSystem && chargeSystem.isUnlocked()) {
+                if (chargeSystem.beginMonitoring(x, y, touchId, hitStar)) {
+                    activeGesture.type = GESTURE_TYPE.D2_MONITOR;
+                    activeGesture.touchId = touchId;
+                    activeGesture.star = hitStar;
+
+                    activeGesture.d2TimerId = setTimeout(function () {
+                        if (activeGesture.type === GESTURE_TYPE.D2_MONITOR) {
+                            chargeSystem.checkTransitionToCharging();
+                        }
+                    }, D2_MONITOR_DELAY_MS);
+
+                    return true;  // 消费手势，阻止 D1 立即执行
+                }
+            }
+            // D2 未解锁 → 仍走 D1
             activeGesture.type = GESTURE_TYPE.D1_CLICK;
             activeGesture.touchId = touchId;
-
-            // 返回 false，让现有 handleStarClick 流程处理
-            // D5 节拍判定在 NormalBattleAdapter 中基于 star.createTime 自动进行
             return false;
         }
 
@@ -104,23 +124,6 @@ function createTouchGestureSystem(deps) {
             if (dragSystem.beginDrag(x, y, touchId)) {
                 activeGesture.type = GESTURE_TYPE.D3_DRAG;
                 activeGesture.touchId = touchId;
-                return true;
-            }
-        }
-
-        // 4. 空白区域 → D2 监控
-        if (chargeSystem && chargeSystem.isUnlocked()) {
-            if (chargeSystem.beginMonitoring(x, y, touchId)) {
-                activeGesture.type = GESTURE_TYPE.D2_MONITOR;
-                activeGesture.touchId = touchId;
-
-                // 500ms 后检查是否转蓄力
-                activeGesture.d2TimerId = setTimeout(function () {
-                    if (activeGesture.type === GESTURE_TYPE.D2_MONITOR) {
-                        chargeSystem.checkTransitionToCharging();
-                    }
-                }, D2_MONITOR_DELAY_MS);
-
                 return true;
             }
         }
@@ -137,13 +140,36 @@ function createTouchGestureSystem(deps) {
         switch (activeGesture.type) {
             case GESTURE_TYPE.D2_MONITOR:
                 if (chargeSystem) chargeSystem.updateMonitoring(x, y);
+                // 检测滑动 → 切换为拖拽聚合
+                var dx = x - activeGesture.startX;
+                var dy = y - activeGesture.startY;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > DRAG_SWITCH_THRESHOLD && dragSystem && dragSystem.isUnlocked()) {
+                    // 取消蓄力监控 → 切换为拖拽
+                    if (activeGesture.d2TimerId) {
+                        clearTimeout(activeGesture.d2TimerId);
+                        activeGesture.d2TimerId = null;
+                    }
+                    chargeSystem.cancelCharge();
+                    if (dragSystem.beginDrag(x, y, activeGesture.touchId)) {
+                        activeGesture.type = GESTURE_TYPE.D3_DRAG;
+                    }
+                }
                 break;
             case GESTURE_TYPE.D3_DRAG:
-                if (dragSystem) dragSystem.updateDrag(x, y);
+                if (dragSystem) {
+                    var dragResult = dragSystem.updateDrag(x, y);
+                    // 拖拽停下 → 切换为蓄力（叠加buff）
+                    if (dragResult && dragResult.transitionToCharge) {
+                        chargeSystem.beginDragCharge(x, y, activeGesture.touchId, dragResult.aggregate);
+                        activeGesture.type = GESTURE_TYPE.D2_MONITOR;
+                    }
+                }
                 break;
             case GESTURE_TYPE.D4_SWIPE:
                 if (linkChainSystem) linkChainSystem.trackSwipePath(x, y);
                 break;
+            // charging/autoCast 锁状态，忽略移动
         }
     }
 
@@ -151,6 +177,8 @@ function createTouchGestureSystem(deps) {
      * handleTouchEnd 时调用
      */
     function handleGestureEnd() {
+        var result = null;
+
         switch (activeGesture.type) {
             case GESTURE_TYPE.D2_MONITOR:
                 // 清理监控定时器
@@ -158,11 +186,16 @@ function createTouchGestureSystem(deps) {
                     clearTimeout(activeGesture.d2TimerId);
                     activeGesture.d2TimerId = null;
                 }
-                // 如果还在监控中（没转蓄力），释放（空操作）
-                if (chargeSystem && chargeSystem.isCharging()) {
+                // autoCast期间松手不取消（已锁定施法）
+                if (chargeSystem && chargeSystem.isAutoCast()) {
+                    // 不操作，施法将由update自动触发
+                } else if (chargeSystem && chargeSystem.isCharging()) {
                     chargeSystem.releaseCharge();
                 } else if (chargeSystem && chargeSystem.isMonitoring()) {
                     chargeSystem.cancelCharge();
+                    if (activeGesture.star) {
+                        result = { d1Fallback: true };
+                    }
                 }
                 break;
             case GESTURE_TYPE.D3_DRAG:
@@ -178,10 +211,21 @@ function createTouchGestureSystem(deps) {
 
         activeGesture.type = GESTURE_TYPE.NONE;
         activeGesture.touchId = null;
+        activeGesture.star = null;
+        return result;
     }
 
     function getActiveGestureType() {
         return activeGesture.type;
+    }
+
+    function switchGestureToCharge() {
+        // 从拖拽切换到蓄力（由 game.js update 循环调用）
+        activeGesture.type = GESTURE_TYPE.D2_MONITOR;
+    }
+
+    function getActiveGestureTouchId() {
+        return activeGesture.touchId;
     }
 
     function reset() {
@@ -191,6 +235,9 @@ function createTouchGestureSystem(deps) {
         }
         activeGesture.type = GESTURE_TYPE.NONE;
         activeGesture.touchId = null;
+        activeGesture.startX = 0;
+        activeGesture.startY = 0;
+        activeGesture.star = null;
     }
 
     return {
@@ -198,6 +245,8 @@ function createTouchGestureSystem(deps) {
         handleGestureMove: handleGestureMove,
         handleGestureEnd: handleGestureEnd,
         getActiveGestureType: getActiveGestureType,
+        switchGestureToCharge: switchGestureToCharge,
+        getActiveGestureTouchId: getActiveGestureTouchId,
         reset: reset,
         GESTURE_TYPE: GESTURE_TYPE
     };

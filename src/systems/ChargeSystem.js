@@ -1,25 +1,18 @@
 import Logger from '../utils/Logger.js';
-/**
- * D2 长按蓄力系统（Charge System）
- * 闭包工厂 + 依赖注入模式
- *
- * 玩家按住空白区域蓄力，松开释放高倍率伤害：
- * - 轻蓄(0.5-1.5s): 1.5x, 单体
- * - 中蓄(1.5-3.0s): 2.5x, 3目标AOE
- * - 满蓄(3.0s+):     4.0x, 全屏AOE, 破盾
- *
- * 解锁条件：角色等级 >= 5
- */
+import { SATURATION_COSTS } from './SaturationState.js';
 
 var D2_UNLOCK_LEVEL = 5;
-
 var CHARGE_LIGHT_MIN = 500;
 var CHARGE_LIGHT_MAX = 1500;
 var CHARGE_MEDIUM_MIN = 1500;
 var CHARGE_MEDIUM_MAX = 3000;
 var CHARGE_FULL_MIN = 3000;
-
 var CANCEL_MOVE_THRESHOLD = 20;
+var CHARGE_AUTO_ABSORB_RADIUS = 120;
+var CHARGE_AUTO_ABSORB_PROGRESS = 0.08;
+var AUTO_CAST_DELAY = 250;       // 满蓄后250ms自动施法
+var CAST_EFFECT_DURATION = 400;  // 爆裂粒子消散时长
+var METEOR_DURATION = 300;       // 流星飞行时长
 
 function createChargeSystem(deps) {
     var getPlayerData = deps.getPlayerData;
@@ -30,16 +23,26 @@ function createChargeSystem(deps) {
     var addMessage = deps.addMessage || function () { };
     var createScreenShake = deps.createScreenShake || function () { };
     var applyDamageToMonster = deps.applyDamageToMonster || function () { };
+    var saturationState = deps.saturationState;
+    var getStars = deps.getStars || function () { return []; };
+    var setStars = deps.setStars || function () { };
+    var drawStar = deps.drawStar || null;
 
-    // 内部状态
     var state = {
-        phase: 'idle',           // 'idle' | 'monitoring' | 'charging'
+        phase: 'idle',               // idle|monitoring|charging|autoCast|castEffect
         touchId: null,
-        startX: 0,
-        startY: 0,
+        startX: 0, startY: 0,
         chargeStartTime: 0,
         moveDistance: 0,
-        monitorTimerId: null
+        monitorTimerId: null,
+        monitoredStar: null,
+        chargeStar: null,
+        originalDisappearTime: 0,
+        chargeCenterX: 0, chargeCenterY: 0,
+        dragBuff: 0,
+        autoCastStartTime: 0,
+        castParticles: [],
+        castMeteors: []
     };
 
     function isUnlocked() {
@@ -50,22 +53,27 @@ function createChargeSystem(deps) {
         return charExp[pd.currentCharacterId].level >= D2_UNLOCK_LEVEL;
     }
 
-    function isCharging() {
-        return state.phase === 'charging';
-    }
+    function isCharging() { return state.phase === 'charging'; }
+    function isMonitoring() { return state.phase === 'monitoring'; }
+    function isAutoCast() { return state.phase === 'autoCast'; }
 
-    function isMonitoring() {
-        return state.phase === 'monitoring';
-    }
+    // ── 监控期 ──
 
-    function beginMonitoring(x, y, touchId) {
+    function beginMonitoring(x, y, touchId, star) {
         if (!isUnlocked()) return false;
         state.phase = 'monitoring';
         state.touchId = touchId;
-        state.startX = x;
-        state.startY = y;
+        state.startX = x; state.startY = y;
         state.moveDistance = 0;
         state.chargeStartTime = Date.now();
+        state.monitoredStar = star || null;
+        if (state.monitoredStar) {
+            state.originalDisappearTime = state.monitoredStar.disappearTime;
+            state.monitoredStar._charging = true;
+            state.monitoredStar.disappearTime = Date.now() + 86400000;
+        }
+        state.chargeCenterX = state.monitoredStar ? state.monitoredStar.x : x;
+        state.chargeCenterY = state.monitoredStar ? state.monitoredStar.y : y;
         return true;
     }
 
@@ -76,22 +84,44 @@ function createChargeSystem(deps) {
         state.moveDistance = Math.sqrt(dx * dx + dy * dy);
     }
 
-    /**
-     * 由 TouchGestureSystem 在 500ms 定时器触发时调用
-     */
+    // ── 从拖拽聚合进入蓄力（叠加buff） ──
+
+    function beginDragCharge(x, y, touchId, dragBuff) {
+        state.phase = 'charging';
+        state.chargeStartTime = Date.now() - dragBuff * 0.3 * CHARGE_FULL_MIN; // 每个聚合buff加速30%
+        state.touchId = touchId;
+        state.chargeCenterX = x;
+        state.chargeCenterY = y;
+        state.dragBuff = dragBuff;
+        state.chargeStar = null; // 没有chargeStar（灵光已全部被拖拽消耗）
+        state.moveDistance = 0;
+        return true;
+    }
+
+    // ── 过渡到蓄力：灵光从共享数组移除 ──
+
     function checkTransitionToCharging() {
         if (state.phase !== 'monitoring') return false;
-        if (state.moveDistance > CANCEL_MOVE_THRESHOLD) {
-            cancelCharge();
-            return false;
-        }
+        // 蓄力锁状态：进入后不可取消，不再检测 moveDistance
         state.phase = 'charging';
         state.chargeStartTime = Date.now();
+        if (state.monitoredStar) {
+            state.chargeStar = state.monitoredStar;
+            state.monitoredStar = null;
+            var starsArr = getStars();
+            if (starsArr && starsArr.length) {
+                var newStars = [];
+                for (var i = 0; i < starsArr.length; i++) {
+                    if (starsArr[i] !== state.chargeStar) newStars.push(starsArr[i]);
+                }
+                if (newStars.length < starsArr.length) setStars(newStars);
+            }
+        }
         return true;
     }
 
     function getChargeElapsed() {
-        if (state.phase !== 'charging') return 0;
+        if (state.phase !== 'charging' && state.phase !== 'autoCast') return 0;
         return Date.now() - state.chargeStartTime;
     }
 
@@ -99,7 +129,7 @@ function createChargeSystem(deps) {
         var elapsed = getChargeElapsed();
         if (elapsed < CHARGE_LIGHT_MIN) return null;
         if (elapsed < CHARGE_LIGHT_MAX) {
-            return { stage: 'light', label: '轻蓄', damageMult: 1.5, aoeTargets: 1, breaksShield: false, progress: (elapsed - CHARGE_LIGHT_MIN) / (CHARGE_LIGHT_MAX - CHARGE_LIGHT_MIN) };
+            return { stage: 'light', label: '轻蓄', damageMult: 1.3, aoeTargets: 1, breaksShield: false, progress: (elapsed - CHARGE_LIGHT_MIN) / (CHARGE_LIGHT_MAX - CHARGE_LIGHT_MIN) };
         }
         if (elapsed < CHARGE_MEDIUM_MAX) {
             return { stage: 'medium', label: '中蓄', damageMult: 2.5, aoeTargets: 3, breaksShield: false, progress: (elapsed - CHARGE_MEDIUM_MIN) / (CHARGE_MEDIUM_MAX - CHARGE_MEDIUM_MIN) };
@@ -108,13 +138,9 @@ function createChargeSystem(deps) {
     }
 
     function getChargeProgress() {
-        var elapsed = getChargeElapsed();
-        return Math.min(1, elapsed / CHARGE_FULL_MIN);
+        return Math.min(1, getChargeElapsed() / CHARGE_FULL_MIN);
     }
 
-    /**
-     * 返回蓄力光环颜色 {r,g,b}：蓝 → 金 → 红
-     */
     function getStageColor() {
         var progress = getChargeProgress();
         if (progress < 0.33) {
@@ -129,11 +155,58 @@ function createChargeSystem(deps) {
         }
     }
 
-    /**
-     * 释放蓄力攻击，返回伤害结果
-     */
+    // ── 施法效果生成 ──
+
+    function spawnCastBurst(cx, cy, level) {
+        var count = level.stage === 'full' ? 20 : level.stage === 'medium' ? 12 : 8;
+        var baseColor = level.stage === 'full' ? '#FF4400' : '#FFD700';
+        for (var i = 0; i < count; i++) {
+            var angle = Math.PI * 2 * i / count + (Math.random() - 0.5) * 0.3;
+            var speed = 150 + Math.random() * 100;
+            state.castParticles.push({
+                x: cx, y: cy,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                alpha: 1,
+                size: (4 + Math.random() * 4) * (getScreenScale ? getScreenScale() : 1),
+                color: baseColor
+            });
+        }
+        // 冲击波环
+        state.castParticles.push({
+            x: cx, y: cy, vx: 0, vy: 0,
+            alpha: 1, size: 0,
+            isRing: true,
+            ringRadius: 0,
+            ringMaxRadius: (level.stage === 'full' ? 120 : 80) * (getScreenScale ? getScreenScale() : 1),
+            ringSpeed: (level.stage === 'full' ? 400 : 300) * (getScreenScale ? getScreenScale() : 1),
+            color: baseColor
+        });
+    }
+
+    function spawnCastMeteors(cx, cy, targets, level) {
+        var meteorColor = level.stage === 'full' ? '#FF4400' : '#FFD700';
+        var scale = getScreenScale ? getScreenScale() : 1;
+        for (var i = 0; i < targets.length; i++) {
+            var m = targets[i];
+            // 怪物位置：用屏幕坐标（x是相对canvas的，y需要估算）
+            var endX = (m.x || cx) * scale;
+            var endY = (m.y || cy - 80 * scale);
+            state.castMeteors.push({
+                startX: cx, startY: cy,
+                endX: endX, endY: endY,
+                startTime: Date.now(),
+                duration: METEOR_DURATION,
+                color: meteorColor,
+                size: (level.stage === 'full' ? 10 : 6) * scale
+            });
+        }
+    }
+
+    // ── 释放蓄力攻击 ──
+
     function releaseCharge() {
-        if (state.phase !== 'charging') return null;
+        if (state.phase !== 'charging' && state.phase !== 'autoCast') return null;
 
         var level = getChargeLevel();
         if (!level) {
@@ -141,12 +214,17 @@ function createChargeSystem(deps) {
             return null;
         }
 
+        if (saturationState) {
+            var satCost = level.stage === 'full' ? SATURATION_COSTS.CHARGE_FULL
+                : level.stage === 'medium' ? SATURATION_COSTS.CHARGE_MEDIUM
+                : SATURATION_COSTS.CHARGE_LIGHT;
+            saturationState.consume(satCost);
+        }
+
         var monsters = getActiveMonsters ? getActiveMonsters() : [];
         var aliveMonsters = [];
         for (var i = 0; i < monsters.length; i++) {
-            if (monsters[i].hp > 0 && monsters[i].active) {
-                aliveMonsters.push(monsters[i]);
-            }
+            if (monsters[i].hp > 0 && monsters[i].active) aliveMonsters.push(monsters[i]);
         }
 
         if (aliveMonsters.length === 0) {
@@ -155,10 +233,8 @@ function createChargeSystem(deps) {
         }
 
         var pd = getPlayerData();
-        // 用当前角色的攻击力作为基础值
         var baseAtk = pd.totalAttack || 50;
 
-        // 选择目标
         var targets;
         if (level.aoeTargets >= 99) {
             targets = aliveMonsters;
@@ -170,23 +246,11 @@ function createChargeSystem(deps) {
         for (var t = 0; t < targets.length; t++) {
             var m = targets[t];
             var dmg = Math.floor(baseAtk * level.damageMult);
-
-            // 破盾
-            if (level.breaksShield && m.shield && m.shield > 0) {
-                m.shield = 0;
-            }
-
-            // 先扣护盾
+            if (level.breaksShield && m.shield && m.shield > 0) m.shield = 0;
             if (m.shield && m.shield > 0) {
-                if (dmg <= m.shield) {
-                    m.shield -= dmg;
-                    dmg = 0;
-                } else {
-                    dmg -= m.shield;
-                    m.shield = 0;
-                }
+                if (dmg <= m.shield) { m.shield -= dmg; dmg = 0; }
+                else { dmg -= m.shield; m.shield = 0; }
             }
-
             m.hp = Math.max(0, m.hp - dmg);
             totalDamage += dmg;
         }
@@ -194,7 +258,20 @@ function createChargeSystem(deps) {
         addMessage('重击! ' + level.label + ' -' + totalDamage, '#FF6600');
         createScreenShake(level.stage === 'full' ? 8 : 4);
 
-        cancelCharge();
+        // 生成施法效果
+        var cx = state.chargeCenterX;
+        var cy = state.chargeCenterY;
+        spawnCastBurst(cx, cy, level);
+        spawnCastMeteors(cx, cy, targets, level);
+
+        if (state.chargeStar) {
+            addMessage('蓄力消耗 ' + (state.chargeStar.emoji || '灵光'), '#FFD700');
+            state.chargeStar = null;
+        }
+
+        // 进入 castEffect 阶段（渲染爆裂+流星）
+        state.phase = 'castEffect';
+
         return {
             stage: level.stage,
             label: level.label,
@@ -204,84 +281,292 @@ function createChargeSystem(deps) {
         };
     }
 
+    // ── 取消 ──
+
     function cancelCharge() {
         if (state.monitorTimerId) {
             clearTimeout(state.monitorTimerId);
             state.monitorTimerId = null;
         }
+        if (state.monitoredStar) {
+            state.monitoredStar._charging = false;
+            state.monitoredStar.disappearTime = state.originalDisappearTime || Date.now() + 5000;
+            state.monitoredStar = null;
+            state.originalDisappearTime = 0;
+        }
+        state.chargeStar = null;
         state.phase = 'idle';
         state.touchId = null;
-        state.startX = 0;
-        state.startY = 0;
+        state.startX = 0; state.startY = 0;
         state.chargeStartTime = 0;
         state.moveDistance = 0;
+        state.chargeCenterX = 0; state.chargeCenterY = 0;
+        state.dragBuff = 0;
+        state.autoCastStartTime = 0;
     }
 
-    /**
-     * 渲染蓄力光环
-     */
+    // ── 每帧更新 ──
+
+    function update(dt) {
+        // charging: 自动吸收 + 检测满蓄→autoCast
+        if (state.phase === 'charging') {
+            var stars = getStars();
+            if (stars && stars.length) {
+                var scale = getScreenScale ? getScreenScale() : 1;
+                var absorbRadius = CHARGE_AUTO_ABSORB_RADIUS * scale;
+                var cx = state.chargeCenterX;
+                var cy = state.chargeCenterY;
+                var removedIndices = [];
+                var absorbedCount = 0;
+                for (var i = stars.length - 1; i >= 0; i--) {
+                    var s = stars[i];
+                    if (s._charging) continue;
+                    var dx = s.x - cx;
+                    var dy = s.y - cy;
+                    if (Math.sqrt(dx * dx + dy * dy) < absorbRadius) {
+                        removedIndices.push(i);
+                        absorbedCount++;
+                    }
+                }
+                if (absorbedCount > 0) {
+                    var newStars = [];
+                    for (var j = 0; j < stars.length; j++) {
+                        if (removedIndices.indexOf(j) === -1) newStars.push(stars[j]);
+                    }
+                    setStars(newStars);
+                    state.chargeStartTime -= absorbedCount * CHARGE_AUTO_ABSORB_PROGRESS * CHARGE_FULL_MIN;
+                    addMessage('蓄力吸收 +' + absorbedCount + '灵光 加速!', '#FFD700');
+                }
+            }
+
+            // 满蓄检测 → 进入 autoCast
+            if (getChargeProgress() >= 1) {
+                state.phase = 'autoCast';
+                state.autoCastStartTime = Date.now();
+                addMessage('蓄力已满! 即刻释放!', '#FF4400');
+            }
+        }
+
+        // autoCast: 500ms倒计时后自动施法
+        if (state.phase === 'autoCast') {
+            if (Date.now() - state.autoCastStartTime >= AUTO_CAST_DELAY) {
+                releaseCharge();
+            }
+        }
+
+        // castEffect: 粒子/流星衰减
+        if (state.phase === 'castEffect') {
+            for (var pi = state.castParticles.length - 1; pi >= 0; pi--) {
+                var p = state.castParticles[pi];
+                if (p.isRing) {
+                    p.ringRadius += p.ringSpeed * dt;
+                    p.alpha -= dt * 2.5;
+                } else {
+                    p.x += p.vx * dt;
+                    p.y += p.vy * dt;
+                    p.alpha -= dt * 2.5;
+                    p.vx *= 0.96;
+                    p.vy *= 0.96;
+                }
+                if (p.alpha <= 0) state.castParticles.splice(pi, 1);
+            }
+            var now = Date.now();
+            for (var mi = state.castMeteors.length - 1; mi >= 0; mi--) {
+                if (now - state.castMeteors[mi].startTime > state.castMeteors[mi].duration) {
+                    state.castMeteors.splice(mi, 1);
+                }
+            }
+            if (state.castParticles.length === 0 && state.castMeteors.length === 0) {
+                state.phase = 'idle';
+            }
+        }
+    }
+
+    // ── 渲染 ──
+
     function render(ctx, screenW, screenH, scale) {
-        if (state.phase !== 'charging') return;
-
-        var level = getChargeLevel();
-        var color = getStageColor();
-        var progress = getChargeProgress();
-
-        // 角色区域中心（底部中央）
-        var charCenterX = screenW / 2;
-        var charCenterY = screenH - 75 * scale;
-
-        var time = Date.now() / 1000;
-        var ringRadius = 45 * scale;
-        var ringCount = 3;
-
-        // 旋转光环点
-        for (var ri = 0; ri < ringCount; ri++) {
-            var angle = time * 3 + ri * Math.PI * 2 / ringCount;
-            var rx = charCenterX + Math.cos(angle) * ringRadius;
-            var ry = charCenterY + Math.sin(angle) * ringRadius * 0.4;
+        // 监控期脉动环
+        if (state.phase === 'monitoring') {
+            var elapsed = Date.now() - state.chargeStartTime;
+            var radius = 28 * scale + Math.sin(elapsed / 80) * 6 * scale;
+            var alpha = 0.4 + Math.sin(elapsed / 100) * 0.2;
             ctx.beginPath();
-            ctx.arc(rx, ry, 4 * scale, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.9)';
-            ctx.fill();
+            ctx.arc(state.chargeCenterX, state.chargeCenterY, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(100, 160, 255, ' + alpha.toFixed(2) + ')';
+            ctx.lineWidth = 2 * scale;
+            ctx.setLineDash([5 * scale, 3 * scale]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            return;
         }
 
-        // 进度环
-        ctx.beginPath();
-        ctx.arc(charCenterX, charCenterY, ringRadius + 8 * scale, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-        ctx.strokeStyle = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.7)';
-        ctx.lineWidth = 3 * scale;
-        ctx.stroke();
+        // charging 或 autoCast: 灵光体 + 蓄力光环
+        if (state.phase === 'charging' || state.phase === 'autoCast') {
+            var cx = state.chargeCenterX;
+            var cy = state.chargeCenterY;
+            var progress = getChargeProgress();
+            var level = getChargeLevel();
+            var color = getStageColor();
+            var inflateFactor = 1;
 
-        // 阶段标签
-        if (level) {
-            ctx.font = 'bold ' + (13 * scale) + 'px sans-serif';
+            // autoCast: 灵光膨胀 + 红闪烁
+            if (state.phase === 'autoCast') {
+                var castElapsed = Date.now() - state.autoCastStartTime;
+                inflateFactor = 1 + castElapsed / AUTO_CAST_DELAY * 0.8;
+                var flashAlpha = 0.5 + 0.5 * Math.sin(castElapsed / 50);
+                // 红闪烁覆盖
+                ctx.beginPath();
+                ctx.arc(cx, cy, 40 * scale * inflateFactor, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 68, 0, ' + flashAlpha.toFixed(2) + ')';
+                ctx.fill();
+                progress = 1;  // 进度条锁定满格
+                color = { r: 255, g: Math.floor(40 * (1 - flashAlpha)), b: 0 };
+            }
+
+            // 灵光体绘制
+            if (state.chargeStar) {
+                var starObj = state.chargeStar;
+                if (drawStar) {
+                    drawStar(starObj, cx, cy, starObj.size * inflateFactor, (starObj.scale || 1) * scale);
+                } else {
+                    var emoji = starObj.emoji || '⭐';
+                    var sz = (starObj.size || 28) * inflateFactor * (starObj.scale || 1) * scale;
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = '#FFD700';
+                    ctx.font = sz + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#FFD700';
+                    ctx.fillText(emoji, cx, cy);
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
+                }
+            } else {
+                // 拖拽→蓄力：无 chargeStar，画发光能量球
+                var orbSize = (20 + progress * 18) * scale * inflateFactor;
+                ctx.shadowBlur = 15 * scale;
+                ctx.shadowColor = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';
+                ctx.beginPath();
+                ctx.arc(cx, cy, orbSize, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+                // buff标签
+                if (state.dragBuff > 0) {
+                    ctx.font = 'bold ' + (11 * scale) + 'px sans-serif';
+                    ctx.fillStyle = '#FFD700';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('聚合×' + state.dragBuff + ' 加速', cx, cy - orbSize - 8 * scale);
+                }
+            }
+
+            // 蓄力光环
+            var time = Date.now() / 1000;
+            var ringRadius = 45 * scale * inflateFactor;
+            var ringCount = state.phase === 'autoCast' ? 5 : 3;
+
+            for (var ri = 0; ri < ringCount; ri++) {
+                var angle = time * (state.phase === 'autoCast' ? 6 : 3) + ri * Math.PI * 2 / ringCount;
+                var rx = cx + Math.cos(angle) * ringRadius;
+                var ry = cy + Math.sin(angle) * ringRadius * 0.4;
+                ctx.beginPath();
+                ctx.arc(rx, ry, (state.phase === 'autoCast' ? 6 : 4) * scale, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.9)';
+                ctx.fill();
+            }
+
+            // 进度环
+            ctx.beginPath();
+            ctx.arc(cx, cy, ringRadius + 8 * scale, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+            ctx.strokeStyle = 'rgba(' + color.r + ',' + color.g + ',' + color.b + ',0.7)';
+            ctx.lineWidth = 3 * scale;
+            ctx.stroke();
+
+            // 阶段标签
+            if (level) {
+                ctx.font = 'bold ' + (13 * scale) + 'px sans-serif';
+                ctx.fillStyle = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';
+                ctx.textAlign = 'center';
+                ctx.fillText(state.phase === 'autoCast' ? '即刻释放!' : level.label, cx, cy - ringRadius - 15 * scale);
+            }
+
+            // 进度条
+            var barW = 180 * scale;
+            var barH = 4 * scale;
+            var barX = screenW / 2 - barW / 2;
+            var barY = screenH - 35 * scale;
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(barX, barY, barW, barH);
             ctx.fillStyle = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';
-            ctx.textAlign = 'center';
-            ctx.fillText(level.label, charCenterX, charCenterY - ringRadius - 15 * scale);
+            ctx.fillRect(barX, barY, barW * progress, barH);
+            return;
         }
 
-        // 蓄力进度条（底部HP条上方）
-        var barW = 180 * scale;
-        var barH = 4 * scale;
-        var barX = screenW / 2 - barW / 2;
-        var barY = screenH - 35 * scale;
+        // castEffect: 爆裂粒子 + 流星
+        if (state.phase === 'castEffect') {
+            // 粒子
+            for (var pi2 = 0; pi2 < state.castParticles.length; pi2++) {
+                var p2 = state.castParticles[pi2];
+                if (p2.isRing) {
+                    ctx.beginPath();
+                    ctx.arc(p2.x, p2.y, p2.ringRadius, 0, Math.PI * 2);
+                    ctx.strokeStyle = p2.color.replace(')', ',' + Math.max(0, p2.alpha).toFixed(2) + ')').replace('#', 'rgba(').replace('rgba(', 'rgba(');
+                    // 用rgba格式
+                    ctx.strokeStyle = 'rgba(255,' + (p2.color === '#FFD700' ? '215' : '68') + ',0,' + Math.max(0, p2.alpha).toFixed(2) + ')';
+                    ctx.lineWidth = 3 * scale;
+                    ctx.stroke();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(p2.x, p2.y, p2.size, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,' + (p2.color === '#FFD700' ? '215' : '68') + ',0,' + Math.max(0, p2.alpha).toFixed(2) + ')';
+                    ctx.fill();
+                }
+            }
 
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(barX, barY, barW, barH);
-        ctx.fillStyle = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';
-        ctx.fillRect(barX, barY, barW * progress, barH);
+            // 流星
+            var now2 = Date.now();
+            for (var mi2 = 0; mi2 < state.castMeteors.length; mi2++) {
+                var m2 = state.castMeteors[mi2];
+                var t = Math.min(1, (now2 - m2.startTime) / m2.duration);
+                var mx = m2.startX + (m2.endX - m2.startX) * t;
+                var my = m2.startY + (m2.endY - m2.startY) * t;
+
+                // 尾焰（从当前位置往起点方向的渐变线）
+                var tailLen = 30 * scale * (1 - t * 0.5);
+                var angle2 = Math.atan2(m2.endY - m2.startY, m2.endX - m2.startX);
+                var tailX = mx - Math.cos(angle2) * tailLen;
+                var tailY = my - Math.sin(angle2) * tailLen;
+
+                ctx.beginPath();
+                ctx.moveTo(tailX, tailY);
+                ctx.lineTo(mx, my);
+                ctx.strokeStyle = m2.color === '#FF4400' ? 'rgba(255,68,0,0.6)' : 'rgba(255,215,0,0.6)';
+                ctx.lineWidth = m2.size * 0.6;
+                ctx.stroke();
+
+                // 流星头（发光球）
+                ctx.beginPath();
+                ctx.arc(mx, my, m2.size, 0, Math.PI * 2);
+                ctx.fillStyle = m2.color === '#FF4400' ? 'rgba(255,68,0,0.9)' : 'rgba(255,215,0,0.9)';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = m2.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'transparent';
+            }
+            return;
+        }
     }
 
-    function reset() {
-        cancelCharge();
-    }
+    function reset() { cancelCharge(); state.castParticles = []; state.castMeteors = []; }
 
     return {
         isUnlocked: isUnlocked,
         beginMonitoring: beginMonitoring,
         updateMonitoring: updateMonitoring,
         checkTransitionToCharging: checkTransitionToCharging,
+        beginDragCharge: beginDragCharge,
         getChargeElapsed: getChargeElapsed,
         getChargeLevel: getChargeLevel,
         getChargeProgress: getChargeProgress,
@@ -290,6 +575,8 @@ function createChargeSystem(deps) {
         cancelCharge: cancelCharge,
         isCharging: isCharging,
         isMonitoring: isMonitoring,
+        isAutoCast: isAutoCast,
+        update: update,
         render: render,
         reset: reset
     };

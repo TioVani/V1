@@ -144,6 +144,7 @@ function createGameBattleRenderer(deps) {
     var getChargeSystem = deps.getChargeSystem || function () { return null; };
     var getDragSystem = deps.getDragSystem || function () { return null; };
     var getLinkChainSystem = deps.getLinkChainSystem || function () { return null; };
+    var getSaturationState = deps.getSaturationState || function () { return null; };
 
     function renderGame() {
         var ctx = getCtx();
@@ -1040,6 +1041,8 @@ function createGameBattleRenderer(deps) {
         if (_dragSys) _dragSys.render(ctx, screenWidth, screenHeight, scale);
         var _linkSys = getLinkChainSystem();
         if (_linkSys) _linkSys.render(ctx, screenWidth, screenHeight, scale);
+        var _satState = getSaturationState();
+        if (_satState) _satState.render(ctx, screenWidth, screenHeight, scale);
 
         // 更新和绘制暴击动画
         var _ncf = getCombatFeatures();

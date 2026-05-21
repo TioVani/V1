@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { SATURATION_COSTS } from './SaturationState.js';
 /**
  * D4 灵光联连系统（Link Chain System）
  * 闭包工厂 + 依赖注入模式
@@ -29,7 +30,7 @@ var REQUIRED_CORRECT = 3;  // 画对前3个即可发动
 var LINK_HIT_RADIUS = 35;  // 联连灵光命中检测半径
 
 // 联连倍率表
-var CHAIN_MULTIPLIERS = { 2: 2.0, 3: 3.0, 4: 5.0, 5: 6.0, 6: 8.0 };
+var CHAIN_MULTIPLIERS = { 2: 2.0, 3: 3.0, 4: 4.5, 5: 6.0, 6: 8.0 };
 
 function createLinkChainSystem(deps) {
     var getPlayerData = deps.getPlayerData;
@@ -41,6 +42,7 @@ function createLinkChainSystem(deps) {
     var addMessage = deps.addMessage || function () { };
     var createScreenShake = deps.createScreenShake || function () { };
     var vibrateShort = deps.vibrateShort || function () { };
+    var saturationState = deps.saturationState;
 
     // 内部状态
     var state = {
@@ -199,17 +201,22 @@ function createLinkChainSystem(deps) {
                 totalDamage += dmg;
             }
 
-            // 剩余未画的灵光自动结算（50%伤害）
+            // 剩余未画的灵光自动结算（按位置衰减：④=100% ⑤=80% ⑥=60%）
             var remainingBonus = 0;
+            var decayMap = { 4: 1.0, 5: 0.8, 6: 0.6 };
             for (var r = 0; r < state.linkedStars.length; r++) {
                 if (state.matchedIndices.indexOf(state.linkedStars[r].index) === -1) {
-                    remainingBonus += Math.floor(baseAtk * 0.5);
+                    var decayRate = decayMap[state.linkedStars[r].index] || 0.5;
+                    remainingBonus += Math.floor(baseAtk * decayRate);
                 }
             }
 
             addMessage('联连发动! ' + chainLength + '连 ×' + multiplier + ' -' + (totalDamage + remainingBonus), '#FFD700', true);
             createScreenShake(10);
             vibrateShort({ type: 'heavy' });
+
+            // 恢复饱和度
+            if (saturationState) saturationState.recover(SATURATION_COSTS.LINK_RECOVERY);
 
             result = {
                 success: true,

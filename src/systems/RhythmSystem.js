@@ -5,7 +5,7 @@ import Logger from '../utils/Logger.js';
  *
  * 每个灵光出现后伴随缩圈动画，在中心点附近点击获得 Perfect/Great 判定：
  * - Perfect: 2.0x 伤害 + 50% 分数加成
- * - Great:   1.5x 伤害 + 25% 分数加成
+ * - Great:   1.3x 伤害 + 25% 分数加成
  * - Normal:  1.0x 伤害
  *
  * 使用灵光自带的 createTime 字段，无需额外标记。
@@ -17,7 +17,7 @@ var D5_UNLOCK_LEVEL = 30;
 // 节拍窗口常量
 var RHYTHM_SHRINK_MS = 1000;       // 缩圈时长（圈从外缩到中心）
 var PERFECT_WINDOW_MS = 100;       // Perfect 窗口（中心±50ms）
-var GREAT_WINDOW_MS = 200;         // Great 窗口（中心±100ms）
+var GREAT_WINDOW_MS = 300;         // Great 窗口（中心±150ms）
 
 function createRhythmSystem(deps) {
     var getPlayerData = deps.getPlayerData;
@@ -53,7 +53,7 @@ function createRhythmSystem(deps) {
             return { grade: 'perfect', damageMult: 2.0, scoreBonus: 0.5 };
         }
         if (delta <= GREAT_WINDOW_MS / 2) {
-            return { grade: 'great', damageMult: 1.5, scoreBonus: 0.25 };
+            return { grade: 'great', damageMult: 1.3, scoreBonus: 0.25 };
         }
         return { grade: 'normal', damageMult: 1.0, scoreBonus: 0 };
     }

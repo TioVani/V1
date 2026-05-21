@@ -111,6 +111,7 @@ import { createChargeSystem } from './systems/ChargeSystem.js';
 import { createDragSystem } from './systems/DragSystem.js';
 import { createLinkChainSystem } from './systems/LinkChainSystem.js';
 import { createTouchGestureSystem } from './systems/TouchGestureSystem.js';
+import { createSaturationState, SATURATION_COSTS } from './systems/SaturationState.js';
 import * as BrowserAPI from './platform/BrowserAPI.js';
 
 var GameModules = {
@@ -296,6 +297,8 @@ var GameModules = {
     createDragSystem: createDragSystem,
     createLinkChainSystem: createLinkChainSystem,
     createTouchGestureSystem: createTouchGestureSystem,
+    createSaturationState: createSaturationState,
+    SATURATION_COSTS: SATURATION_COSTS,
 
     // UI编辑器
     createUIConfig: createUIConfig,
