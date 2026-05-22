@@ -12,6 +12,8 @@ function createAnimationSystem(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var getPlayerData = deps.getPlayerData;
     var getMonster = deps.getMonster;
     var getComboCount = deps.getComboCount;
@@ -1245,10 +1247,11 @@ function createAnimationSystem(deps) {
         var rightPadding = Math.floor(15 * scale);
 
         // 消息区域基准位置：动态避开连击文字区域
-        // 连击UI位于 screenHeight/3 + 150*scale，消息应在其上方
-        var comboY = Math.floor(screenHeight / 3 + 150 * scale);
+        // 连击UI位于设计坐标 DESIGN_HEIGHT/3 + 150*scale，消息应在其上方
+        var designOffsetY = getDesignOffsetY();
+        var comboY = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale + 150 * scale);
         var comboTop = comboY - Math.floor(5 * scale);  // 连击区域顶部留间距
-        var defaultBaseY = screenHeight * 0.55 - 60;
+        var defaultBaseY = designOffsetY + Math.floor(DESIGN_HEIGHT * 0.55 * scale);
         // 如果有连击，确保消息区域底部不超过连击顶部；否则使用默认位置
         var baseY;
         if (comboCount > 0) {

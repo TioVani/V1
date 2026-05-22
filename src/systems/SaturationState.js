@@ -22,6 +22,7 @@ var PERFECT_RECOVERY = 3;
 var LINK_RECOVERY = 25;
 
 var MAX_SATURATION = 100;
+var DESIGN_HEIGHT = 812;
 
 function createSaturationState() {
     var current = MAX_SATURATION;
@@ -61,19 +62,20 @@ function createSaturationState() {
     }
 
     /**
-     * 渲染饱和度条（HUD底栏，角色上方）
+     * 渲染饱和度条（垂直，画面左边边框旁）
      */
     function render(ctx, screenW, screenH, scale) {
-        var barW = 150 * scale;
-        var barH = 5 * scale;
-        var barX = screenW / 2 - barW / 2;
-        var barY = screenH - 55 * scale;
+        var barW = 5 * scale;
+        var barH = Math.min(200, screenH - 100) * scale;
+        var barX = 8 * scale;
+        var designOffsetY = Math.floor(Math.max(0, (screenH - DESIGN_HEIGHT * scale) / 2));
+        var barY = designOffsetY + (DESIGN_HEIGHT / 2 - barH / 2 + 240) * scale;
 
         // 背景
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(barX, barY, barW, barH);
 
-        // 填充
+        // 填充（从底部向上）
         var pct = getPercent();
         var r, g;
         if (pct > 0.5) {
@@ -87,16 +89,18 @@ function createSaturationState() {
             g = 0;
         }
         ctx.fillStyle = 'rgb(' + r + ',' + g + ',100)';
-        ctx.fillRect(barX, barY, barW * pct, barH);
+        ctx.fillRect(barX, barY + barH * (1 - pct), barW, barH * pct);
 
         // 标签
         ctx.font = (9 * scale) + 'px sans-serif';
         ctx.fillStyle = '#cccccc';
         ctx.textAlign = 'center';
-        ctx.fillText('体力', barX - 3 * scale, barY + barH / 2 + 3 * scale);
+        ctx.textBaseline = 'middle';
+        ctx.fillText('体', barX + barW / 2, barY - 12 * scale);
+        ctx.fillText('力', barX + barW / 2, barY - 4 * scale);
 
         // 百分比
-        ctx.fillText(Math.floor(pct * 100) + '%', barX + barW + 3 * scale, barY + barH / 2 + 3 * scale);
+        ctx.fillText(Math.floor(pct * 100) + '%', barX + barW / 2, barY + barH + 8 * scale);
     }
 
     function reset() {

@@ -63,6 +63,8 @@ function createStarSystem(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var getPlayerData = deps.getPlayerData;
     var getGameState = deps.getGameState;
     var getGameConst = deps.getGameConst;
@@ -136,8 +138,10 @@ function createStarSystem(deps) {
         var seasonSelection = getSeasonSelection();
         var stars = getStars();
 
+        var designOffsetY = getDesignOffsetY();
+        var scale = getScreenScale();
         var padding = 48 + 20;
-        var minY = screenHeight * 0.6;
+        var minY = designOffsetY + DESIGN_HEIGHT * 0.6 * scale;
         var maxY = screenHeight - padding;
         var starSize = specVal('STAR.SIZE');
         var maxRenderSize = starSize * 1.2;
@@ -507,6 +511,7 @@ function createStarSystem(deps) {
             if (star.isThiefStar) return true;  // 偷星由 StarThiefSystem 管理
             if (star._charging) return true;    // 蓄力灵光由 ChargeSystem 管理生命周期
             if (star._dragging) return true;    // 拖拽灵光由 DragSystem 管理生命周期
+            if (star._linking) return true;     // 联连灵光由 LinkChainSystem 管理生命周期
             var keep = star.disappearTime > currentTime && star.visible;
             if (!keep) changed = true;
             return keep;
@@ -581,8 +586,10 @@ function createStarSystem(deps) {
         }
 
         // 随机模式：原逻辑
+        var designOffsetY = getDesignOffsetY();
+        var scale = getScreenScale();
         var padding = 48 + 20;
-        var minY = screenHeight * 0.6;
+        var minY = designOffsetY + DESIGN_HEIGHT * 0.6 * scale;
         var maxY = screenHeight - padding;
         var starSize = specVal('STAR.SIZE');
 

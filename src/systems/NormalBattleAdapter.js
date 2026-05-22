@@ -1415,6 +1415,10 @@ function createNormalBattleAdapter(deps) {
         var damage = m.attack || (isBoss ? 20 : 10);
         if (m.rageMultiplier) damage = Math.floor(damage * m.rageMultiplier);
 
+        // 无敌模式：伤害归零
+        var pd0 = getPlayerData();
+        if (pd0.godMode) damage = 0;
+
         // 觉醒狂暴：HP低于30%时攻击力增加
         if (m.awakeRage && m.hp <= m.maxHp * 0.3) {
             damage = Math.floor(damage * (1 + m.awakeRage));
@@ -1434,7 +1438,7 @@ function createNormalBattleAdapter(deps) {
         }
         if (m.damageBonus > 0) damage += m.damageBonus;
 
-        var timeDamage = isBoss ? 8 : 5;
+        var timeDamage = 0; // 被攻击不再减少时间
 
         createMonsterProjectileAnimationFn(m.x, m.y, damage, timeDamage, isBoss, function() {
             try {
@@ -1600,6 +1604,7 @@ function createNormalBattleAdapter(deps) {
             return;
         }
         if (now >= fx.poisonTickTime) {
+            if (pd.godMode) { fx.poisonTickTime = now + 1000; return; }
             var poisonDmg = fx.poisonDamage;
             var shieldAbsorb = 0;
             if (pd.playerShield > 0) {

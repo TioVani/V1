@@ -21,6 +21,8 @@ function createBossStarSystem(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var getStars = deps.getStars;
     var setStars = deps.setStars;
     var pushStar = deps.pushStar;
@@ -61,10 +63,11 @@ function createBossStarSystem(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var starSize = Math.floor(30 * scale);
         var padding = Math.floor(20 * scale);
-        var minY = screenHeight * 0.15;
-        var maxY = screenHeight * 0.75;
+        var minY = designOffsetY + DESIGN_HEIGHT * 0.15 * scale;
+        var maxY = designOffsetY + DESIGN_HEIGHT * 0.75 * scale;
         var minDistance = Math.floor(50 * scale);
 
         for (let i = 0; i < BOSS_STAR_COUNT; i++) {

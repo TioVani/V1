@@ -46,6 +46,7 @@ let state = GAME_STATE.MENU;
 let previousState = GAME_STATE.MENU;  // 记录上一个状态，用于背包返回
 let score = 0;
 let timeLeft = 60;
+let godMode = false;
 let timerInterval = null;
 let moveInterval = null;
 let renderInterval = null;
@@ -557,6 +558,7 @@ var towerRenderer = null;
 var gameBattleRenderer = null;
 // D2-D5 战斗维度系统桥接（在 init() 中创建，全局可访问）
 var rhythmSystem = null;
+var saturationState = null;
 var chargeSystem = null;
 var dragSystem = null;
 var linkChainSystem = null;
@@ -654,6 +656,7 @@ function getCombatFeatures() {
 }
 
 function applyPoisonStarEffect(dmg) {
+    if (godMode) return; // 无敌模式免疫毒灵
     if (playerData.playerShield > 0) {
         var absorb = Math.min(playerData.playerShield, dmg);
         playerData.playerShield -= absorb;
@@ -733,6 +736,7 @@ const Assets = {
     shopIcon: null,         // 商城图标
     towerIcon: null,        // 无尽塔图标
     bossImage: null,        // Boss战图标
+    beautyFrames: [],      // 灵光发光序列帧（16帧）
     characterImages: {      // 角色图片
         starter: null,      // 青铜小鼎
         warrior: null       // 器灵战士
@@ -816,6 +820,7 @@ let playerData = {
     extraCritDamage: 0,      // 爆伤火源提供的额外暴击伤害
     playerHp: 100,           // 玩家血量
     maxPlayerHp: 100,        // 玩家最大血量
+    godMode: false,          // 无敌模式（调试用）
     playerShield: 0,         // 玩家护盾（优先扣护盾再扣血量）
     playerRage: 0,           // 玩家怒气值（倒霉灵韵触发，满3点触发随机效果）
     // 月卡系统
@@ -973,6 +978,11 @@ function init() {
             toggleUIEditor: function() {
                 debugPanelOpen = false;
                 if (uiEditorSystem) uiEditorSystem.toggle();
+            },
+            toggleGodMode: function() {
+                godMode = !godMode;
+                playerData.godMode = godMode;
+                $P.showToast({ title: godMode ? '无敌模式 ON' : '无敌模式 OFF', icon: 'none', duration: 1500 });
             }
         });
         executeDebugAction = function(actionId) { debugSystem.executeDebugAction(actionId); };
@@ -1081,6 +1091,14 @@ function init() {
             _log('火灵图片加载失败，使用默认emoji');
             Assets.fireStarImage = null;
         };
+
+        // 加载灵光发光序列帧（16帧 GC_0000~GC_0015）
+        Assets.beautyFrames = [];
+        for (var bf = 0; bf < 16; bf++) {
+            var bfImg = $P.createImage();
+            bfImg.src = 'assets/images/beauty/GC_' + bf.toString().padStart(4, '0') + '.png';
+            Assets.beautyFrames.push(bfImg);
+        }
 
         // 加载背包UI图片
         Assets.backpackImage = $P.createImage();
@@ -1275,7 +1293,8 @@ function init() {
             fillRoundRectFn: fillRoundRect,
             getScreenScaleFn: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
-            getScreenHeight: function() { return screenHeight; }
+            getScreenHeight: function() { return screenHeight; },
+            getDesignOffsetY: getDesignOffsetY
         });
         _log('偷灵者模块初始化完成');
 
@@ -1569,6 +1588,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
+            getDesignOffsetY: getDesignOffsetY,
             getPlayerData: function() { return playerData; },
             getMonster: function() { return monster; },
             getComboCount: function() { return comboState.count; },
@@ -1757,6 +1777,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
+            getDesignOffsetY: getDesignOffsetY,
             getPlayerData: function() { return playerData; },
             getGameState: function() { return state; },
             getGameConst: function() { return GAME_STATE; },
@@ -1828,6 +1849,7 @@ function init() {
             getGameConst: function() { return GAME_STATE; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
+            getDesignOffsetY: getDesignOffsetY,
             getConfig: function() { return CONFIG; },
             getMonsterTypes: function() { return MonsterTypes; },
             getMonstersConfig: function() { return Monsters; },
@@ -1883,6 +1905,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
+            getDesignOffsetY: getDesignOffsetY,
             getStars: function() { return stars; },
             setStars: function(val) { stars = val; },
             pushStar: function(star) { stars.push(star); },
@@ -1915,6 +1938,7 @@ function init() {
             getCtx: function() { return ctx; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
             uiCore: uiCoreRenderer,
             getFillRoundRect: function() { return fillRoundRect; },
             getMonsterTypes: function() { return MonsterTypes; },
@@ -1959,6 +1983,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
+            getDesignOffsetY: getDesignOffsetY,
             uiCore: uiCoreRenderer,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
@@ -2048,7 +2073,8 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getFillRoundRect: function() { return fillRoundRect; },
-            getStrokeRoundRect: function() { return strokeRoundRect; }
+            getStrokeRoundRect: function() { return strokeRoundRect; },
+            getGodMode: function() { return godMode; }
         });
         renderDebugPanel = function() { debugRenderer.renderDebugPanel(); };
 
@@ -2411,6 +2437,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
+            getDesignOffsetY: getDesignOffsetY,
             uiCore: uiCoreRenderer,
             isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
             transitionTo: function(s) { stateMachine.transitionTo(s); },
@@ -2462,6 +2489,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
+            getDesignOffsetY: getDesignOffsetY,
             uiCore: uiCoreRenderer,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
@@ -2570,7 +2598,8 @@ function init() {
             getRhythmSystem: function() { return rhythmSystem; },
             getChargeSystem: function() { return chargeSystem; },
             getDragSystem: function() { return dragSystem; },
-            getLinkChainSystem: function() { return linkChainSystem; }
+            getLinkChainSystem: function() { return linkChainSystem; },
+            getSaturationState: function() { return saturationState; }
         });
         renderGame = function() { gameBattleRenderer.renderGame(); };
 
@@ -2852,15 +2881,24 @@ function init() {
         });
         _log('D5 节拍判定系统初始化完成');
 
+        saturationState = _gameModules.createSaturationState();
+        _log('饱和度(体力条)系统初始化完成');
+
         chargeSystem = _gameModules.createChargeSystem({
             getPlayerData: function() { return playerData; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
+            getStars: function() { return stars; },
+            setStars: function(val) { stars = val; },
             getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
             addMessage: function(msg, color) { addGameMessage(msg, color); },
             createScreenShake: function(i) { createScreenShake(i); },
-            applyDamageToMonster: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); }
+            applyDamageToMonster: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); },
+            saturationState: saturationState,
+            drawStar: function(starObj, x, y, size, sc) { if (drawStar) drawStar(starObj, x, y, size, sc); },
+            addScore: function(pts) { score += pts; },
+            addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); }
         });
         _log('D2 长按蓄力系统初始化完成');
 
@@ -2872,7 +2910,12 @@ function init() {
             getStars: function() { return stars; },
             setStars: function(val) { stars = val; },
             addMessage: function(msg, color) { addGameMessage(msg, color); },
-            vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} }
+            vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
+            saturationState: saturationState,
+            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            attackMonster: function(dmg, crit, type, target) { attackMonster(dmg, crit, type, target); },
+            addScore: function(pts) { score += pts; },
+            addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); }
         });
         _log('D3 拖拽聚合系统初始化完成');
 
@@ -2882,10 +2925,15 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getStars: function() { return stars; },
+            setStars: function(newStars) { stars = newStars; },
             getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
             addMessage: function(msg, color, important) { addGameMessage(msg, color, important); },
             createScreenShake: function(i) { createScreenShake(i); },
-            vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} }
+            vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
+            attackMonster: function(dmg, crit, type, target) { attackMonster(dmg, crit, type, target); },
+            addScore: function(pts) { score += pts; },
+            saturationState: saturationState,
+            getBeautyFrames: function() { return Assets.beautyFrames || []; }
         });
         _log('D4 灵光联连系统初始化完成');
 
@@ -3596,7 +3644,7 @@ function handleTouchStart(res) {
                             _log('⏰ 时间灵韵技能暴击! 倍率:', baseCritDamage);
                             
                             // 创建暴击动画
-                            createCritAnimation(screenWidth / 2, screenHeight / 3, damage, 0);
+                            createCritAnimation(screenWidth / 2, getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * getScreenScale()), damage, 0);
                         }
                         
                         _log('⏰ 时间灵韵技能! 消耗时间:', consumableTime, '秒, 造成伤害:', damage, '暴击:', isCritical);
@@ -3704,7 +3752,7 @@ function handleTouchStart(res) {
             const btnHeight = Math.floor(60 * scale);
 
             // 返回菜单按钮
-            const menuBtnY = screenHeight * 0.60;
+            const menuBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.60 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单');
@@ -3720,7 +3768,7 @@ function handleTouchStart(res) {
             }
 
             // 重新开始按钮
-            const restartBtnY = screenHeight * 0.70;
+            const restartBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.70 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击重新开始');
@@ -3752,7 +3800,7 @@ function handleTouchStart(res) {
             }
 
             // 继续游戏按钮 — 统一通过 ModeLifecycleManager
-            const resumeBtnY = screenHeight * 0.80;
+            const resumeBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.80 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= resumeBtnY - btnHeight/2 && y <= resumeBtnY + btnHeight/2) {
                 _log('点击继续游戏');
@@ -3797,6 +3845,17 @@ function handleTouchStart(res) {
                 var touch = touches[t];
                 var touchX = touch.clientX;
                 var touchY = touch.clientY;
+
+                // D4 联连触发灵光触摸（优先级最高）
+                if (linkChainSystem && linkChainSystem.isReady()) {
+                    if (linkChainSystem.handleTriggerTouch(touchX, touchY)) {
+                        // 触发成功 → 同时让 TouchGestureSystem 开始追踪此触点
+                        if (touchGestureSystem) {
+                            touchGestureSystem.handleGestureStart(touchX, touchY, touch.identifier);
+                        }
+                        continue;
+                    }
+                }
 
                 // D2-D5 手势分类（优先于现有灵韵点击）
                 if (touchGestureSystem) {
@@ -3847,7 +3906,7 @@ function handleTouchStart(res) {
 
         // 开始按钮位置
         var startBtnOv = uiConfig ? uiConfig.get('menu_start_btn') : { dx: 0, dy: 0 };
-        var btnY = screenHeight * 0.66 + startBtnOv.dy * scale;
+        var btnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.66 * getScreenScale()) + startBtnOv.dy * getScreenScale();
         var btnCenterX = screenWidth / 2 + startBtnOv.dx * scale;
 
         // 开始按钮点击检测（需要同时检查X和Y坐标）
@@ -3860,7 +3919,7 @@ function handleTouchStart(res) {
 
         // 闯关模式按钮（开始游戏下方）
         var stageBtnOv = uiConfig ? uiConfig.get('menu_stage_btn') : { dx: 0, dy: 0 };
-        var stageBtnY = screenHeight * 0.74 + stageBtnOv.dy * scale;
+        var stageBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.74 * getScreenScale()) + stageBtnOv.dy * getScreenScale();
         var stageBtnCenterX = screenWidth / 2 + stageBtnOv.dx * scale;
         if (x >= stageBtnCenterX - btnWidth/2 && x <= stageBtnCenterX + btnWidth/2 &&
             y >= stageBtnY - btnHeight/2 && y <= stageBtnY + btnHeight/2) {
@@ -4398,7 +4457,7 @@ function handleTouchStart(res) {
         const btnHeight = Math.floor(45 * scale);
         
         // 开始赛季按钮
-        const startBtnY = screenHeight * 0.75;
+        const startBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.75 * getScreenScale());
         if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
             y >= startBtnY - btnHeight/2 && y <= startBtnY + btnHeight/2) {
             _log('点击开始赛季按钮');
@@ -4409,7 +4468,7 @@ function handleTouchStart(res) {
         }
         
         // 赛季排行榜按钮
-        const leaderboardBtnY = screenHeight * 0.84;
+        const leaderboardBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.84 * getScreenScale());
         if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
             y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
             _log('点击赛季排行榜按钮');
@@ -4594,7 +4653,7 @@ function handleTouchStart(res) {
             const btnHeight = Math.floor(50 * scale);
             
             // 再来一局按钮
-            const restartBtnY = screenHeight * 0.68;
+            const restartBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.68 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击再来一局按钮');
@@ -4603,7 +4662,7 @@ function handleTouchStart(res) {
             }
             
             // 查看排行榜按钮
-            const leaderboardBtnY = screenHeight * 0.76;
+            const leaderboardBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.76 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
                 _log('点击查看排行榜按钮');
@@ -4616,7 +4675,7 @@ function handleTouchStart(res) {
             }
             
             // 返回菜单按钮
-            const menuBtnY = screenHeight * 0.84;
+            const menuBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.84 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单按钮');
@@ -4627,7 +4686,7 @@ function handleTouchStart(res) {
         } else {
             // ===== 普通模式结束按钮 =====
             // 重新开始按钮
-            var restartBtnY = screenHeight * 0.70;
+            var restartBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.70 * getScreenScale());
             var btnHeight = Math.floor(60 * scale);
 
             if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
@@ -4636,7 +4695,7 @@ function handleTouchStart(res) {
             }
 
             // 返回菜单按钮
-        var menuBtnY = screenHeight * 0.78;
+        var menuBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.78 * getScreenScale());
 
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
@@ -4669,10 +4728,18 @@ function handleTouchStart(res) {
 // 播放广告获取时间结晶（商城专用）
 
 
+// 设计分辨率基准
+var DESIGN_WIDTH = 375;
+var DESIGN_HEIGHT = 812;
+
 // 获取屏幕缩放比例（保留 — init() 中多系统初始化依赖）
 function getScreenScale() {
-    var baseWidth = 375;
-    return Math.max(0.7, Math.min(1.0, screenWidth / baseWidth));
+    return Math.max(0.7, Math.min(1.0, screenWidth / DESIGN_WIDTH));
+}
+
+// 设计区域垂直偏移：高屏居中，矮屏贴底
+function getDesignOffsetY() {
+    return Math.floor(Math.max(0, (screenHeight - DESIGN_HEIGHT * getScreenScale()) / 2));
 }
 
 
@@ -4729,9 +4796,36 @@ function sendLeaderboardMessage(type, tab) {
 
 // 主渲染循环
 function render() {
+    // 计算帧间隔
+    var now = Date.now();
+    if (!render._lastFrameTime) render._lastFrameTime = now;
+    var dt = Math.min(0.1, (now - render._lastFrameTime) / 1000);
+    render._lastFrameTime = now;
+
+    // 饱和度(体力条)自然恢复
+    if (saturationState) saturationState.update(dt);
+
+    // D2 蓄力自动吸收
+    if (chargeSystem) chargeSystem.update(dt);
+
+    // D3 拖拽聚合每帧更新（闲置检测→蓄力转换）
+    if (dragSystem) {
+        var dragUpdateResult = dragSystem.update(dt);
+        if (dragUpdateResult && dragUpdateResult.transitionToCharge && touchGestureSystem && chargeSystem) {
+            chargeSystem.beginDragCharge(
+                dragSystem.getCurrentX ? dragSystem.getCurrentX() : 0,
+                dragSystem.getCurrentY ? dragSystem.getCurrentY() : 0,
+                touchGestureSystem.getActiveGestureTouchId ? touchGestureSystem.getActiveGestureTouchId() : null,
+                dragUpdateResult.aggregate
+            );
+            touchGestureSystem.switchGestureToCharge();
+            dragSystem.finishDragTransition();
+        }
+    }
+
     // D4 联连系统更新（每帧）
     if (linkChainSystem) {
-        linkChainSystem.update();
+        linkChainSystem.update(dt);
     }
 
     // 更新视觉屏幕震动
@@ -5207,7 +5301,14 @@ function handleTouchEnd(res) {
 
     // D2-D5 手势结束
     if (touchGestureSystem) {
-        touchGestureSystem.handleGestureEnd();
+        var gestureEndResult = touchGestureSystem.handleGestureEnd();
+        // D2 监控回退：触发 D1 灵光点击
+        if (gestureEndResult && gestureEndResult.d1Fallback) {
+            var lastTouch = res.changedTouches && res.changedTouches[0];
+            if (lastTouch && normalBattleAdapter) {
+                normalBattleAdapter.handleStarClick(lastTouch.clientX, lastTouch.clientY);
+            }
+        }
     }
 
     var touch = res.changedTouches && res.changedTouches[0];

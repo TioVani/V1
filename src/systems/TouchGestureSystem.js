@@ -88,7 +88,10 @@ function createTouchGestureSystem(deps) {
         if (linkChainSystem && linkChainSystem.isActive()) {
             activeGesture.type = GESTURE_TYPE.D4_SWIPE;
             activeGesture.touchId = touchId;
-            linkChainSystem.beginSwipeTracking();
+            // 如果已经在滑动（handleTriggerTouch已设置swipeActive），不再调beginSwipeTracking以免跳过revealing
+            if (!linkChainSystem.isSwipeActive()) {
+                linkChainSystem.beginSwipeTracking(x, y);
+            }
             return true;
         }
 

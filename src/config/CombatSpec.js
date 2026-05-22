@@ -24,7 +24,7 @@ var COMBAT_SPEC = {
     /** 灵光参数 — 增大 SPAWN_INTERVAL_MS 会使节奏变慢，增大 LIFETIME_MS 会降低操作压力 */
     STAR: {
         SPAWN_INTERVAL_MS: 350,
-        LIFETIME_MS: 2000,
+        LIFETIME_MS: 4000,
         MAX_ON_SCREEN: 5,
         SIZE: 48,
         OVERLAP_MULT: 2.2

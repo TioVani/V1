@@ -17,6 +17,7 @@ function createDebugSystem(deps) {
     var toggleUIEditor = deps.toggleUIEditor || null;
     var setBestScore = deps.setBestScore || null;
     var getUpgradeEngine = deps.getUpgradeEngine || null;
+    var toggleGodMode = deps.toggleGodMode || null;
 
     function executeDebugAction(actionId) {
         var playerData = getPlayerData();
@@ -122,6 +123,12 @@ function createDebugSystem(deps) {
             case 'ui_editor':
                 if (toggleUIEditor) {
                     toggleUIEditor();
+                }
+                return;
+
+            case 'god_mode':
+                if (toggleGodMode) {
+                    toggleGodMode();
                 }
                 return;
 

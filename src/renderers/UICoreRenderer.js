@@ -87,6 +87,19 @@ function createUICoreRenderer(deps) {
         var Assets = getAssets();
         var starThief = getStarThief();
 
+        // 灵光发光序列帧（加法叠加）
+        var beautyFrames = Assets.beautyFrames;
+        if (beautyFrames && beautyFrames.length > 0) {
+            var bfIndex = Math.floor(Date.now() / 60) % beautyFrames.length;
+            var bfImg = beautyFrames[bfIndex];
+            if (bfImg && bfImg.complete) {
+                var bfSize = (size || 28) * (scale || 1) * 1.5;
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.drawImage(bfImg, x - bfSize / 2, y - bfSize / 2, bfSize, bfSize);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        }
+
         if (starThief && starThief.drawStarShape(ctx, starObj, x, y, size, scale)) return;
 
         if (starObj.type === 'big') {

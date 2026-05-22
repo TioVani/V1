@@ -13,6 +13,8 @@ function createGameBattleRenderer(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var uiCore = deps.uiCore;
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
@@ -151,6 +153,7 @@ function createGameBattleRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
         var playerData = getPlayerData();
         var fillRoundRect = getFillRoundRect();
@@ -275,7 +278,7 @@ function createGameBattleRenderer(deps) {
                 tMonCopy.active = true;
                 // 塔模式怪物可能没有位置，设置默认位置（屏幕中央偏上）
                 if (!tMonCopy.x) tMonCopy.x = screenWidth / 2;
-                if (!tMonCopy.y) tMonCopy.y = screenHeight / 3;
+                if (!tMonCopy.y) tMonCopy.y = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale);
                 if (!tMonCopy.size) tMonCopy.size = 60 * scale;
                 if (!tMonCopy.scale) tMonCopy.scale = 1;
                 setMonsters([tMonCopy]);
@@ -710,29 +713,29 @@ function createGameBattleRenderer(deps) {
         if (_isTower) {
             // 塔模式显示层数
             var towerFloor = towerSystem.currentFloor || 1;
-            drawText('层: ' + towerFloor, screenWidth/2, 50, Math.floor(32 * scale), '#ffd700');
+            drawText('层: ' + towerFloor, screenWidth/2, designOffsetY + Math.floor(50 * scale), Math.floor(32 * scale), '#ffd700');
         } else {
             const displayScore = (state === GAME_STATE.SEASON_PLAYING) ? seasonScore : isStageMode ? stageModeSystem.getScore() : score;
             const scoreLabel = (state === GAME_STATE.SEASON_PLAYING) ? '🏆 灵辉值: ' : '灵辉值: ';
-            drawText(scoreLabel + displayScore, screenWidth/2, 50, Math.floor(32 * scale), '#ffd700');
+            drawText(scoreLabel + displayScore, screenWidth/2, designOffsetY + Math.floor(50 * scale), Math.floor(32 * scale), '#ffd700');
         }
 
         // 时间
         if (_isTower) {
             var displayTime = towerSystem.combatTime || 0;
             var tTimeColor = displayTime <= 10 ? '#ff6b6b' : '#ffffff';
-            drawText('时间: ' + displayTime + 's', screenWidth/2, 90 * scale, Math.floor(24 * scale), tTimeColor);
+            drawText('时间: ' + displayTime + 's', screenWidth/2, designOffsetY + Math.floor(90 * scale), Math.floor(24 * scale), tTimeColor);
         } else {
             const displayTimeLeft = isStageMode ? stageModeSystem.getTimeLeft() : timeLeft;
             const timeColor = displayTimeLeft <= 10 ? '#ff6b6b' : '#ffffff';
-            drawText('时间: ' + displayTimeLeft + 's', screenWidth/2, 90 * scale, Math.floor(24 * scale), timeColor);
+            drawText('时间: ' + displayTimeLeft + 's', screenWidth/2, designOffsetY + Math.floor(90 * scale), Math.floor(24 * scale), timeColor);
         }
 
         // 闯关模式：显示击杀数
         if (isStageMode) {
             var stageData = stageModeSystem.getCurrentStageData();
             var settings = stageData ? stageData.settings : null;
-            drawText('净化: ' + stageModeSystem.getMonstersKilled() + '/' + (settings && settings.monsterCount || '?'), screenWidth/2, Math.floor(115 * scale), Math.floor(16 * scale), '#87CEEB');
+            drawText('净化: ' + stageModeSystem.getMonstersKilled() + '/' + (settings && settings.monsterCount || '?'), screenWidth/2, designOffsetY + Math.floor(115 * scale), Math.floor(16 * scale), '#87CEEB');
         }
 
         // 打断状态显示（屏幕变暗 + 红色脉冲 + 提示文字）
@@ -796,7 +799,7 @@ function createGameBattleRenderer(deps) {
             // 连击数字显示（靠右，固定位置）
             const comboX = screenWidth - 20;  // 屏幕右侧
             // 统一使用怪物下方的位置（怪物在屏幕1/3处，下方约150像素）
-            const comboY = Math.floor(screenHeight / 3 + 150 * scale);
+            const comboY = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale + 150 * scale);
 
             // 数字40xp大小，COMBO文字20xp大小
             var comboNumSize = Math.floor(40 * scale);
@@ -1102,7 +1105,7 @@ function createGameBattleRenderer(deps) {
                 var bossBarW = Math.floor(250 * scale);
                 var bossBarH = Math.floor(16 * scale);
                 var bossBarX = screenWidth / 2 - bossBarW / 2;
-                var bossBarY = Math.floor(130 * scale);
+                var bossBarY = designOffsetY + Math.floor(130 * scale);
                 var bossBarR = Math.floor(4 * scale);
 
                 ctx.fillStyle = '#333333';

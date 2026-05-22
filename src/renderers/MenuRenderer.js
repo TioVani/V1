@@ -6,6 +6,8 @@ function createMenuRenderer(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var uiCore = deps.uiCore;
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
@@ -110,6 +112,7 @@ function createMenuRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
         var playerData = getPlayerData();
         var bestScore = getBestScore();
@@ -165,6 +168,24 @@ function createMenuRenderer(deps) {
 
             ctx.fillStyle = 'rgba(15, 15, 26, 0.7)';
             ctx.fillRect(0, 0, screenWidth, screenHeight);
+
+            // 加法叠加纹理（lighter模式平铺，不拉伸）
+            if (Assets.bgOverlayImage && Assets.bgOverlayImage.complete) {
+                var ovImg = Assets.bgOverlayImage;
+                var ovW = ovImg.width;
+                var ovH = ovImg.height;
+                // 按纹理原始尺寸平铺（用scale保持视觉大小一致）
+                var sc = getScreenScale ? getScreenScale() : 1;
+                var tileW = ovW * sc;
+                var tileH = ovH * sc;
+                ctx.globalCompositeOperation = 'lighter';
+                for (var ty = 0; ty < screenHeight; ty += tileH) {
+                    for (var tx = 0; tx < screenWidth; tx += tileW) {
+                        ctx.drawImage(ovImg, tx, ty, tileW, tileH);
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+            }
         } else {
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, screenWidth, screenHeight);
@@ -175,28 +196,28 @@ function createMenuRenderer(deps) {
 
         // 标题
         var titleOv = uiConfig ? uiConfig.get('menu_title') : { dx: 0, dy: 0 };
-        drawText('🏺 器落山河 🏺', screenWidth / 2 + titleOv.dx * scale, screenHeight / 3 + titleOv.dy * scale, Math.floor(48 * scale), '#ffd700');
+        drawText('🏺 器落山河 🏺', screenWidth / 2 + titleOv.dx * scale, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + titleOv.dy * scale, Math.floor(48 * scale), '#ffd700');
 
         // 说明
-        drawText('收集灵韵，唤醒器灵', screenWidth / 2, screenHeight / 2 - 30 * scale, Math.floor(24 * scale), '#ffffff');
-        drawText('60秒内尽可能多地收集！', screenWidth / 2, screenHeight / 2 + 10 * scale, Math.floor(24 * scale), '#ffffff');
+        drawText('收集灵韵，唤醒器灵', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) - 30 * scale, Math.floor(24 * scale), '#ffffff');
+        drawText('60秒内尽可能多地收集！', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) + 10 * scale, Math.floor(24 * scale), '#ffffff');
 
         // 最高分
         if (bestScore > 0) {
-            drawText('最高分: ' + bestScore, screenWidth / 2, screenHeight / 2 + 50 * scale, Math.floor(20 * scale), '#ffd700');
+            drawText('最高分: ' + bestScore, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) + 50 * scale, Math.floor(20 * scale), '#ffd700');
         }
 
         // 开始按钮
         var btnWidth = Math.floor(100 * scale);
         var btnHeight = Math.floor(40 * scale);
         var startOv = uiConfig ? uiConfig.get('menu_start_btn') : { dx: 0, dy: 0 };
-        drawButton('踏入灵域', screenWidth / 2 + startOv.dx * scale, screenHeight * 0.66 + startOv.dy * scale, btnWidth, btnHeight, '#ffd700');
+        drawButton('踏入灵域', screenWidth / 2 + startOv.dx * scale, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.66 * scale) + startOv.dy * scale, btnWidth, btnHeight, '#ffd700');
 
         // 以下UI只有在解锁玉蝉仙（达到50分）后才显示
         if (hasUnlockedStarter) {
             // 闯关模式按钮（开始游戏下方）
             var stageOv = uiConfig ? uiConfig.get('menu_stage_btn') : { dx: 0, dy: 0 };
-            drawButton('闯关模式', screenWidth / 2 + stageOv.dx * scale, screenHeight * 0.74 + stageOv.dy * scale, btnWidth, btnHeight, '#FF6B6B');
+            drawButton('闯关模式', screenWidth / 2 + stageOv.dx * scale, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.74 * scale) + stageOv.dy * scale, btnWidth, btnHeight, '#FF6B6B');
 
             // 左下角展开菜单
             var menuBtnSize = Math.floor(50 * scale);
@@ -369,8 +390,8 @@ function createMenuRenderer(deps) {
                 var character = Characters[mappedCharId];
 
                 if (character) {
-                    var baseX = screenWidth - 180;
-                    var baseY = screenHeight - 92;
+                    var baseX = screenWidth - Math.floor(180 * scale);
+                    var baseY = screenHeight - Math.floor(92 * scale);
 
                     var charExp = getCharacterExperience(currentCharId);
                     var expPercent = charExp.exp / charExp.maxExp;
@@ -414,6 +435,7 @@ function createMenuRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
         var leaderboardSharedCanvas = getLeaderboardSharedCanvas();
         var currentLeaderboardTab = getCurrentLeaderboardTab();
@@ -556,6 +578,7 @@ function createMenuRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
         var playerData = getPlayerData();
         var bestScore = getBestScore();
@@ -594,13 +617,13 @@ function createMenuRenderer(deps) {
 
         if (isSeasonMode) {
             // ===== 赛季模式结束界面 =====
-            drawText('🏆 赛季结束 🏆', screenWidth / 2, screenHeight / 4, Math.floor(36 * scale), '#E74C3C');
+            drawText('🏆 赛季结束 🏆', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 4 * scale), Math.floor(36 * scale), '#E74C3C');
 
-            drawText(seasonScore.toString(), screenWidth / 2, screenHeight / 3, Math.floor(64 * scale), '#ffd700');
+            drawText(seasonScore.toString(), screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale), Math.floor(64 * scale), '#ffd700');
 
-            drawText('赛季最高分: ' + seasonBestScore, screenWidth / 2, screenHeight / 3 + 50 * scale, Math.floor(20 * scale), '#ffffff');
+            drawText('赛季最高分: ' + seasonBestScore, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + 50 * scale, Math.floor(20 * scale), '#ffffff');
 
-            drawText('排名: 第 ' + seasonRank + ' 名', screenWidth / 2, screenHeight / 3 + 80 * scale, Math.floor(18 * scale), '#aaaaaa');
+            drawText('排名: 第 ' + seasonRank + ' 名', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + 80 * scale, Math.floor(18 * scale), '#aaaaaa');
 
             // 配置信息
             var charData = Characters[seasonSelection.character];
@@ -615,7 +638,7 @@ function createMenuRenderer(deps) {
             ctx.fillStyle = '#888888';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('配置: ' + (charData ? charData.name : '未知') + ' | ' + skillNames + ' | ' + petName, screenWidth / 2, screenHeight * 0.5);
+            ctx.fillText('配置: ' + (charData ? charData.name : '未知') + ' | ' + skillNames + ' | ' + petName, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.5 * scale));
 
             // 鼓励语
             var message = '继续努力！';
@@ -626,22 +649,22 @@ function createMenuRenderer(deps) {
             } else if (seasonScore >= 500) {
                 message = '出色的表现！';
             }
-            drawText(message, screenWidth / 2, screenHeight * 0.58, Math.floor(20 * scale), '#ffffff');
+            drawText(message, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.58 * scale), Math.floor(20 * scale), '#ffffff');
 
             // 按钮
             var seasonBtnWidth = Math.floor(160 * scale);
             var seasonBtnHeight = Math.floor(50 * scale);
 
-            drawButton('再来一局', screenWidth / 2, screenHeight * 0.68, seasonBtnWidth, seasonBtnHeight, '#E74C3C');
-            drawButton('查看排行榜', screenWidth / 2, screenHeight * 0.76, seasonBtnWidth, seasonBtnHeight, '#9b59b6');
-            drawButton('返回菜单', screenWidth / 2, screenHeight * 0.84, seasonBtnWidth, seasonBtnHeight, '#4a4a6a');
+            drawButton('再来一局', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.68 * scale), seasonBtnWidth, seasonBtnHeight, '#E74C3C');
+            drawButton('查看排行榜', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.76 * scale), seasonBtnWidth, seasonBtnHeight, '#9b59b6');
+            drawButton('返回菜单', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.84 * scale), seasonBtnWidth, seasonBtnHeight, '#4a4a6a');
         } else {
             // ===== 普通模式结束界面 =====
-            drawText('净化中止', screenWidth / 2, screenHeight / 3, Math.floor(48 * scale), '#ffd700');
+            drawText('净化中止', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale), Math.floor(48 * scale), '#ffd700');
 
-            drawText(score.toString(), screenWidth / 2, screenHeight / 2, Math.floor(64 * scale), '#ffd700');
+            drawText(score.toString(), screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale), Math.floor(64 * scale), '#ffd700');
 
-            drawText('最高分: ' + bestScore, screenWidth / 2, screenHeight / 2 + 50 * scale, Math.floor(24 * scale), '#ffffff');
+            drawText('最高分: ' + bestScore, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) + 50 * scale, Math.floor(24 * scale), '#ffffff');
 
             // 鼓励语
             var normalMsg = '不错！继续加油！';
@@ -652,15 +675,15 @@ function createMenuRenderer(deps) {
             } else if (score >= 50) {
                 normalMsg = '灵光璀璨！';
             }
-            drawText(normalMsg, screenWidth / 2, screenHeight * 0.6, Math.floor(24 * scale), '#ffffff');
+            drawText(normalMsg, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.6 * scale), Math.floor(24 * scale), '#ffffff');
 
             // 重新开始按钮
             var normalBtnWidth = Math.floor(200 * scale);
             var normalBtnHeight = Math.floor(60 * scale);
-            drawButton('再玩一次', screenWidth / 2, screenHeight * 0.70, normalBtnWidth, normalBtnHeight, '#ffd700');
+            drawButton('再玩一次', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.70 * scale), normalBtnWidth, normalBtnHeight, '#ffd700');
 
             // 返回菜单按钮
-            drawButton('返回菜单', screenWidth / 2, screenHeight * 0.78, normalBtnWidth, normalBtnHeight, '#87CEEB');
+            drawButton('返回菜单', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.78 * scale), normalBtnWidth, normalBtnHeight, '#87CEEB');
 
         }
     }
@@ -679,16 +702,16 @@ function createMenuRenderer(deps) {
         ctx.fillRect(0, 0, screenWidth, screenHeight);
 
         // 标题
-        drawText('灵域暂停', screenWidth / 2, screenHeight * 0.35, Math.floor(48 * scale), '#ffd700');
+        drawText('灵域暂停', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.35 * scale), Math.floor(48 * scale), '#ffd700');
 
         // 返回菜单按钮
-        drawButton('返回菜单', screenWidth / 2, screenHeight * 0.60, Math.floor(200 * scale), Math.floor(60 * scale), '#87CEEB');
+        drawButton('返回菜单', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.60 * scale), Math.floor(200 * scale), Math.floor(60 * scale), '#87CEEB');
 
         // 重新开始按钮
-        drawButton('重新开始', screenWidth / 2, screenHeight * 0.70, Math.floor(200 * scale), Math.floor(60 * scale), '#4CAF50');
+        drawButton('重新开始', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.70 * scale), Math.floor(200 * scale), Math.floor(60 * scale), '#4CAF50');
 
         // 继续游戏按钮
-        drawButton('继续净化', screenWidth / 2, screenHeight * 0.80, Math.floor(200 * scale), Math.floor(60 * scale), '#FFA500');
+        drawButton('继续净化', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.80 * scale), Math.floor(200 * scale), Math.floor(60 * scale), '#FFA500');
     }
 
     return {

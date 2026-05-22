@@ -10,6 +10,9 @@ function createMonsterDrawRenderer(deps) {
     var getCtx = deps.getCtx;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
+    var getScreenScale = deps.getScreenScale || function() { return 1; };
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var uiCore = deps.uiCore;
     var getFillRoundRect = deps.getFillRoundRect;
     var getMonsterTypes = deps.getMonsterTypes;
@@ -112,7 +115,9 @@ function createMonsterDrawRenderer(deps) {
         ctx.fillText(monsterType.emoji, m.x, drawY);
 
         var isStarThief = m.type === 'star_thief';
-        var starThiefHpBarY = isStarThief ? screenHeight / 3 - scaledSize / 2 - 15 : drawY - scaledSize / 2 - 15;
+        var designOffsetY = getDesignOffsetY();
+        var scale = getScreenScale();
+        var starThiefHpBarY = isStarThief ? designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) - scaledSize / 2 - Math.floor(15 * scale) : drawY - scaledSize / 2 - Math.floor(15 * scale);
         ctx.font = 'bold 12px sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
@@ -136,7 +141,7 @@ function createMonsterDrawRenderer(deps) {
                 color = '#FFD700';
             }
             ctx.fillStyle = color;
-            ctx.fillText(label, m.x, drawY - scaledSize / 2 - 25);
+            ctx.fillText(label, m.x, drawY - scaledSize / 2 - Math.floor(25 * scale));
         }
 
         var hpBarWidth = isStarThief ? 150 : (totalCount > 1 ? 80 : 120);
@@ -144,8 +149,8 @@ function createMonsterDrawRenderer(deps) {
         var hpBarCenterX = m.x;
         var hpBarX = hpBarCenterX - hpBarWidth / 2;
         var hpBarY = isStarThief
-            ? screenHeight / 3 - scaledSize / 2 - 15
-            : drawY - scaledSize / 2 - 15;
+            ? designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) - scaledSize / 2 - Math.floor(15 * scale)
+            : drawY - scaledSize / 2 - Math.floor(15 * scale);
 
         ctx.fillStyle = '#333333';
         fillRoundRect(ctx, hpBarX, hpBarY, hpBarWidth, hpBarHeight, 3);

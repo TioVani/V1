@@ -8,6 +8,7 @@ function createDebugRenderer(deps) {
     var getScreenScale = deps.getScreenScale;
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
+    var getGodMode = deps.getGodMode || function() { return false; };
 
     var DEBUG_BUTTONS = [
         { id: 'unlock_chars', label: '🔓 解锁所有角色', color: '#4CAF50' },
@@ -21,7 +22,8 @@ function createDebugRenderer(deps) {
         { id: 'unlock_pets', label: '🐾 解锁所有宠物', color: '#E91E63' },
         { id: 'unlock_all', label: '🌟 解锁所有功能', color: '#FF5722' },
         { id: 'dev_battle', label: '⚔ 战斗调参', color: '#FF69B4' },
-        { id: 'ui_editor', label: 'UI编辑器', color: '#9370DB' }
+        { id: 'ui_editor', label: 'UI编辑器', color: '#9370DB' },
+        { id: 'god_mode', label: '🛡️ 无敌模式', color: '#00E676' }
     ];
 
     function getLayout(scale) {
@@ -92,14 +94,16 @@ function createDebugRenderer(deps) {
             var bx = panelX + Math.floor(15 * scale) + col * (btnWidth + btnGap);
             var by = startY + row * (btnHeight + btnGap);
 
-            ctx.fillStyle = btn.color;
+            var isGodBtn = btn.id === 'god_mode';
+            var isGodActive = isGodBtn && getGodMode();
+            ctx.fillStyle = isGodActive ? '#FF1744' : btn.color;
             fillRoundRect(ctx, bx, by, btnWidth, btnHeight, Math.floor(6 * scale));
 
             ctx.fillStyle = '#ffffff';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(btn.label, bx + btnWidth / 2, by + btnHeight / 2);
+            ctx.fillText(isGodActive ? '🛡️ 无敌 ON' : btn.label, bx + btnWidth / 2, by + btnHeight / 2);
         }
 
         ctx.fillStyle = '#888888';

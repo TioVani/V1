@@ -18,6 +18,8 @@ function createMonsterSpawnSystem(deps) {
     var getGameConst = deps.getGameConst;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var getConfig = deps.getConfig;
     var getMonsterTypes = deps.getMonsterTypes;
     var getMonstersConfig = deps.getMonstersConfig;
@@ -189,7 +191,7 @@ function createMonsterSpawnSystem(deps) {
             id: Date.now() + Math.random(),
             active: true,
             x: x || screenWidth / 2,
-            y: y || screenHeight / 3,
+            y: y || getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * (screenWidth / 375)),
             size: 60,
             hp: 0,
             maxHp: 0,
@@ -408,7 +410,7 @@ function createMonsterSpawnSystem(deps) {
         var monsters = getMonsters();
         var activeMonsters = monsters.filter(function(m) { return m.active; });
         var totalAfterSpawn = activeMonsters.length + 1;
-        var positions = calculateMonsterPositions(totalAfterSpawn, screenHeight / 3);
+        var positions = calculateMonsterPositions(totalAfterSpawn, getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * (getScreenWidth() / 375)));
 
         // 重新布局所有怪物的位置
         for (let i = 0; i < activeMonsters.length; i++) {

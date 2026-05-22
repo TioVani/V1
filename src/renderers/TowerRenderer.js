@@ -9,6 +9,8 @@ function createTowerRenderer(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
     var uiCore = deps.uiCore;
     var isBackButtonClicked = deps.isBackButtonClicked || (uiCore && uiCore.isBackButtonClicked);
     var getAssets = deps.getAssets;
@@ -442,7 +444,7 @@ function createTowerRenderer(deps) {
         var monsterName = monster.name || '邪灵';
         var monsterSize = Math.floor(60 * scale);
         var monsterX = screenWidth / 2;
-        var monsterY = Math.floor(screenHeight / 3);
+        var monsterY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * scale);
 
         ctx.font = monsterSize + 'px sans-serif';
         ctx.textAlign = 'center';
@@ -500,7 +502,7 @@ function createTowerRenderer(deps) {
             else if (comboLevel >= 1) comboColor = '#00ff00';
 
             var comboX = screenWidth - 20;
-            var comboY = Math.floor(screenHeight / 3 + 150 * scale);
+            var comboY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * scale + 150 * scale);
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
 
