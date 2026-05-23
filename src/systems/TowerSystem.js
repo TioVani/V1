@@ -1900,7 +1900,7 @@ function createTowerSystem(deps) {
             victoryPopupTimer = null;
         }
 
-        setGameState('MENU');
+        setGameState('WORLDMAP');
         showToast({ title: '进度已保存，下次继续！', icon: 'none', duration: 2000 });
         saveData();
         Logger.info('爬塔进度已暂停保存，层数:', currentFloor);
@@ -1937,7 +1937,7 @@ function createTowerSystem(deps) {
         isHiddenPathBoss = false;
         stopCombatTimers();
 
-        setGameState('MENU');
+        setGameState('WORLDMAP');
         showToast({ title: '放弃挑战！获得' + totalGold + '灵币', icon: 'none', duration: 2000 });
         saveData();
     }

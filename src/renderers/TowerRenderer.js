@@ -26,6 +26,7 @@ function createTowerRenderer(deps) {
     var getCurrentCharacterConfig = deps.getCurrentCharacterConfig;
     var transitionTo = deps.transitionTo;
     var getAudioSystem = deps.getAudioSystem || function() { return null; };
+    var getWorldMapSystem = deps.getWorldMapSystem || function() { return null; };
     // 动画系统桥接函数
     var getUpdateCritAnimations = deps.getUpdateCritAnimations;
     var getDrawCritAnimations = deps.getDrawCritAnimations;
@@ -996,7 +997,10 @@ function createTowerRenderer(deps) {
             y >= exitBtnY && y <= exitBtnY + btnHeight) {
             towerSystem.resultData = null;
             if (audioSystem) audioSystem.playTowerExit();
-            transitionTo(GAME_STATE.MENU);
+            // 检查 barrier 解除
+            var wms = getWorldMapSystem ? getWorldMapSystem() : null;
+            if (wms) wms.checkBarriers(true);
+            transitionTo(GAME_STATE.WORLDMAP);
             return true;
         }
 

@@ -114,6 +114,19 @@ import { createTouchGestureSystem } from './systems/TouchGestureSystem.js';
 import { createSaturationState, SATURATION_COSTS } from './systems/SaturationState.js';
 import * as BrowserAPI from './platform/BrowserAPI.js';
 
+// 大世界探索系统
+import { createTitleRenderer } from './renderers/TitleRenderer.js';
+import { createCutsceneRenderer } from './renderers/CutsceneRenderer.js';
+import { createWorldMapSystem } from './systems/WorldMapSystem.js';
+import { createWorldMapRenderer } from './renderers/WorldMapRenderer.js';
+import { WORLDS, getWorldConfig, getAllWorldIds } from './config/WorldMapConfig.js';
+import { createWorldMapPlayer } from './systems/worldmap/WorldMapPlayer.js';
+import { createWorldMapEntity } from './systems/worldmap/WorldMapEntity.js';
+import { createWorldMapExploration } from './systems/worldmap/WorldMapExploration.js';
+import { createWorldMapUnlock } from './systems/worldmap/WorldMapUnlock.js';
+import { IMAGE_GROUPS, BEAUTY_CONFIG, AUDIO_CONFIG, CHARACTER_MAP } from './config/AssetConfig.js';
+import { createAssetManager } from './systems/AssetManager.js';
+
 var GameModules = {
     createStarThiefSystem: createStarThiefSystem,
     createTaskSystem: createTaskSystem,
@@ -306,7 +319,25 @@ var GameModules = {
     createUIEditorSystem: createUIEditorSystem,
 
     // 浏览器平台 API
-    BrowserAPI: BrowserAPI
+    BrowserAPI: BrowserAPI,
+
+    // 大世界探索系统
+    createTitleRenderer: createTitleRenderer,
+    createCutsceneRenderer: createCutsceneRenderer,
+    createWorldMapSystem: createWorldMapSystem,
+    createWorldMapRenderer: createWorldMapRenderer,
+    WORLDS: WORLDS,
+    getWorldConfig: getWorldConfig,
+    getAllWorldIds: getAllWorldIds,
+    createWorldMapPlayer: createWorldMapPlayer,
+    createWorldMapEntity: createWorldMapEntity,
+    createWorldMapExploration: createWorldMapExploration,
+    createWorldMapUnlock: createWorldMapUnlock,
+    IMAGE_GROUPS: IMAGE_GROUPS,
+    BEAUTY_CONFIG: BEAUTY_CONFIG,
+    AUDIO_CONFIG: AUDIO_CONFIG,
+    CHARACTER_MAP: CHARACTER_MAP,
+    createAssetManager: createAssetManager
 };
 
 // CommonJS 环境

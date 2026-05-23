@@ -168,24 +168,6 @@ function createMenuRenderer(deps) {
 
             ctx.fillStyle = 'rgba(15, 15, 26, 0.7)';
             ctx.fillRect(0, 0, screenWidth, screenHeight);
-
-            // 加法叠加纹理（lighter模式平铺，不拉伸）
-            if (Assets.bgOverlayImage && Assets.bgOverlayImage.complete) {
-                var ovImg = Assets.bgOverlayImage;
-                var ovW = ovImg.width;
-                var ovH = ovImg.height;
-                // 按纹理原始尺寸平铺（用scale保持视觉大小一致）
-                var sc = getScreenScale ? getScreenScale() : 1;
-                var tileW = ovW * sc;
-                var tileH = ovH * sc;
-                ctx.globalCompositeOperation = 'lighter';
-                for (var ty = 0; ty < screenHeight; ty += tileH) {
-                    for (var tx = 0; tx < screenWidth; tx += tileW) {
-                        ctx.drawImage(ovImg, tx, ty, tileW, tileH);
-                    }
-                }
-                ctx.globalCompositeOperation = 'source-over';
-            }
         } else {
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, screenWidth, screenHeight);
@@ -219,213 +201,227 @@ function createMenuRenderer(deps) {
             var stageOv = uiConfig ? uiConfig.get('menu_stage_btn') : { dx: 0, dy: 0 };
             drawButton('闯关模式', screenWidth / 2 + stageOv.dx * scale, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.74 * scale) + stageOv.dy * scale, btnWidth, btnHeight, '#FF6B6B');
 
-            // 左下角展开菜单
-            var menuBtnSize = Math.floor(50 * scale);
-            var menuBtnX = Math.floor(15 * scale);
-            var menuBtnY = screenHeight - Math.floor(65 * scale);
-            var menuItemHeight = Math.floor(40 * scale);
-            var menuItemWidth = Math.floor(100 * scale);
-            var menuGap = Math.floor(8 * scale);
+            renderMenuBar();
+        }
+    }
 
-            // 展开的菜单项（从下往上：背包、商城、排行榜、赛季）
-            var menuItems = [
-                { id: 'backpack', name: '背包', icon: '🎒', color: '#87CEEB' },
-                { id: 'shop', name: '商城', icon: '🛒', color: '#FF8C00' },
-                { id: 'leaderboard', name: '排行榜', icon: '🏆', color: '#9b59b6' },
-                { id: 'season', name: '赛季', icon: '⏳', color: '#E74C3C' },
-                { id: 'boss', name: '守护灵战', icon: '🏛️', color: '#FF6B6B' },
-                { id: 'tower', name: '无尽之塔', icon: '🏰', color: '#8B5CF6' },
-                { id: 'fusion', name: '融合', icon: '🔮', color: '#C084FC' },
-                { id: 'upgrade', name: '升级', icon: '⬆️', color: '#22C55E' }
-            ];
+    function renderMenuBar() {
+        var ctx = getCtx();
+        var screenWidth = getScreenWidth();
+        var screenHeight = getScreenHeight();
+        var scale = getScreenScale();
+        var Assets = getAssets();
+        var playerData = getPlayerData();
+        var debugPanelOpen = getDebugPanelOpen();
+        var Characters = getCharacters();
+        var uiScrollState = getUiScrollState();
+        var hasClaimableRewards = getHasClaimableRewards();
+        var fillRoundRect = getFillRoundRect();
 
-            // 如果菜单展开，先绘制展开的按钮
-            if (uiScrollState.menuExpanded) {
-                for (var mi = 0; mi < menuItems.length; mi++) {
-                    var item = menuItems[mi];
-                    var itemY = menuBtnY - (mi + 1) * (menuItemHeight + menuGap);
-                    var iconSize = Math.floor(32 * scale);
-                    var unlockResult = isModeUnlocked(item.id, playerData, getBestScore());
-                    var isLocked = !unlockResult.unlocked;
+        var hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        if (!hasUnlockedStarter) return;
 
-                    ctx.save();
-                    if (isLocked) ctx.globalAlpha = 0.4;
+        // 左下角展开菜单
+        var menuBtnSize = Math.floor(50 * scale);
+        var menuBtnX = Math.floor(15 * scale);
+        var menuBtnY = screenHeight - Math.floor(65 * scale);
+        var menuItemHeight = Math.floor(40 * scale);
+        var menuItemWidth = Math.floor(100 * scale);
+        var menuGap = Math.floor(8 * scale);
 
-                    if (!isLocked) {
-                        if (item.id === 'backpack' && Assets.backpackImage && Assets.backpackImage.complete) {
-                            ctx.drawImage(Assets.backpackImage, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
-                        } else if (item.id === 'leaderboard' && Assets.leaderboardIcon && Assets.leaderboardIcon.complete) {
-                            ctx.drawImage(Assets.leaderboardIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
-                        } else if (item.id === 'season' && Assets.seasonIcon && Assets.seasonIcon.complete) {
-                            ctx.drawImage(Assets.seasonIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
-                        } else if (item.id === 'shop' && Assets.shopIcon && Assets.shopIcon.complete) {
-                            ctx.drawImage(Assets.shopIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
-                        } else if (item.id === 'tower' && Assets.towerIcon && Assets.towerIcon.complete) {
-                            ctx.drawImage(Assets.towerIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
-                        } else if (item.id === 'boss' && Assets.bossImage && Assets.bossImage.complete) {
-                            ctx.drawImage(Assets.bossImage, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
-                        } else {
-                            ctx.fillStyle = '#ffffff';
-                            ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
-                            ctx.fillText(item.icon + ' ' + item.name, menuBtnX + menuItemWidth / 2, itemY + menuItemHeight / 2);
-                        }
+        var menuItems = [
+            { id: 'backpack', name: '背包', icon: '🎒', color: '#87CEEB' },
+            { id: 'shop', name: '商城', icon: '🛒', color: '#FF8C00' },
+            { id: 'leaderboard', name: '排行榜', icon: '🏆', color: '#9b59b6' },
+            { id: 'season', name: '赛季', icon: '⏳', color: '#E74C3C' },
+            { id: 'boss', name: '守护灵战', icon: '🏛️', color: '#FF6B6B' },
+            { id: 'tower', name: '无尽之塔', icon: '🏰', color: '#8B5CF6' },
+            { id: 'fusion', name: '融合', icon: '🔮', color: '#C084FC' },
+            { id: 'upgrade', name: '升级', icon: '⬆️', color: '#22C55E' }
+        ];
+
+        // 展开的菜单项
+        if (uiScrollState.menuExpanded) {
+            for (var mi = 0; mi < menuItems.length; mi++) {
+                var item = menuItems[mi];
+                var itemY = menuBtnY - (mi + 1) * (menuItemHeight + menuGap);
+                var iconSize = Math.floor(32 * scale);
+                var unlockResult = isModeUnlocked(item.id, playerData, getBestScore());
+                var isLocked = !unlockResult.unlocked;
+
+                ctx.save();
+                if (isLocked) ctx.globalAlpha = 0.4;
+
+                if (!isLocked) {
+                    if (item.id === 'backpack' && Assets.backpackImage && Assets.backpackImage.complete) {
+                        ctx.drawImage(Assets.backpackImage, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
+                    } else if (item.id === 'leaderboard' && Assets.leaderboardIcon && Assets.leaderboardIcon.complete) {
+                        ctx.drawImage(Assets.leaderboardIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
+                    } else if (item.id === 'season' && Assets.seasonIcon && Assets.seasonIcon.complete) {
+                        ctx.drawImage(Assets.seasonIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
+                    } else if (item.id === 'shop' && Assets.shopIcon && Assets.shopIcon.complete) {
+                        ctx.drawImage(Assets.shopIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
+                    } else if (item.id === 'tower' && Assets.towerIcon && Assets.towerIcon.complete) {
+                        ctx.drawImage(Assets.towerIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
+                    } else if (item.id === 'boss' && Assets.bossImage && Assets.bossImage.complete) {
+                        ctx.drawImage(Assets.bossImage, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
                     } else {
-                        ctx.fillStyle = '#999999';
+                        ctx.fillStyle = '#ffffff';
                         ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.fillText('🔒 ' + item.name, menuBtnX + menuItemWidth / 2, itemY + menuItemHeight / 2);
+                        ctx.fillText(item.icon + ' ' + item.name, menuBtnX + menuItemWidth / 2, itemY + menuItemHeight / 2);
                     }
-                    ctx.restore();
-                }
-            }
-
-            // 主菜单按钮（只显示图标，无背景）
-            var menuImg = uiScrollState.menuExpanded ? Assets.menuButtonImage : Assets.menuButtonImageCollapsed;
-            var collapsedOffset = !uiScrollState.menuExpanded;
-            if (menuImg && menuImg.complete) {
-                var menuImgRatio = menuImg.width / menuImg.height;
-                var drawSize = collapsedOffset ? Math.floor(menuBtnSize * 0.8) : menuBtnSize;
-                var drawX = collapsedOffset ? menuBtnX - Math.floor(20 * scale) : menuBtnX;
-                var drawY = menuBtnY;
-                if (collapsedOffset && uiConfig) {
-                    var menuBtnOv = uiConfig.get('menu_btn');
-                    drawX += menuBtnOv.dx * scale;
-                    drawY += menuBtnOv.dy * scale;
-                }
-                var drawW, drawH;
-                if (menuImgRatio >= 1) {
-                    drawH = drawSize;
-                    drawW = Math.floor(drawSize * menuImgRatio);
                 } else {
-                    drawW = drawSize;
-                    drawH = Math.floor(drawSize / menuImgRatio);
+                    ctx.fillStyle = '#999999';
+                    ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🔒 ' + item.name, menuBtnX + menuItemWidth / 2, itemY + menuItemHeight / 2);
                 }
-                ctx.drawImage(menuImg, drawX, drawY, drawW, drawH);
-            } else {
-                var fallbackX = menuBtnX + menuBtnSize / 2;
-                var fallbackY = menuBtnY + menuBtnSize / 2;
-                if (collapsedOffset && uiConfig) {
-                    var menuBtnOv2 = uiConfig.get('menu_btn');
-                    fallbackX += menuBtnOv2.dx * scale;
-                    fallbackY += menuBtnOv2.dy * scale;
-                }
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(uiScrollState.menuExpanded ? '✕' : '☰', fallbackX, fallbackY);
+                ctx.restore();
             }
+        }
 
-            // 设置按钮（左上角图标）
-            var settingIconSize = Math.floor(32 * scale);
-            var settingsOv = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
-            var settingIconX = Math.floor(18 * scale) + settingsOv.dx * scale;
-            var settingIconY = Math.floor(15 * scale) + settingsOv.dy * scale;
-
-            if (Assets.settingsIcon && Assets.settingsIcon.complete) {
-                ctx.drawImage(Assets.settingsIcon, settingIconX, settingIconY, settingIconSize, settingIconSize);
-            } else {
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('⚙️', settingIconX + settingIconSize / 2, settingIconY + settingIconSize / 2);
+        // 主菜单按钮
+        var menuImg = uiScrollState.menuExpanded ? Assets.menuButtonImage : Assets.menuButtonImageCollapsed;
+        var collapsedOffset = !uiScrollState.menuExpanded;
+        if (menuImg && menuImg.complete) {
+            var menuImgRatio = menuImg.width / menuImg.height;
+            var drawSize = collapsedOffset ? Math.floor(menuBtnSize * 0.8) : menuBtnSize;
+            var drawX = collapsedOffset ? menuBtnX - Math.floor(20 * scale) : menuBtnX;
+            var drawY = menuBtnY;
+            if (collapsedOffset && uiConfig) {
+                var menuBtnOv = uiConfig.get('menu_btn');
+                drawX += menuBtnOv.dx * scale;
+                drawY += menuBtnOv.dy * scale;
             }
-
-            // 调试按钮（右上角）
-            var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-            var debugIconSize = Math.floor(32 * scale);
-            var debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
-            var debugIconY = Math.floor(15 * scale) + debugOv.dy * scale;
-
-            ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
-            fillRoundRect(ctx, debugIconX, debugIconY, debugIconSize, debugIconSize, 4);
+            var drawW, drawH;
+            if (menuImgRatio >= 1) {
+                drawH = drawSize;
+                drawW = Math.floor(drawSize * menuImgRatio);
+            } else {
+                drawW = drawSize;
+                drawH = Math.floor(drawSize / menuImgRatio);
+            }
+            ctx.drawImage(menuImg, drawX, drawY, drawW, drawH);
+        } else {
+            var fallbackX = menuBtnX + menuBtnSize / 2;
+            var fallbackY = menuBtnY + menuBtnSize / 2;
+            if (collapsedOffset && uiConfig) {
+                var menuBtnOv2 = uiConfig.get('menu_btn');
+                fallbackX += menuBtnOv2.dx * scale;
+                fallbackY += menuBtnOv2.dy * scale;
+            }
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
+            ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('🔧', debugIconX + debugIconSize / 2, debugIconY + debugIconSize / 2);
+            ctx.fillText(uiScrollState.menuExpanded ? '✕' : '☰', fallbackX, fallbackY);
+        }
 
-            // 任务按钮（设置图标下方）
-            var taskIconSize = Math.floor(40 * scale);
-            var taskIconY = Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
-            var taskIconX = Math.floor(15 * scale);
+        // 设置按钮（左上角图标）
+        var settingIconSize = Math.floor(32 * scale);
+        var settingsOv = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
+        var settingIconX = Math.floor(18 * scale) + settingsOv.dx * scale;
+        var settingIconY = Math.floor(15 * scale) + settingsOv.dy * scale;
 
-            if (Assets.taskIcon && Assets.taskIcon.complete) {
-                ctx.drawImage(Assets.taskIcon, taskIconX, taskIconY, taskIconSize, taskIconSize);
-            } else {
-                ctx.fillStyle = '#4a4a6a';
-                fillRoundRect(ctx, taskIconX, taskIconY, taskIconSize, taskIconSize, 4);
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold ' + Math.floor(22 * scale) + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('📋', taskIconX + taskIconSize / 2, taskIconY + taskIconSize / 2);
-            }
+        if (Assets.settingsIcon && Assets.settingsIcon.complete) {
+            ctx.drawImage(Assets.settingsIcon, settingIconX, settingIconY, settingIconSize, settingIconSize);
+        } else {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⚙️', settingIconX + settingIconSize / 2, settingIconY + settingIconSize / 2);
+        }
 
-            // 任务红点角标（有可领取奖励时显示）
-            if (hasClaimableRewards()) {
-                var redDotX = Math.floor(15 * scale) + taskIconSize - Math.floor(6 * scale);
-                var redDotY = taskIconY + Math.floor(6 * scale);
-                var redDotRadius = Math.floor(8 * scale);
+        // 调试按钮（右上角）
+        var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
+        var debugIconSize = Math.floor(32 * scale);
+        var debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
+        var debugIconY = Math.floor(15 * scale) + debugOv.dy * scale;
 
-                ctx.beginPath();
-                ctx.arc(redDotX, redDotY, redDotRadius, 0, Math.PI * 2);
-                ctx.fillStyle = '#FF0000';
-                ctx.fill();
+        ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
+        fillRoundRect(ctx, debugIconX, debugIconY, debugIconSize, debugIconSize, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🔧', debugIconX + debugIconSize / 2, debugIconY + debugIconSize / 2);
 
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = Math.floor(2 * scale);
-                ctx.stroke();
-            }
+        // 任务按钮（设置图标下方）
+        var taskIconSize = Math.floor(40 * scale);
+        var taskIconY = Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
+        var taskIconX = Math.floor(15 * scale);
 
-            // 角色图标（右下角）
-            if (playerData.ownedCharacters && playerData.ownedCharacters.length > 0 && playerData.currentCharacterId) {
-                var currentCharId = playerData.currentCharacterId;
+        if (Assets.taskIcon && Assets.taskIcon.complete) {
+            ctx.drawImage(Assets.taskIcon, taskIconX, taskIconY, taskIconSize, taskIconSize);
+        } else {
+            ctx.fillStyle = '#4a4a6a';
+            fillRoundRect(ctx, taskIconX, taskIconY, taskIconSize, taskIconSize, 4);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold ' + Math.floor(22 * scale) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('📋', taskIconX + taskIconSize / 2, taskIconY + taskIconSize / 2);
+        }
 
-                var mappedCharId = getCharacterKey(currentCharId);
-                var character = Characters[mappedCharId];
+        // 任务红点角标
+        if (hasClaimableRewards()) {
+            var redDotX = Math.floor(15 * scale) + taskIconSize - Math.floor(6 * scale);
+            var redDotY = taskIconY + Math.floor(6 * scale);
+            var redDotRadius = Math.floor(8 * scale);
 
-                if (character) {
-                    var baseX = screenWidth - Math.floor(180 * scale);
-                    var baseY = screenHeight - Math.floor(92 * scale);
+            ctx.beginPath();
+            ctx.arc(redDotX, redDotY, redDotRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF0000';
+            ctx.fill();
 
-                    var charExp = getCharacterExperience(currentCharId);
-                    var expPercent = charExp.exp / charExp.maxExp;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = Math.floor(2 * scale);
+            ctx.stroke();
+        }
 
-                    var rightX = baseX + 90;
-                    var rightY = baseY - 2;
-                    var charIconSize = 50;
+        // 角色图标（右下角）
+        if (playerData.ownedCharacters && playerData.ownedCharacters.length > 0 && playerData.currentCharacterId) {
+            var currentCharId = playerData.currentCharacterId;
+            var mappedCharId = getCharacterKey(currentCharId);
+            var character = Characters[mappedCharId];
 
-                    if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete) {
-                        ctx.drawImage(Assets.characterImages[mappedCharId], rightX, rightY, charIconSize, charIconSize);
-                    } else {
-                        ctx.font = '48px sans-serif';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('👤', rightX + charIconSize / 2, rightY + charIconSize / 2);
-                    }
+            if (character) {
+                var baseX = screenWidth - Math.floor(180 * scale);
+                var baseY = screenHeight - Math.floor(92 * scale);
+                var charExp = getCharacterExperience(currentCharId);
+                var expPercent = charExp.exp / charExp.maxExp;
+                var rightX = baseX + 90;
+                var rightY = baseY - 2;
+                var charIconSize = 50;
 
-                    var expBarWidth = charIconSize;
-                    var expBarHeight = 8;
-                    var expBarX = rightX;
-                    var expBarY = rightY + charIconSize + 5;
-
-                    ctx.fillStyle = '#333333';
-                    fillRoundRect(ctx, expBarX, expBarY, expBarWidth, expBarHeight, 3);
-
-                    ctx.fillStyle = '#4CAF50';
-                    fillRoundRect(ctx, expBarX, expBarY, expBarWidth * expPercent, expBarHeight, 3);
-
-                    ctx.fillStyle = '#aaaaaa';
-                    ctx.font = '10px sans-serif';
+                if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete) {
+                    ctx.drawImage(Assets.characterImages[mappedCharId], rightX, rightY, charIconSize, charIconSize);
+                } else {
+                    ctx.font = '48px sans-serif';
                     ctx.textAlign = 'center';
-                    ctx.textBaseline = 'top';
-                    ctx.fillText('Lv.' + charExp.level, rightX + expBarWidth / 2, expBarY + expBarHeight + 3);
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('👤', rightX + charIconSize / 2, rightY + charIconSize / 2);
                 }
+
+                var expBarWidth = charIconSize;
+                var expBarHeight = 8;
+                var expBarX = rightX;
+                var expBarY = rightY + charIconSize + 5;
+
+                ctx.fillStyle = '#333333';
+                fillRoundRect(ctx, expBarX, expBarY, expBarWidth, expBarHeight, 3);
+                ctx.fillStyle = '#4CAF50';
+                fillRoundRect(ctx, expBarX, expBarY, expBarWidth * expPercent, expBarHeight, 3);
+
+                ctx.fillStyle = '#aaaaaa';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText('Lv.' + charExp.level, rightX + expBarWidth / 2, expBarY + expBarHeight + 3);
             }
         }
     }
@@ -716,6 +712,7 @@ function createMenuRenderer(deps) {
 
     return {
         renderMenu: renderMenu,
+        renderMenuBar: renderMenuBar,
         renderLeaderboard: renderLeaderboard,
         renderSettings: renderSettings,
         renderGameOver: renderGameOver,

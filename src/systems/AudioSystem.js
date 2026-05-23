@@ -6,19 +6,11 @@
 
 import { createWebAudioContext, getFileSystemManager, env } from '../platform/BrowserAPI.js';
 
-function createAudioSystem() {
+function createAudioSystem(deps) {
+    var sfxList = (deps && deps.sfx) || [];
+
     var ctx = null;
-    var clickBuffer = null;
-    var menuClickBuffer = null;
-    var towerClickBuffer = null;
-    var backpackBuffer = null;
-    var monsterHitBuffer = null;
-    var meteorBuffer = null;
-    var meteorIceBuffer = null;
-    var dodgeHealBuffer = null;
-    var petAttackBuffer = null;
-    var meteorImpactBuffer = null;
-    var monsterDodgeBuffer = null;
+    var _buffers = {};
 
     function init() {
         try {
@@ -28,27 +20,18 @@ function createAudioSystem() {
         }
         if (!ctx) return;
 
-        _loadBuffer('assets/audio/click.mp3', function(buf) { clickBuffer = buf; });
-        _loadBuffer('assets/audio/menu_S.wav', function(buf) { menuClickBuffer = buf; });
-        _loadBuffer('assets/audio/tower_click.mp3', function(buf) { towerClickBuffer = buf; });
-        _loadBuffer('assets/audio/backpack_click.mp3', function(buf) { backpackBuffer = buf; });
-        _loadBuffer('assets/audio/monster_hit.mp3', function(buf) { monsterHitBuffer = buf; });
-        _loadBuffer('assets/audio/meteor.mp3', function(buf) { meteorBuffer = buf; });
-        _loadBuffer('assets/audio/meteor_ice.mp3', function(buf) { meteorIceBuffer = buf; });
-        _loadBuffer('assets/audio/dodge_heal.mp3', function(buf) { dodgeHealBuffer = buf; });
-        _loadBuffer('assets/audio/pet_attack.mp3', function(buf) { petAttackBuffer = buf; });
-        _loadBuffer('assets/audio/meteor_impact.mp3', function(buf) { meteorImpactBuffer = buf; });
-        _loadBuffer('assets/audio/monster_dodge.mp3', function(buf) { monsterDodgeBuffer = buf; });
+        for (var i = 0; i < sfxList.length; i++) {
+            _loadBuffer(sfxList[i].src, sfxList[i].id);
+        }
     }
 
-function _loadBuffer(src, callback) {
+    function _loadBuffer(src, id) {
         var url = src.charAt(0) === '/' ? src : '/' + src;
         fetch(url).then(function(r) { return r.ok ? r.arrayBuffer() : null; })
-            .then(function(data) { if (data) ctx.decodeAudioData(data, callback, function() {}); })
+            .then(function(data) { if (data) ctx.decodeAudioData(data, function(buf) { _buffers[id] = buf; }, function() {}); })
             .catch(function() {});
     }
 
-    // playbackRate 0.85~1.15 随机变调，听起来有变化但不突兀
     function _play(buffer, rateMin, rateMax, volume) {
         if (!ctx || !buffer) return;
         try {
@@ -68,63 +51,53 @@ function _loadBuffer(src, callback) {
     }
 
     function playClick() {
-        _play(clickBuffer, 0.85, 1.15, 0.5);
+        _play(_buffers['click'], 0.85, 1.15, 0.5);
     }
 
     function playMenuClick() {
-        _play(menuClickBuffer, 1, 1, 0.5);
+        _play(_buffers['menuClick'], 1, 1, 0.5);
     }
 
     function playTowerClick() {
-        _play(towerClickBuffer, 0.9, 1.1, 0.5);
+        _play(_buffers['towerClick'], 0.9, 1.1, 0.5);
     }
 
     function playTowerExit() {
-        _play(towerClickBuffer, 0.65, 0.75, 0.5);
+        _play(_buffers['towerClick'], 0.65, 0.75, 0.5);
     }
 
     function playBackpack() {
-        _play(backpackBuffer, 0.85, 1.15, 0.8);
+        _play(_buffers['backpack'], 0.85, 1.15, 0.8);
     }
 
     function playMonsterDefeat() {
-        _play(monsterHitBuffer, 0.75, 1.25, 0.5);
+        _play(_buffers['monsterHit'], 0.75, 1.25, 0.5);
     }
 
     function playMeteor(starType) {
-        var buf = (starType === 'ice') ? meteorIceBuffer : meteorBuffer;
+        var buf = (starType === 'ice') ? _buffers['meteorIce'] : _buffers['meteor'];
         _play(buf, 0.9, 1.1, 0.1);
     }
 
     function playDodgeHeal() {
-        _play(dodgeHealBuffer, 0.9, 1.1, 0.5);
+        _play(_buffers['dodgeHeal'], 0.9, 1.1, 0.5);
     }
 
     function playPetAttack() {
-        _play(petAttackBuffer, 0.6, 1.4, 0.3);
+        _play(_buffers['petAttack'], 0.6, 1.4, 0.3);
     }
 
     function playMeteorImpact() {
-        _play(meteorImpactBuffer, 0.85, 1.15, 0.5);
+        _play(_buffers['meteorImpact'], 0.85, 1.15, 0.5);
     }
 
     function playMonsterDodge() {
-        _play(monsterDodgeBuffer, 0.9, 1.1, 0.2);
+        _play(_buffers['monsterDodge'], 0.9, 1.1, 0.2);
     }
 
     function destroy() {
         if (ctx) { ctx.close(); ctx = null; }
-        clickBuffer = null;
-        menuClickBuffer = null;
-        towerClickBuffer = null;
-        backpackBuffer = null;
-        monsterHitBuffer = null;
-        meteorBuffer = null;
-        meteorIceBuffer = null;
-        dodgeHealBuffer = null;
-        petAttackBuffer = null;
-        meteorImpactBuffer = null;
-        monsterDodgeBuffer = null;
+        _buffers = {};
     }
 
     return {

@@ -15,6 +15,16 @@ function createStateMachine(deps) {
     // 合法转移图 — 键是源状态，值是允许的目标状态集合
     // 未列出的转移视为合法（宽松模式，避免阻断正常运行）
     var transitions = {
+        'title': ['loading'],
+        'loading': ['cutscene'],
+        'cutscene': ['worldmap'],
+        'worldmap': [
+            'tutorial', 'boss_select', 'stage_select', 'season_menu', 'tower',
+            'tower_resume', 'squad', 'shop', 'backpack', 'leaderboard',
+            'settings', 'tasks', 'gacha_animation', 'debug', 'faith', 'nostalgic',
+            'fusion', 'upgrade'
+        ],
+        'tutorial': ['worldmap', 'tutorial'],
         'menu': [
             'playing', 'boss_select', 'stage_select', 'season_menu', 'tower',
             'tower_resume', 'squad', 'shop', 'backpack', 'leaderboard',

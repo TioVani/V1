@@ -8,6 +8,11 @@ const _warn = _isDev ? console.warn.bind(console) : function() {};
 
 // 游戏状态
 const GAME_STATE = {
+    TITLE: 'title',
+    LOADING: 'loading',
+    CUTSCENE: 'cutscene',
+    WORLDMAP: 'worldmap',
+    TUTORIAL: 'tutorial',
     MENU: 'menu',
     PLAYING: 'playing',
     PAUSED: 'paused',
@@ -42,8 +47,8 @@ const GAME_STATE = {
 // 游戏变量
 let canvas = null;
 let ctx = null;
-let state = GAME_STATE.MENU;
-let previousState = GAME_STATE.MENU;  // 记录上一个状态，用于背包返回
+let state = GAME_STATE.TITLE;
+let previousState = GAME_STATE.TITLE;  // 记录上一个状态，用于背包返回
 let score = 0;
 let timeLeft = 60;
 let godMode = false;
@@ -187,6 +192,11 @@ var createUpgradeSkillStrategy = _gameModules.createUpgradeSkillStrategy;
 var createUpgradePetStrategy = _gameModules.createUpgradePetStrategy;
 var createUpgradeStarStrategy = _gameModules.createUpgradeStarStrategy;
 var createUpgradeRenderer = _gameModules.createUpgradeRenderer;
+var createAssetManager = _gameModules.createAssetManager;
+var IMAGE_GROUPS = _gameModules.IMAGE_GROUPS;
+var BEAUTY_CONFIG = _gameModules.BEAUTY_CONFIG;
+var CHARACTER_MAP = _gameModules.CHARACTER_MAP;
+var assetManager = null;
 var upgradeEngine = null;
 var upgradeRenderer = null;
 let starThief = null;
@@ -488,6 +498,22 @@ var handleAfkButtonTouch = null;
 var handleAfkResultTouch = null;
 // 菜单/赛季/任务/调试渲染桥接
 var renderMenu = null;
+var renderMenuBar = null;
+// 大世界探索系统
+var titleRenderer = null;
+var cutsceneRenderer = null;
+var worldMapSystem = null;
+var worldMapRenderer = null;
+var _keysDown = {};
+var _joystickActive = false;
+var _joystickStartX = 0;
+var _joystickStartY = 0;
+var _joystickDX = 0;
+var _joystickDY = 0;
+// 教学战斗标志
+var _isTutorialBattle = false;
+var _tutorialEntityId = null;
+var _worldMapBattleEntityId = null;
 var renderGameOver = null;
 var renderPausedMenu = null;
 var renderLeaderboard = null;
@@ -715,6 +741,7 @@ let selectedChapter = 1;           // 当前选择的章节
 // 游戏资源
 const Assets = {
     backgroundImage: null,
+    titleBgImage: null,
     fightBgImage: null,     // 战斗场景背景图片（初始）
     fightBgImage2: null,    // 战斗场景背景图片（2000分解锁）
     bgPositionCache: null,  // 缓存背景图片位置信息
@@ -1026,255 +1053,42 @@ function init() {
         if (starSystem) starSystem.setStarMode(starMode);
         _log('灵韵模式:', starMode);
         
-        // 加载背景图片
-        Assets.backgroundImage = $P.createImage();
-        Assets.backgroundImage.src = 'assets/images/background.png';
-        Assets.backgroundImage.onload = function() {
-            _log('背景图片加载成功');
-        };
-        Assets.backgroundImage.onerror = function() {
-            _log('背景图片加载失败，使用纯色背景');
-            Assets.backgroundImage = null;
-        };
+        // ==================== 资源管理器 ====================
+        assetManager = createAssetManager({
+            createImage: function() { return $P.createImage(); },
+            imageGroups: IMAGE_GROUPS,
+            beautyConfig: BEAUTY_CONFIG,
+            characterMap: CHARACTER_MAP
+        });
+        assetManager.loadAll();
+        _log('AssetManager 加载全部分组');
 
-        // 加载战斗场景背景图片（初始）
-        Assets.fightBgImage = $P.createImage();
-        Assets.fightBgImage.src = 'assets/images/Fight_01_BG.jpg';
-        Assets.fightBgImage.onload = function() {
-            _log('战斗背景图片1加载成功');
-        };
-        Assets.fightBgImage.onerror = function() {
-            _log('战斗背景图片1加载失败');
-            Assets.fightBgImage = null;
-        };
+        // 适配层：回填 Assets 对象，渲染器零改动
+        Assets.backgroundImage = assetManager.get('backgroundImage');
+        Assets.titleBgImage = assetManager.get('titleBgImage');
+        Assets.fightBgImage = assetManager.get('fightBgImage');
+        Assets.fightBgImage2 = assetManager.get('fightBgImage2');
+        Assets.normalStarImage = assetManager.get('normalStarImage');
+        Assets.iceStarImage = assetManager.get('iceStarImage');
+        Assets.fireStarImage = assetManager.get('fireStarImage');
+        Assets.backpackImage = assetManager.get('backpackImage');
+        Assets.menuButtonImage = assetManager.get('menuButtonImage');
+        Assets.menuButtonImageCollapsed = assetManager.get('menuButtonImageCollapsed');
+        Assets.settingsIcon = assetManager.get('settingsIcon');
+        Assets.goldIcon = assetManager.get('goldIcon');
+        Assets.starSourceIcon = assetManager.get('starSourceIcon');
+        Assets.backIcon = assetManager.get('backIcon');
+        Assets.taskIcon = assetManager.get('taskIcon');
+        Assets.leaderboardIcon = assetManager.get('leaderboardIcon');
+        Assets.seasonIcon = assetManager.get('seasonIcon');
+        Assets.shopIcon = assetManager.get('shopIcon');
+        Assets.towerIcon = assetManager.get('towerIcon');
+        Assets.bossImage = assetManager.get('bossImage');
+        Assets.characterImages.starter = assetManager.get('char_starter');
+        Assets.characterImages.warrior = assetManager.get('char_warrior');
+        Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
+        Assets.beautyFrames = assetManager.getFrames('beauty');
 
-        // 加载战斗场景背景图片（2000分解锁）
-        Assets.fightBgImage2 = $P.createImage();
-        Assets.fightBgImage2.src = 'assets/images/Fight_02_BG.jpg';
-        Assets.fightBgImage2.onload = function() {
-            _log('战斗背景图片2加载成功');
-        };
-        Assets.fightBgImage2.onerror = function() {
-            _log('战斗背景图片2加载失败');
-            Assets.fightBgImage2 = null;
-        };
-
-        // 加载灵韵图片
-        Assets.normalStarImage = $P.createImage();
-        Assets.normalStarImage.src = 'assets/images/ST.png';
-        Assets.normalStarImage.onload = function() {
-            _log('灵韵图片加载成功');
-        };
-        Assets.normalStarImage.onerror = function() {
-            _log('灵韵图片加载失败，使用默认emoji');
-            Assets.normalStarImage = null;
-        };
-
-        // 加载冰灵图片
-        Assets.iceStarImage = $P.createImage();
-        Assets.iceStarImage.src = 'assets/images/IST.png';
-        Assets.iceStarImage.onload = function() {
-            _log('冰灵图片加载成功');
-        };
-        Assets.iceStarImage.onerror = function() {
-            _log('冰灵图片加载失败，使用默认emoji');
-            Assets.iceStarImage = null;
-        };
-
-        // 加载火灵图片
-        Assets.fireStarImage = $P.createImage();
-        Assets.fireStarImage.src = 'assets/images/FST.png';
-        Assets.fireStarImage.onload = function() {
-            _log('火灵图片加载成功');
-        };
-        Assets.fireStarImage.onerror = function() {
-            _log('火灵图片加载失败，使用默认emoji');
-            Assets.fireStarImage = null;
-        };
-
-        // 加载灵光发光序列帧（16帧 GC_0000~GC_0015）
-        Assets.beautyFrames = [];
-        for (var bf = 0; bf < 16; bf++) {
-            var bfImg = $P.createImage();
-            bfImg.src = 'assets/images/beauty/GC_' + bf.toString().padStart(4, '0') + '.png';
-            Assets.beautyFrames.push(bfImg);
-        }
-
-        // 加载背包UI图片
-        Assets.backpackImage = $P.createImage();
-        Assets.backpackImage.src = 'assets/images/BPK.png';
-        Assets.backpackImage.onload = function() {
-            _log('背包图片加载成功');
-        };
-        Assets.backpackImage.onerror = function() {
-            _log('背包图片加载失败');
-            Assets.backpackImage = null;
-        };
-
-        // 加载菜单展开按钮图片（展开状态）
-        Assets.menuButtonImage = $P.createImage();
-        Assets.menuButtonImage.src = 'assets/images/WS.png';
-        Assets.menuButtonImage.onload = function() {
-            _log('菜单按钮图片(展开)加载成功');
-        };
-        Assets.menuButtonImage.onerror = function() {
-            _log('菜单按钮图片(展开)加载失败');
-            Assets.menuButtonImage = null;
-        };
-
-        // 加载菜单展开按钮图片（未展开状态）
-        Assets.menuButtonImageCollapsed = $P.createImage();
-        Assets.menuButtonImageCollapsed.src = 'assets/images/WSC.png';
-        Assets.menuButtonImageCollapsed.onload = function() {
-            _log('菜单按钮图片(未展开)加载成功');
-        };
-        Assets.menuButtonImageCollapsed.onerror = function() {
-            _log('菜单按钮图片(未展开)加载失败');
-            Assets.menuButtonImageCollapsed = null;
-        };
-
-        // 加载设置图标
-        Assets.settingsIcon = $P.createImage();
-        Assets.settingsIcon.src = 'assets/images/GEAR.png';
-        Assets.settingsIcon.onload = function() {
-            _log('设置图标加载成功');
-        };
-        Assets.settingsIcon.onerror = function() {
-            _log('设置图标加载失败，使用默认emoji');
-            Assets.settingsIcon = null;
-        };
-
-        // 加载角色图片
-        Assets.characterImages.starter = $P.createImage();
-        Assets.characterImages.starter.src = 'assets/images/XXSZ_HF.png';
-        Assets.characterImages.starter.onload = function() {
-            _log('青铜小鼎图片加载成功');
-        };
-        Assets.characterImages.starter.onerror = function() {
-            _log('青铜小鼎图片加载失败，使用默认emoji');
-            Assets.characterImages.starter = null;
-        };
-
-        // 加载器灵战士图片（主页小图）
-        Assets.characterImages.warrior = $P.createImage();
-        Assets.characterImages.warrior.src = 'assets/images/XXZS_HF.png';
-        Assets.characterImages.warrior.onload = function() {
-            _log('器灵战士图片加载成功');
-        };
-        Assets.characterImages.warrior.onerror = function() {
-            _log('器灵战士图片加载失败，使用默认emoji');
-            Assets.characterImages.warrior = null;
-        };
-        
-        // 加载器灵战士立绘图片（编队界面大图）
-        Assets.characterImages.warriorPortrait = $P.createImage();
-        Assets.characterImages.warriorPortrait.src = 'assets/images/XXZS.png';
-        Assets.characterImages.warriorPortrait.onload = function() {
-            _log('器灵战士立绘图片加载成功');
-        };
-        Assets.characterImages.warriorPortrait.onerror = function() {
-            _log('器灵战士立绘图片加载失败');
-            Assets.characterImages.warriorPortrait = null;
-        };
-
-        // 加载灵币图标
-        Assets.goldIcon = $P.createImage();
-        Assets.goldIcon.src = 'assets/images/GL.png';
-        Assets.goldIcon.onload = function() {
-            _log('灵币图标加载成功');
-        };
-        Assets.goldIcon.onerror = function() {
-            _log('灵币图标加载失败，使用默认emoji');
-            Assets.goldIcon = null;
-        };
-
-        // 加载器灵石图标
-        Assets.starSourceIcon = $P.createImage();
-        Assets.starSourceIcon.src = 'assets/images/SST.png';
-        Assets.starSourceIcon.onload = function() {
-            _log('器灵石图标加载成功');
-        };
-        Assets.starSourceIcon.onerror = function() {
-            _log('器灵石图标加载失败，使用默认emoji');
-            Assets.starSourceIcon = null;
-        };
-
-        // 加载返回按钮图标
-        Assets.backIcon = $P.createImage();
-        Assets.backIcon.src = 'assets/images/BK.png';
-        Assets.backIcon.onload = function() {
-            _log('返回按钮图标加载成功');
-        };
-        Assets.backIcon.onerror = function() {
-            _log('返回按钮图标加载失败，使用默认文字');
-            Assets.backIcon = null;
-        };
-
-        // 加载任务图标
-        Assets.taskIcon = $P.createImage();
-        Assets.taskIcon.src = 'assets/images/TKS.png';
-        Assets.taskIcon.onload = function() {
-            _log('任务图标加载成功');
-        };
-        Assets.taskIcon.onerror = function() {
-            _log('任务图标加载失败，使用默认文字');
-            Assets.taskIcon = null;
-        };
-
-        // 加载排行榜图标
-        Assets.leaderboardIcon = $P.createImage();
-        Assets.leaderboardIcon.src = 'assets/images/TOP.png';
-        Assets.leaderboardIcon.onload = function() {
-            _log('排行榜图标加载成功');
-        };
-        Assets.leaderboardIcon.onerror = function() {
-            _log('排行榜图标加载失败，使用默认文字');
-            Assets.leaderboardIcon = null;
-        };
-
-        // 加载赛季图标
-        Assets.seasonIcon = $P.createImage();
-        Assets.seasonIcon.src = 'assets/images/CS.png';
-        Assets.seasonIcon.onload = function() {
-            _log('赛季图标加载成功');
-        };
-        Assets.seasonIcon.onerror = function() {
-            _log('赛季图标加载失败，使用默认文字');
-            Assets.seasonIcon = null;
-        };
-
-        // 加载商城图标
-        Assets.shopIcon = $P.createImage();
-        Assets.shopIcon.src = 'assets/images/SP.png';
-        Assets.shopIcon.onload = function() {
-            _log('商城图标加载成功');
-        };
-        Assets.shopIcon.onerror = function() {
-            _log('商城图标加载失败，使用默认文字');
-            Assets.shopIcon = null;
-        };
-
-        // 加载无尽塔图标
-        Assets.towerIcon = $P.createImage();
-        Assets.towerIcon.src = 'assets/images/IFT.png';
-        Assets.towerIcon.onload = function() {
-            _log('无尽塔图标加载成功');
-        };
-        Assets.towerIcon.onerror = function() {
-            _log('无尽塔图标加载失败，使用默认文字');
-            Assets.towerIcon = null;
-        };
-
-        // 加载Boss战图标
-        Assets.bossImage = $P.createImage();
-        Assets.bossImage.src = 'assets/images/BOSS.png';
-        Assets.bossImage.onload = function() {
-            _log('Boss图标加载成功');
-        };
-        Assets.bossImage.onerror = function() {
-            _log('Boss图标加载失败，使用默认emoji');
-            Assets.bossImage = null;
-        };
 
         // 初始化偷灵者模块
         starThief = createStarThiefSystem({
@@ -1579,7 +1393,7 @@ function init() {
         _log('材料使用系统模块初始化完成');
 
         // 初始化音频系统
-        audioSystem = createAudioSystem();
+        audioSystem = createAudioSystem({ sfx: AUDIO_CONFIG.sfx });
         audioSystem.init();
 
         // 初始化动画系统模块
@@ -2018,6 +1832,7 @@ function init() {
             uiConfig: uiConfig
         });
         renderMenu = function() { menuRenderer.renderMenu(); };
+        renderMenuBar = function() { menuRenderer.renderMenuBar(); };
         renderGameOver = function() { menuRenderer.renderGameOver(); };
         renderPausedMenu = function() { menuRenderer.renderPausedMenu(); };
         renderLeaderboard = function() { menuRenderer.renderLeaderboard(); };
@@ -2442,6 +2257,7 @@ function init() {
             isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
             transitionTo: function(s) { stateMachine.transitionTo(s); },
             getAudioSystem: function() { return audioSystem; },
+            getWorldMapSystem: function() { return worldMapSystem; },
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
@@ -3223,7 +3039,32 @@ function init() {
             if (touchGestureSystem) touchGestureSystem.reset();
             gameLifecycleSystem.startGame();
         };
-        endGame = function() { gameLifecycleSystem.endGame(); };
+        endGame = function() {
+            gameLifecycleSystem.endGame();
+            // 教学战斗结束：胜利直接回世界地图
+            if (_isTutorialBattle) {
+                _log('教学战斗结束，返回世界地图');
+                _isTutorialBattle = false;
+                godMode = false;
+                // 清理定时器
+                clearTimerInterval();
+                clearMoveInterval();
+                clearMonsterAttackInterval();
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                // 教学胜利回调
+                worldMapSystem.onTutorialWin();
+                worldMapSystem.markNeedsRespawn();
+                worldMapSystem.restoreReturnPosition();
+                worldMapSystem.saveProgress();
+                state = GAME_STATE.WORLDMAP;
+                _tutorialEntityId = null;
+            } else if (_worldMapBattleEntityId) {
+                // 大地图敌人战斗结束，标记实体为已解决
+                worldMapSystem.resolveEntity(_worldMapBattleEntityId);
+                worldMapSystem.saveProgress();
+                _worldMapBattleEntityId = null;
+            }
+        };
         pauseGame = function() { gameLifecycleSystem.pauseGame(); };
         resumeGame = function() { gameLifecycleSystem.resumeGame(); };
         restartGame = function() {
@@ -3302,7 +3143,14 @@ function init() {
         // ===== StateMachine — 状态转移校验 =====
         stateMachine = createStateMachine({
             getGameState: function() { return state; },
-            setGameStateRaw: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameStateRaw: function(s) {
+                state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
+                if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
+                    worldMapSystem.markNeedsRespawn();
+                    worldMapSystem.restoreReturnPosition();
+                    worldMapSystem.saveProgress();
+                }
+            },
             getPreviousState: function() { return previousState; },
             setPreviousState: function(s) { previousState = s; }
         });
@@ -3316,14 +3164,8 @@ function init() {
         $P.onTouchMove(handleTouchMove);
         $P.onTouchEnd(handleTouchEnd);
         
-        // 启动渲染循环（requestAnimationFrame）
-        function renderLoop() {
-            render();
-            _rafId = requestAnimationFrame(renderLoop);
-        }
-        _rafId = requestAnimationFrame(renderLoop);
-        
-        // 挂机系统 - 生命周期钩子（持续挂机模式）
+        // 启动渲染循环（requestAnimationFrame）— 移到所有系统初始化之后
+        // （见文件末尾，大世界探索系统初始化之后）
         $P.onHide(function() {
             _log('游戏隐藏 - 保存数据');
             savePlayerData(true);
@@ -3341,6 +3183,159 @@ function init() {
         }
         
         _log('游戏初始化完成');
+
+        // ===== 大世界探索系统初始化 =====
+        titleRenderer = _gameModules.createTitleRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getAssets: function() { return Assets; },
+            onStartClick: function() {
+                _log('点击开始游戏');
+                stateMachine.transitionTo(GAME_STATE.LOADING);
+                setTimeout(function() {
+                    stateMachine.transitionTo(GAME_STATE.CUTSCENE);
+                    if (cutsceneRenderer) {
+                        var skippable = !!(playerData.worldMapProgress && playerData.worldMapProgress.cutsceneWatched);
+                        cutsceneRenderer.loadCutscene({
+                            skippable: skippable,
+                            frames: [
+                                { text: '在人类出现之前，世界没有"灵"。', duration: 4, bgColor: '#0a0a15', textColor: '#8a7a5a' },
+                                { text: '当第一个人类打磨出第一件石器——\n他的意识向那块石头投射了第一道意义能量。', duration: 5, bgColor: '#0a0a15', textColor: '#e8d5a3' },
+                                { text: '这就是最早的"灵"。', duration: 3, bgColor: '#0a0a15', textColor: '#8a7a5a' },
+                                { text: '而你，即将踏入这片灵域……', duration: 4, bgColor: '#0a0a15', textColor: '#e8d5a3' }
+                            ]
+                        });
+                        if (!skippable) {
+                            if (!playerData.worldMapProgress) playerData.worldMapProgress = { currentWorldId: 'world_01', worlds: {} };
+                            playerData.worldMapProgress.cutsceneWatched = true;
+                            savePlayerData(true);
+                        }
+                    }
+                }, 100);
+            }
+        });
+
+        cutsceneRenderer = _gameModules.createCutsceneRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            onComplete: function() {
+                _log('过场播放完毕，进入大地图');
+                stateMachine.transitionTo(GAME_STATE.WORLDMAP);
+                if (worldMapSystem) worldMapSystem.loadWorld('world_01');
+            }
+        });
+
+        worldMapSystem = _gameModules.createWorldMapSystem({
+            showToast: function(opts) { $P.showToast(opts); },
+            savePlayerData: function(imm) { savePlayerData(imm); },
+            getPlayerData: function() { return playerData; },
+            loadPlayerData: function() { loadPlayerData(); },
+            onInteractResult: function(result) {
+                _log('实体交互结果:', result.type, result.entity ? result.entity.id : '');
+                if (result.type === 'tutorial') {
+                    _log('触发教学战斗');
+                    _isTutorialBattle = true;
+                    _tutorialEntityId = result.entity.id;
+                    worldMapSystem.snapshotReturnPosition();
+                    // 教学战斗开启无敌，防止死亡
+                    godMode = true;
+                    startGame();
+                }
+                if (result.type === 'enemy') {
+                    _log('触发敌人战斗:', result.entity.id);
+                    _worldMapBattleEntityId = result.entity.id;
+                    worldMapSystem.snapshotReturnPosition();
+                    startGame();
+                }
+                if (result.type === 'tower') {
+                    _log('触发无尽之塔');
+                    worldMapSystem.snapshotReturnPosition();
+                    if (result.entity.unlockMenuId) {
+                        worldMapSystem.unlockMenu(result.entity.unlockMenuId);
+                    }
+                    worldMapSystem.saveProgress();
+                    if (playerData.infiniteTower && playerData.infiniteTower.isPaused) {
+                        stateMachine.transitionTo(GAME_STATE.TOWER_RESUME);
+                    } else {
+                        towerSystem.init();
+                        stateMachine.transitionTo(GAME_STATE.TOWER);
+                    }
+                }
+                if (result.type === 'chest') {
+                    _log('开启宝箱:', result.entity.id, '奖励:', JSON.stringify(result.reward));
+                    if (result.reward) {
+                        if (result.reward.currency) {
+                            playerData.starSource = (playerData.starSource || 0) + result.reward.currency;
+                        }
+                    }
+                    worldMapSystem.saveProgress();
+                }
+                if (result.type === 'portal') {
+                    _log('传送到:', result.targetWorld);
+                    var fromWorld = worldMapSystem.getWorldId();
+                    worldMapSystem.saveProgress();
+                    worldMapSystem.loadWorld(result.targetWorld, fromWorld);
+                }
+                if (result.type === 'portal_locked') {
+                    _log('传送门未解锁:', result.message);
+                    var pct = Math.floor((result.current || 0) * 100);
+                    var req = Math.floor((result.required || 0) * 100);
+                    $P.showToast({ title: result.message || '探索度未达标', icon: 'none', duration: 2000 });
+                }
+                if (result.type === 'barrier') {
+                    _log('屏障:', result.lockedMessage);
+                    $P.showToast({ title: result.lockedMessage || '无法通行', icon: 'none', duration: 2000 });
+                }
+                if (result.type === 'npc') {
+                    _log('NPC对话:', result.entity.id);
+                    if (worldMapRenderer && result.dialogue && result.dialogue.length > 0) {
+                        worldMapRenderer.showDialogue(result.dialogue);
+                    }
+                }
+            }
+        });
+
+        worldMapRenderer = _gameModules.createWorldMapRenderer({
+            getCtx: function() { return ctx; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getWorldMapSystem: function() { return worldMapSystem; },
+            getAssets: function() { return Assets; },
+            getJoystickState: function() { return { active: _joystickActive, startX: _joystickStartX, startY: _joystickStartY, dx: _joystickDX, dy: _joystickDY }; }
+        });
+
+        // 键盘事件
+        document.addEventListener('keydown', function(e) {
+            var key = e.key.toLowerCase();
+            _keysDown[key] = true;
+            // E 键交互（worldmap 状态）
+            if (key === 'e' && state === GAME_STATE.WORLDMAP && worldMapSystem) {
+                if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
+                    worldMapRenderer.advanceDialogue();
+                } else {
+                    var nearEntity = worldMapSystem.getNearbyEntity();
+                    if (nearEntity) {
+                        _log('E键交互实体:', nearEntity.id);
+                        worldMapSystem.interact(nearEntity.id);
+                    }
+                }
+            }
+        });
+        document.addEventListener('keyup', function(e) { _keysDown[e.key.toLowerCase()] = false; });
+
+        _log('大世界探索系统初始化完成');
+
+        // 启动渲染循环（所有系统初始化完成后）
+        function renderLoop() {
+            render();
+            _rafId = requestAnimationFrame(renderLoop);
+        }
+        _rafId = requestAnimationFrame(renderLoop);
 
         // 验证玩家数据
         _log('=== 数据验证 ===');
@@ -3397,6 +3392,131 @@ function handleTouchStart(res) {
     }
 
     _log('触摸点数:', touches.length, '状态:', state);
+
+    // ===== 启动画面触摸 =====
+    if (state === GAME_STATE.TITLE && titleRenderer) {
+        titleRenderer.handleTitleClick(x, y);
+        return;
+    }
+
+    // ===== 过场动画跳过 =====
+    if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) {
+        cutsceneRenderer.skip();
+        return;
+    }
+
+    // ===== 大地图触摸 =====
+    if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
+        // 对话框点击推进
+        if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
+            worldMapRenderer.advanceDialogue();
+            return;
+        }
+        // 菜单栏按钮检测（优先于地图操作）
+        var _hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        if (_hasUnlockedStarter) {
+            var _menuBtnSize = Math.floor(50 * scale);
+            var _menuBtnX = Math.floor(15 * scale);
+            var _menuBtnY = screenHeight - Math.floor(65 * scale);
+            var _menuItemH = Math.floor(40 * scale);
+            var _menuItemW = Math.floor(100 * scale);
+            var _menuGap = Math.floor(8 * scale);
+
+            // 展开菜单项点击
+            if (uiScrollState.menuExpanded) {
+                var _menuItems = [
+                    { id: 'backpack', action: function() { if (audioSystem) audioSystem.playBackpack(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
+                    { id: 'shop', action: function() { stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
+                    { id: 'leaderboard', action: function() { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
+                    { id: 'season', action: function() { try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
+                    { id: 'boss', action: function() { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
+                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playTowerClick(); try { if (playerData.infiniteTower && playerData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
+                    { id: 'fusion', action: function() { state = GAME_STATE.FUSION; } },
+                    { id: 'upgrade', action: function() { state = GAME_STATE.UPGRADE; } }
+                ];
+                for (var _mi = 0; _mi < _menuItems.length; _mi++) {
+                    var _itemY = _menuBtnY - (_mi + 1) * (_menuItemH + _menuGap);
+                    var _itemX = _menuBtnX - Math.floor(30 * scale);
+                    if (x >= _itemX && x <= _itemX + _menuItemW && y >= _itemY && y <= _itemY + _menuItemH) {
+                        uiScrollState.menuExpanded = false;
+                        var _unlockCheck = isModeUnlocked(_menuItems[_mi].id, playerData, bestScore);
+                        if (!_unlockCheck.unlocked) { $P.showToast({ title: _unlockCheck.hint, icon: 'none', duration: 1500 }); return; }
+                        _log('大地图点击菜单项:', _menuItems[_mi].id);
+                        _menuItems[_mi].action();
+                        return;
+                    }
+                }
+            }
+
+            // 菜单按钮（收起/展开）
+            var _tbX = _menuBtnX;
+            var _tbY = _menuBtnY;
+            var _tbSize = _menuBtnSize;
+            if (!uiScrollState.menuExpanded) {
+                _tbX = _menuBtnX - Math.floor(20 * scale);
+                _tbSize = Math.floor(_menuBtnSize * 0.8);
+                if (uiConfig) { var _mbo = uiConfig.get('menu_btn'); _tbX += _mbo.dx * scale; _tbY += _mbo.dy * scale; }
+            }
+            if (x >= _tbX && x <= _tbX + _tbSize && y >= _tbY && y <= _tbY + _tbSize) {
+                _log('大地图点击展开菜单按钮');
+                if (audioSystem) audioSystem.playMenuClick();
+                uiScrollState.menuExpanded = !uiScrollState.menuExpanded;
+                return;
+            }
+
+            // 展开时点击其他区域收起
+            if (uiScrollState.menuExpanded) { uiScrollState.menuExpanded = false; return; }
+
+            // 设置按钮
+            var _setSz = Math.floor(32 * scale);
+            var _sov = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
+            var _setX = Math.floor(18 * scale) + _sov.dx * scale;
+            var _setY = Math.floor(15 * scale) + _sov.dy * scale;
+            if (x >= _setX && x <= _setX + _setSz && y >= _setY && y <= _setY + _setSz) {
+                _log('大地图点击设置按钮');
+                stateMachine.transitionTo(GAME_STATE.SETTINGS);
+                return;
+            }
+
+            // 任务按钮
+            var _taskSz = Math.floor(40 * scale);
+            var _taskY = Math.floor(15 * scale) + _setSz + Math.floor(10 * scale);
+            if (x >= Math.floor(15 * scale) && x <= Math.floor(15 * scale) + _taskSz && y >= _taskY && y <= _taskY + _taskSz) {
+                _log('大地图点击任务按钮');
+                stateMachine.transitionTo(GAME_STATE.TASKS);
+                return;
+            }
+        }
+
+        // 触屏实体交互（二次确认机制）
+        if (worldMapRenderer.isConfirmOpen()) {
+            if (worldMapRenderer.checkConfirmHit(x, y)) {
+                var cId = worldMapRenderer.getConfirmEntityId();
+                _log('确认交互实体:', cId);
+                worldMapRenderer.dismissConfirm();
+                worldMapSystem.interact(cId);
+                return;
+            }
+            worldMapRenderer.dismissConfirm();
+        }
+        var nearby = worldMapSystem.getNearbyEntity();
+        if (nearby) {
+            var sp = worldMapRenderer.worldToScreen(nearby.x, nearby.y);
+            var ir = (nearby.interactRadius || 40) * scale;
+            if (x >= sp.x - ir && x <= sp.x + ir && y >= sp.y - ir && y <= sp.y + ir) {
+                _log('触屏弹出确认:', nearby.id);
+                worldMapRenderer.showConfirm(nearby);
+                return;
+            }
+        }
+        // 摇杆起始
+        _joystickActive = true;
+        _joystickStartX = x;
+        _joystickStartY = y;
+        _joystickDX = 0;
+        _joystickDY = 0;
+        return;
+    }
 
     // ===== UI编辑器拦截（最高优先级）=====
     if (uiEditorSystem && uiEditorSystem.isActive()) {
@@ -3763,7 +3883,7 @@ function handleTouchStart(res) {
                     var exitMode = modeLifecycle.getPreviousMode() || modeLifecycle.getActiveMode();
                     modeLifecycle.cleanupMode(exitMode);
                 }
-                stateMachine.transitionTo(GAME_STATE.MENU);
+                stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
             }
 
@@ -4061,7 +4181,7 @@ function handleTouchStart(res) {
         // 返回按钮（左下角）- 适用于所有标签页
         if (isBackButtonClicked(x, y)) {
             _log('点击商城返回按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
         
@@ -4198,7 +4318,7 @@ function handleTouchStart(res) {
         // 返回按钮位置（左下角）
         if (isBackButtonClicked(x, y)) {
             _log('点击返回按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
         }
     } else if (state === GAME_STATE.LEADERBOARD) {
         // 排行榜页面点击处理
@@ -4208,7 +4328,7 @@ function handleTouchStart(res) {
         if (isBackButtonClicked(x, y)) {
             _log('点击排行榜返回按钮');
             sendLeaderboardMessage('hide');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
 
@@ -4258,7 +4378,7 @@ function handleTouchStart(res) {
         // 返回按钮（左下角）
         if (isBackButtonClicked(x, y)) {
             _log('点击设置返回按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
         
@@ -4375,7 +4495,7 @@ function handleTouchStart(res) {
         // 返回按钮
         if (isBackButtonClicked(x, y)) {
             _log('点击任务返回按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
     } else if (state === GAME_STATE.STAGE_SELECT) {
@@ -4387,7 +4507,7 @@ function handleTouchStart(res) {
         // 返回按钮
         if (isBackButtonClicked(x, y)) {
             _log('点击返回按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
 
@@ -4483,7 +4603,7 @@ function handleTouchStart(res) {
         // 返回按钮
         if (isBackButtonClicked(x, y)) {
             _log('点击返回按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
     } else if (state === GAME_STATE.SQUAD) {
@@ -4680,7 +4800,7 @@ function handleTouchStart(res) {
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单按钮');
                 seasonSelection = { character: null, skills: [], pet: null };
-                stateMachine.transitionTo(GAME_STATE.MENU);
+                stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
             }
         } else {
@@ -4699,7 +4819,7 @@ function handleTouchStart(res) {
 
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
-            stateMachine.transitionTo(GAME_STATE.MENU);
+            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
         }
 
         }
@@ -4828,6 +4948,31 @@ function render() {
         linkChainSystem.update(dt);
     }
 
+    // 大世界地图更新
+    if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
+        var _dialogueOpen = worldMapRenderer && worldMapRenderer.isDialogueOpen();
+        var wdx = 0, wdy = 0;
+        if (!_dialogueOpen) {
+            if (_keysDown['w'] || _keysDown['arrowup']) wdy = -1;
+            if (_keysDown['s'] || _keysDown['arrowdown']) wdy = 1;
+            if (_keysDown['a'] || _keysDown['arrowleft']) wdx = -1;
+            if (_keysDown['d'] || _keysDown['arrowright']) wdx = 1;
+            if (_joystickActive) {
+                var jLen = Math.sqrt(_joystickDX * _joystickDX + _joystickDY * _joystickDY);
+                if (jLen > 10) {
+                    var maxR = 60;
+                    var normLen = Math.min(jLen, maxR);
+                    wdx = (_joystickDX / jLen) * (normLen / maxR);
+                    wdy = (_joystickDY / jLen) * (normLen / maxR);
+                }
+            }
+            if (wdx !== 0 || wdy !== 0) worldMapSystem.movePlayer(wdx, wdy, dt);
+        }
+        worldMapSystem.update(dt);
+    }
+    if (state === GAME_STATE.TITLE && titleRenderer) titleRenderer.update(dt);
+    if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) cutsceneRenderer.update(dt);
+
     // 更新视觉屏幕震动
     updateScreenShake();
     var shakeOffset = getScreenShakeOffset();
@@ -4839,6 +4984,24 @@ function render() {
         // 渲染分发表 — 替代 25 分支 if/else
         if (!render._dispatch) {
             render._dispatch = {};
+            render._dispatch[GAME_STATE.TITLE] = function() { if (titleRenderer) titleRenderer.renderTitle(); };
+            render._dispatch[GAME_STATE.LOADING] = function() {
+                ctx.fillStyle = '#0a0a15';
+                ctx.fillRect(0, 0, screenWidth, screenHeight);
+                ctx.fillStyle = '#e8d5a3';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('加载中...', screenWidth / 2, screenHeight / 2);
+            };
+            render._dispatch[GAME_STATE.CUTSCENE] = function() { if (cutsceneRenderer) cutsceneRenderer.renderCutscene(); };
+            render._dispatch[GAME_STATE.WORLDMAP] = function() {
+                if (worldMapRenderer) {
+                    worldMapRenderer.updateCamera(1/60);
+                    worldMapRenderer.renderWorldMap();
+                }
+                if (state === GAME_STATE.WORLDMAP && renderMenuBar) renderMenuBar();
+            };
+            render._dispatch[GAME_STATE.TUTORIAL] = renderGame;
             render._dispatch[GAME_STATE.MENU] = renderMenu;
             render._dispatch[GAME_STATE.PLAYING] = renderGame;
             render._dispatch[GAME_STATE.PAUSED] = function() { renderGame(); renderPausedMenu(); };
@@ -5039,6 +5202,14 @@ function handleTouchMove(res) {
 
     // 开发者调参工具显示时阻止触摸穿透
     if (devBattleSystem && devBattleSystem.isVisible()) return;
+
+    // 大世界地图摇杆移动
+    if (state === GAME_STATE.WORLDMAP && _joystickActive && res.touches && res.touches[0]) {
+        var jx = res.touches[0].clientX;
+        var jy = res.touches[0].clientY;
+        _joystickDX = jx - _joystickStartX;
+        _joystickDY = jy - _joystickStartY;
+    }
 
     // 背包滑动
     if (state === GAME_STATE.BACKPACK) {
@@ -5330,6 +5501,13 @@ function handleTouchEnd(res) {
         // 开发者调参工具显示时阻止触摸穿透
         if (devBattleSystem && devBattleSystem.isVisible()) return;
 
+        // 大世界地图摇杆释放
+        if (state === GAME_STATE.WORLDMAP) {
+            _joystickActive = false;
+            _joystickDX = 0;
+            _joystickDY = 0;
+        }
+
         // 挂机奖励结果弹窗触摸处理
         if (playerData.firstBossKilled && afkSystem.resultVisible && handleAfkResultTouch(x, y)) {
             return;
@@ -5346,7 +5524,8 @@ function handleTouchEnd(res) {
                 var fResult = fusionRenderer.handleFusionTouch(x, y);
                 _log('[融合] x=', Math.floor(x), 'y=', Math.floor(y), 'result=', fResult, 'selectedCount=', fusionRenderer.getSelectedCount ? fusionRenderer.getSelectedCount() : '?');
                 if (fResult === 'back') {
-                    state = GAME_STATE.MENU;
+                    if (worldMapSystem) { worldMapSystem.markNeedsRespawn(); worldMapSystem.restoreReturnPosition(); worldMapSystem.saveProgress(); }
+                    state = GAME_STATE.WORLDMAP;
                 }
             }
             return;
@@ -5357,7 +5536,8 @@ function handleTouchEnd(res) {
             if (upgradeRenderer && !upgradeRenderer.getIsDragging()) {
                 var uResult = upgradeRenderer.handleUpgradeTouch(x, y);
                 if (uResult === 'back') {
-                    state = GAME_STATE.MENU;
+                    if (worldMapSystem) { worldMapSystem.markNeedsRespawn(); worldMapSystem.restoreReturnPosition(); worldMapSystem.saveProgress(); }
+                    state = GAME_STATE.WORLDMAP;
                 }
             }
             return;

@@ -412,7 +412,7 @@ function createGameBattleRenderer(deps) {
         // 根据分数选择战斗背景图（2000分解锁第二张背景）
         var score = getScore();
         var useSecondBg = !_isTower && score >= 2000 && Assets.fightBgImage2;
-        var bgImage = _isTower ? (Assets.fightBg1 || Assets.fightBgImage || Assets.backgroundImage)
+        var bgImage = _isTower ? (Assets.fightBgImage || Assets.backgroundImage)
             : (useSecondBg ? Assets.fightBgImage2 : (Assets.fightBgImage || Assets.backgroundImage));
         var bgCacheKey = _isTower ? 'towerFightBgCache' : (useSecondBg ? 'fightBgPositionCache2' : 'fightBgPositionCache');
         var bgCache = Assets[bgCacheKey];
