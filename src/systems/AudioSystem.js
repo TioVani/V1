@@ -56,9 +56,15 @@ function createAudioSystem(deps) {
 
     function _loadBuffer(src, id) {
         var url = src.charAt(0) === '/' ? src : '/' + src;
-        fetch(url).then(function(r) { return r.ok ? r.arrayBuffer() : null; })
-            .then(function(data) { if (data) ctx.decodeAudioData(data, function(buf) { _buffers[id] = buf; }, function() {}); })
-            .catch(function() {});
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = function() {
+            if (xhr.status === 200 || xhr.status === 0) {
+                ctx.decodeAudioData(xhr.response, function(buf) { _buffers[id] = buf; }, function() {});
+            }
+        };
+        xhr.send();
     }
 
     function _play(buffer, rateMin, rateMax, volume) {

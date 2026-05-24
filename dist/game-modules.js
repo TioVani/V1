@@ -16937,9 +16937,15 @@
 
       function _loadBuffer(src, id) {
           var url = src.charAt(0) === '/' ? src : '/' + src;
-          fetch(url).then(function(r) { return r.ok ? r.arrayBuffer() : null; })
-              .then(function(data) { if (data) ctx.decodeAudioData(data, function(buf) { _buffers[id] = buf; }, function() {}); })
-              .catch(function() {});
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.responseType = 'arraybuffer';
+          xhr.onload = function() {
+              if (xhr.status === 200 || xhr.status === 0) {
+                  ctx.decodeAudioData(xhr.response, function(buf) { _buffers[id] = buf; }, function() {});
+              }
+          };
+          xhr.send();
       }
 
       function _play(buffer, rateMin, rateMax, volume) {
@@ -38440,7 +38446,7 @@
 
   /**
    * TitleRenderer — 启动画面渲染
-   * 显示游戏标题 + "开始游戏" 按钮
+   * 两阶段：先显示"点击屏幕开始"，点击后淡入"开始游戏"按钮
    */
   function createTitleRenderer(deps) {
       var getCtx = deps.getCtx;
@@ -38453,11 +38459,21 @@
       var _titleAlpha = 0;
       var _fadeIn = true;
       var _btnHover = false;
+      var _activated = false;
+      var _tapAlpha = 1;
+      var _tapBlink = 0;
+      var _btnAlpha = 0;
 
       function update(dt) {
           if (_fadeIn && _titleAlpha < 1) {
               _titleAlpha = Math.min(1, _titleAlpha + dt * 1.5);
               if (_titleAlpha >= 1) _fadeIn = false;
+          }
+          if (!_activated) {
+              _tapBlink += dt * 3;
+              _tapAlpha = 0.4 + 0.6 * Math.abs(Math.sin(_tapBlink));
+          } else if (_btnAlpha < 1) {
+              _btnAlpha = Math.min(1, _btnAlpha + dt * 2);
           }
       }
 
@@ -38485,7 +38501,6 @@
                   dx = 0; dy = (sh - dh) / 2;
               }
               ctx.drawImage(titleBg, dx, dy, dw, dh);
-              // 半透明遮罩让文字可读
               ctx.fillStyle = 'rgba(10,10,21,0.45)';
               ctx.fillRect(0, 0, sw, sh);
           } else {
@@ -38510,42 +38525,76 @@
           ctx.fillStyle = '#8a7a5a';
           ctx.fillText('灵域初境', sw / 2, sh * 0.35 + titleSize * 0.8);
 
-          // 开始按钮
-          var btnW = Math.floor(160 * scale);
-          var btnH = Math.floor(48 * scale);
-          var btnX = sw / 2 - btnW / 2;
-          var btnY = sh * 0.58 - btnH / 2;
+          if (!_activated) {
+              // "点击屏幕开始" 辉光背景 + 闪烁提示
+              var hintSize = Math.floor(16 * scale);
+              ctx.font = hintSize + 'px sans-serif';
+              var hintText = '点击屏幕开始';
+              var textW = ctx.measureText(hintText).width;
+              var hintX = sw / 2;
+              var hintY = sh * 0.58;
 
-          ctx.globalAlpha = _titleAlpha * (_btnHover ? 1 : 0.85);
-          ctx.fillStyle = '#2a1f0e';
-          ctx.strokeStyle = '#e8d5a3';
-          ctx.lineWidth = Math.floor(2 * scale);
-          var r = Math.floor(8 * scale);
-          ctx.beginPath();
-          ctx.moveTo(btnX + r, btnY);
-          ctx.lineTo(btnX + btnW - r, btnY);
-          ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + r, r);
-          ctx.lineTo(btnX + btnW, btnY + btnH - r);
-          ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - r, btnY + btnH, r);
-          ctx.lineTo(btnX + r, btnY + btnH);
-          ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - r, r);
-          ctx.lineTo(btnX, btnY + r);
-          ctx.arcTo(btnX, btnY, btnX + r, btnY, r);
-          ctx.closePath();
-          ctx.fill();
-          ctx.stroke();
+              // 辉光背景
+              var glowW = textW + Math.floor(40 * scale);
+              var glowH = Math.floor(40 * scale);
+              var glowX = hintX - glowW / 2;
+              var glowY = hintY - glowH / 2;
+              ctx.globalAlpha = _titleAlpha * _tapAlpha * 0.5;
+              var grad = ctx.createRadialGradient(hintX, hintY, 0, hintX, hintY, Math.max(glowW, glowH) / 2);
+              grad.addColorStop(0, 'rgba(232,213,163,0.35)');
+              grad.addColorStop(1, 'rgba(232,213,163,0)');
+              ctx.fillStyle = grad;
+              ctx.fillRect(glowX, glowY, glowW, glowH);
 
-          var btnTextSize = Math.floor(18 * scale);
-          ctx.font = btnTextSize + 'px sans-serif';
-          ctx.fillStyle = '#e8d5a3';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('开始游戏', sw / 2, btnY + btnH / 2);
+              // 文字
+              ctx.globalAlpha = _titleAlpha * _tapAlpha;
+              ctx.fillStyle = '#e8d5a3';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(hintText, hintX, hintY);
+          } else {
+              // 开始按钮（淡入）
+              var btnW = Math.floor(160 * scale);
+              var btnH = Math.floor(48 * scale);
+              var btnX = sw / 2 - btnW / 2;
+              var btnY = sh * 0.58 - btnH / 2;
+
+              ctx.globalAlpha = _titleAlpha * _btnAlpha * (_btnHover ? 1 : 0.85);
+              ctx.fillStyle = '#2a1f0e';
+              ctx.strokeStyle = '#e8d5a3';
+              ctx.lineWidth = Math.floor(2 * scale);
+              var r = Math.floor(8 * scale);
+              ctx.beginPath();
+              ctx.moveTo(btnX + r, btnY);
+              ctx.lineTo(btnX + btnW - r, btnY);
+              ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + r, r);
+              ctx.lineTo(btnX + btnW, btnY + btnH - r);
+              ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - r, btnY + btnH, r);
+              ctx.lineTo(btnX + r, btnY + btnH);
+              ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - r, r);
+              ctx.lineTo(btnX, btnY + r);
+              ctx.arcTo(btnX, btnY, btnX + r, btnY, r);
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+
+              var btnTextSize = Math.floor(18 * scale);
+              ctx.font = btnTextSize + 'px sans-serif';
+              ctx.fillStyle = '#e8d5a3';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('开始游戏', sw / 2, btnY + btnH / 2);
+          }
 
           ctx.restore();
       }
 
       function handleTitleClick(x, y) {
+          if (!_activated) {
+              _activated = true;
+              return false;
+          }
+
           var sw = getScreenWidth();
           var sh = getScreenHeight();
           var scale = getScreenScale();
@@ -38566,12 +38615,17 @@
           _titleAlpha = 0;
           _fadeIn = true;
           _btnHover = false;
+          _activated = false;
+          _tapAlpha = 1;
+          _tapBlink = 0;
+          _btnAlpha = 0;
       }
 
       return {
           update: update,
           renderTitle: renderTitle,
           handleTitleClick: handleTitleClick,
+          isActivated: function() { return _activated; },
           reset: reset
       };
   }
@@ -39357,1103 +39411,11 @@
           hasTutorial: true,
           entryCutscene: null,
           collisions: [
-          {
-                  "id": "bound_top",
-                  "type": "rect",
-                  "x": 0,
-                  "y": -20,
-                  "w": 1408,
-                  "h": 20
-          },
-          {
-                  "id": "bound_bottom",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 768,
-                  "w": 1408,
-                  "h": 20
-          },
-          {
-                  "id": "bound_left",
-                  "type": "rect",
-                  "x": -20,
-                  "y": 0,
-                  "w": 20,
-                  "h": 768
-          },
-          {
-                  "id": "bound_right",
-                  "type": "rect",
-                  "x": 1408,
-                  "y": 0,
-                  "w": 20,
-                  "h": 768
-          },
-          {
-                  "id": "bldg_000",
-                  "type": "rect",
-                  "x": 192,
-                  "y": 0,
-                  "w": 384,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_001",
-                  "type": "rect",
-                  "x": 608,
-                  "y": 0,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_002",
-                  "type": "rect",
-                  "x": 608,
-                  "y": 64,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_003",
-                  "type": "rect",
-                  "x": 864,
-                  "y": 0,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_004",
-                  "type": "rect",
-                  "x": 1120,
-                  "y": 0,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_005",
-                  "type": "rect",
-                  "x": 1216,
-                  "y": 0,
-                  "w": 192,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_006",
-                  "type": "rect",
-                  "x": 1216,
-                  "y": 672,
-                  "w": 192,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_007",
-                  "type": "rect",
-                  "x": 160,
-                  "y": 32,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_008",
-                  "type": "rect",
-                  "x": 224,
-                  "y": 32,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_009",
-                  "type": "rect",
-                  "x": 352,
-                  "y": 32,
-                  "w": 480,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_010",
-                  "type": "rect",
-                  "x": 864,
-                  "y": 32,
-                  "w": 160,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_011",
-                  "type": "rect",
-                  "x": 864,
-                  "y": 672,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_012",
-                  "type": "rect",
-                  "x": 1056,
-                  "y": 32,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_013",
-                  "type": "rect",
-                  "x": 1184,
-                  "y": 32,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_014",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 64,
-                  "w": 192,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_015",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 128,
-                  "w": 192,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_016",
-                  "type": "rect",
-                  "x": 224,
-                  "y": 64,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_017",
-                  "type": "rect",
-                  "x": 224,
-                  "y": 128,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_018",
-                  "type": "rect",
-                  "x": 288,
-                  "y": 64,
-                  "w": 96,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_019",
-                  "type": "rect",
-                  "x": 416,
-                  "y": 64,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_020",
-                  "type": "rect",
-                  "x": 1056,
-                  "y": 64,
-                  "w": 352,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_021",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 96,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_022",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 160,
-                  "w": 64,
-                  "h": 96
-          },
-          {
-                  "id": "bldg_023",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 288,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_024",
-                  "type": "rect",
-                  "x": 96,
-                  "y": 96,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_025",
-                  "type": "rect",
-                  "x": 416,
-                  "y": 96,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_026",
-                  "type": "rect",
-                  "x": 544,
-                  "y": 96,
-                  "w": 288,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_027",
-                  "type": "rect",
-                  "x": 928,
-                  "y": 96,
-                  "w": 96,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_028",
-                  "type": "rect",
-                  "x": 1056,
-                  "y": 96,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_029",
-                  "type": "rect",
-                  "x": 1120,
-                  "y": 96,
-                  "w": 288,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_030",
-                  "type": "rect",
-                  "x": 1120,
-                  "y": 288,
-                  "w": 288,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_031",
-                  "type": "rect",
-                  "x": 1120,
-                  "y": 448,
-                  "w": 288,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_032",
-                  "type": "rect",
-                  "x": 288,
-                  "y": 128,
-                  "w": 544,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_033",
-                  "type": "rect",
-                  "x": 864,
-                  "y": 128,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_034",
-                  "type": "rect",
-                  "x": 864,
-                  "y": 192,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_035",
-                  "type": "rect",
-                  "x": 96,
-                  "y": 160,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_036",
-                  "type": "rect",
-                  "x": 288,
-                  "y": 160,
-                  "w": 448,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_037",
-                  "type": "rect",
-                  "x": 768,
-                  "y": 160,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_038",
-                  "type": "rect",
-                  "x": 960,
-                  "y": 160,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_039",
-                  "type": "rect",
-                  "x": 1088,
-                  "y": 160,
-                  "w": 320,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_040",
-                  "type": "rect",
-                  "x": 96,
-                  "y": 192,
-                  "w": 576,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_041",
-                  "type": "rect",
-                  "x": 736,
-                  "y": 192,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_042",
-                  "type": "rect",
-                  "x": 992,
-                  "y": 192,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_043",
-                  "type": "rect",
-                  "x": 1056,
-                  "y": 192,
-                  "w": 320,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_044",
-                  "type": "rect",
-                  "x": 192,
-                  "y": 224,
-                  "w": 480,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_045",
-                  "type": "rect",
-                  "x": 704,
-                  "y": 224,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_046",
-                  "type": "rect",
-                  "x": 832,
-                  "y": 224,
-                  "w": 64,
-                  "h": 96
-          },
-          {
-                  "id": "bldg_047",
-                  "type": "rect",
-                  "x": 832,
-                  "y": 416,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_048",
-                  "type": "rect",
-                  "x": 960,
-                  "y": 224,
-                  "w": 352,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_049",
-                  "type": "rect",
-                  "x": 1344,
-                  "y": 224,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_050",
-                  "type": "rect",
-                  "x": 1344,
-                  "y": 320,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_051",
-                  "type": "rect",
-                  "x": 32,
-                  "y": 256,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_052",
-                  "type": "rect",
-                  "x": 128,
-                  "y": 256,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_053",
-                  "type": "rect",
-                  "x": 256,
-                  "y": 256,
-                  "w": 288,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_054",
-                  "type": "rect",
-                  "x": 576,
-                  "y": 256,
-                  "w": 32,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_055",
-                  "type": "rect",
-                  "x": 576,
-                  "y": 544,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_056",
-                  "type": "rect",
-                  "x": 640,
-                  "y": 256,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_057",
-                  "type": "rect",
-                  "x": 640,
-                  "y": 512,
-                  "w": 32,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_058",
-                  "type": "rect",
-                  "x": 992,
-                  "y": 256,
-                  "w": 320,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_059",
-                  "type": "rect",
-                  "x": 1376,
-                  "y": 256,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_060",
-                  "type": "rect",
-                  "x": 96,
-                  "y": 288,
-                  "w": 64,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_061",
-                  "type": "rect",
-                  "x": 96,
-                  "y": 736,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_062",
-                  "type": "rect",
-                  "x": 256,
-                  "y": 288,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_063",
-                  "type": "rect",
-                  "x": 512,
-                  "y": 288,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_064",
-                  "type": "rect",
-                  "x": 512,
-                  "y": 352,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_065",
-                  "type": "rect",
-                  "x": 512,
-                  "y": 576,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_066",
-                  "type": "rect",
-                  "x": 672,
-                  "y": 288,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_067",
-                  "type": "rect",
-                  "x": 672,
-                  "y": 416,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_068",
-                  "type": "rect",
-                  "x": 1024,
-                  "y": 288,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_069",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 320,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_070",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 672,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_071",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 736,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_072",
-                  "type": "rect",
-                  "x": 192,
-                  "y": 320,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_073",
-                  "type": "rect",
-                  "x": 192,
-                  "y": 480,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_074",
-                  "type": "rect",
-                  "x": 256,
-                  "y": 320,
-                  "w": 192,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_075",
-                  "type": "rect",
-                  "x": 512,
-                  "y": 320,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_076",
-                  "type": "rect",
-                  "x": 928,
-                  "y": 320,
-                  "w": 128,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_077",
-                  "type": "rect",
-                  "x": 1088,
-                  "y": 320,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_078",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 352,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_079",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 704,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_080",
-                  "type": "rect",
-                  "x": 160,
-                  "y": 352,
-                  "w": 288,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_081",
-                  "type": "rect",
-                  "x": 864,
-                  "y": 352,
-                  "w": 64,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_082",
-                  "type": "rect",
-                  "x": 960,
-                  "y": 352,
-                  "w": 448,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_083",
-                  "type": "rect",
-                  "x": 32,
-                  "y": 384,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_084",
-                  "type": "rect",
-                  "x": 128,
-                  "y": 384,
-                  "w": 320,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_085",
-                  "type": "rect",
-                  "x": 736,
-                  "y": 384,
-                  "w": 64,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_086",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 416,
-                  "w": 416,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_087",
-                  "type": "rect",
-                  "x": 608,
-                  "y": 416,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_088",
-                  "type": "rect",
-                  "x": 928,
-                  "y": 416,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_089",
-                  "type": "rect",
-                  "x": 1152,
-                  "y": 416,
-                  "w": 256,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_090",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 448,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_091",
-                  "type": "rect",
-                  "x": 320,
-                  "y": 448,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_092",
-                  "type": "rect",
-                  "x": 448,
-                  "y": 448,
-                  "w": 64,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_093",
-                  "type": "rect",
-                  "x": 640,
-                  "y": 448,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_094",
-                  "type": "rect",
-                  "x": 832,
-                  "y": 448,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_095",
-                  "type": "rect",
-                  "x": 960,
-                  "y": 448,
-                  "w": 128,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_096",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 480,
-                  "w": 160,
-                  "h": 96
-          },
-          {
-                  "id": "bldg_097",
-                  "type": "rect",
-                  "x": 384,
-                  "y": 480,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_098",
-                  "type": "rect",
-                  "x": 384,
-                  "y": 608,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_099",
-                  "type": "rect",
-                  "x": 544,
-                  "y": 480,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_100",
-                  "type": "rect",
-                  "x": 768,
-                  "y": 480,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_101",
-                  "type": "rect",
-                  "x": 832,
-                  "y": 480,
-                  "w": 352,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_102",
-                  "type": "rect",
-                  "x": 1248,
-                  "y": 480,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_103",
-                  "type": "rect",
-                  "x": 1248,
-                  "y": 704,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_104",
-                  "type": "rect",
-                  "x": 416,
-                  "y": 512,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_105",
-                  "type": "rect",
-                  "x": 512,
-                  "y": 512,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_106",
-                  "type": "rect",
-                  "x": 704,
-                  "y": 512,
-                  "w": 576,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_107",
-                  "type": "rect",
-                  "x": 1312,
-                  "y": 512,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_108",
-                  "type": "rect",
-                  "x": 1312,
-                  "y": 736,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_109",
-                  "type": "rect",
-                  "x": 192,
-                  "y": 544,
-                  "w": 128,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_110",
-                  "type": "rect",
-                  "x": 736,
-                  "y": 544,
-                  "w": 544,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_111",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 576,
-                  "w": 320,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_112",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 640,
-                  "w": 320,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_113",
-                  "type": "rect",
-                  "x": 576,
-                  "y": 576,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_114",
-                  "type": "rect",
-                  "x": 704,
-                  "y": 576,
-                  "w": 352,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_115",
-                  "type": "rect",
-                  "x": 1088,
-                  "y": 576,
-                  "w": 96,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_116",
-                  "type": "rect",
-                  "x": 1280,
-                  "y": 576,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_117",
-                  "type": "rect",
-                  "x": 0,
-                  "y": 608,
-                  "w": 128,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_118",
-                  "type": "rect",
-                  "x": 192,
-                  "y": 608,
-                  "w": 160,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_119",
-                  "type": "rect",
-                  "x": 640,
-                  "y": 608,
-                  "w": 416,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_120",
-                  "type": "rect",
-                  "x": 1088,
-                  "y": 608,
-                  "w": 32,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_121",
-                  "type": "rect",
-                  "x": 1216,
-                  "y": 608,
-                  "w": 32,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_122",
-                  "type": "rect",
-                  "x": 1280,
-                  "y": 608,
-                  "w": 128,
-                  "h": 64
-          },
-          {
-                  "id": "bldg_123",
-                  "type": "rect",
-                  "x": 352,
-                  "y": 640,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_124",
-                  "type": "rect",
-                  "x": 608,
-                  "y": 640,
-                  "w": 448,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_125",
-                  "type": "rect",
-                  "x": 64,
-                  "y": 672,
-                  "w": 192,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_126",
-                  "type": "rect",
-                  "x": 288,
-                  "y": 672,
-                  "w": 224,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_127",
-                  "type": "rect",
-                  "x": 576,
-                  "y": 672,
-                  "w": 256,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_128",
-                  "type": "rect",
-                  "x": 128,
-                  "y": 704,
-                  "w": 64,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_129",
-                  "type": "rect",
-                  "x": 224,
-                  "y": 704,
-                  "w": 256,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_130",
-                  "type": "rect",
-                  "x": 512,
-                  "y": 704,
-                  "w": 448,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_131",
-                  "type": "rect",
-                  "x": 256,
-                  "y": 736,
-                  "w": 672,
-                  "h": 32
-          },
-          {
-                  "id": "bldg_132",
-                  "type": "rect",
-                  "x": 992,
-                  "y": 736,
-                  "w": 64,
-                  "h": 32
-          }
-  ],
+              { id: "bound_top", type: "rect", x: 0, y: -20, w: 1408, h: 20 },
+              { id: "bound_bottom", type: "rect", x: 0, y: 768, w: 1408, h: 20 },
+              { id: "bound_left", type: "rect", x: -20, y: 0, w: 20, h: 768 },
+              { id: "bound_right", type: "rect", x: 1408, y: 0, w: 20, h: 768 },
+          ],
           entities: [
               {
                   id: 'tutorial_spirits',
