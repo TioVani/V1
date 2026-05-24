@@ -1410,7 +1410,6 @@ function init() {
         // 初始化音频系统
         audioSystem = createAudioSystem({ sfx: AUDIO_CONFIG.sfx, bgm: AUDIO_CONFIG.bgm });
         audioSystem.init();
-        audioSystem.playBgm('mainMenu', 0.4);
 
         // 初始化动画系统模块
         animationSystem = createAnimationSystem({
@@ -3319,13 +3318,10 @@ function init() {
                     // 启动游戏（初始化引擎、UI等基础）
                     startGame();
 
-                    // === 硬杀所有干扰源 ===
-                    // 杀倒计时/星星生成/怪物攻击定时器
+                    // === 硬杀干扰源（保留星星生成，杀倒计时和怪物攻击） ===
                     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-                    if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
                     if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
                     if (stopPetAttackTimer) stopPetAttackTimer();
-                    // 设置超长倒计时（防止计时器归零触发结束）
                     timeLeft = 9999;
 
                     // 只生成一只怪
@@ -3490,7 +3486,9 @@ function handleTouchStart(res) {
 
     // ===== 启动画面触摸 =====
     if (state === GAME_STATE.TITLE && titleRenderer) {
+        var wasActivated = titleRenderer.isActivated && titleRenderer.isActivated();
         titleRenderer.handleTitleClick(x, y);
+        if (!wasActivated && audioSystem) audioSystem.playBgm('mainMenu', 0.4);
         return;
     }
 

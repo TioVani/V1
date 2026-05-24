@@ -1,6 +1,6 @@
 /**
  * TitleRenderer — 启动画面渲染
- * 显示游戏标题 + "开始游戏" 按钮
+ * 两阶段：先显示"点击屏幕开始"，点击后淡入"开始游戏"按钮
  */
 function createTitleRenderer(deps) {
     var getCtx = deps.getCtx;
@@ -13,11 +13,21 @@ function createTitleRenderer(deps) {
     var _titleAlpha = 0;
     var _fadeIn = true;
     var _btnHover = false;
+    var _activated = false;
+    var _tapAlpha = 1;
+    var _tapBlink = 0;
+    var _btnAlpha = 0;
 
     function update(dt) {
         if (_fadeIn && _titleAlpha < 1) {
             _titleAlpha = Math.min(1, _titleAlpha + dt * 1.5);
             if (_titleAlpha >= 1) _fadeIn = false;
+        }
+        if (!_activated) {
+            _tapBlink += dt * 3;
+            _tapAlpha = 0.4 + 0.6 * Math.abs(Math.sin(_tapBlink));
+        } else if (_btnAlpha < 1) {
+            _btnAlpha = Math.min(1, _btnAlpha + dt * 2);
         }
     }
 
@@ -45,7 +55,6 @@ function createTitleRenderer(deps) {
                 dx = 0; dy = (sh - dh) / 2;
             }
             ctx.drawImage(titleBg, dx, dy, dw, dh);
-            // 半透明遮罩让文字可读
             ctx.fillStyle = 'rgba(10,10,21,0.45)';
             ctx.fillRect(0, 0, sw, sh);
         } else {
@@ -70,42 +79,76 @@ function createTitleRenderer(deps) {
         ctx.fillStyle = '#8a7a5a';
         ctx.fillText('灵域初境', sw / 2, sh * 0.35 + titleSize * 0.8);
 
-        // 开始按钮
-        var btnW = Math.floor(160 * scale);
-        var btnH = Math.floor(48 * scale);
-        var btnX = sw / 2 - btnW / 2;
-        var btnY = sh * 0.58 - btnH / 2;
+        if (!_activated) {
+            // "点击屏幕开始" 辉光背景 + 闪烁提示
+            var hintSize = Math.floor(16 * scale);
+            ctx.font = hintSize + 'px sans-serif';
+            var hintText = '点击屏幕开始';
+            var textW = ctx.measureText(hintText).width;
+            var hintX = sw / 2;
+            var hintY = sh * 0.58;
 
-        ctx.globalAlpha = _titleAlpha * (_btnHover ? 1 : 0.85);
-        ctx.fillStyle = '#2a1f0e';
-        ctx.strokeStyle = '#e8d5a3';
-        ctx.lineWidth = Math.floor(2 * scale);
-        var r = Math.floor(8 * scale);
-        ctx.beginPath();
-        ctx.moveTo(btnX + r, btnY);
-        ctx.lineTo(btnX + btnW - r, btnY);
-        ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + r, r);
-        ctx.lineTo(btnX + btnW, btnY + btnH - r);
-        ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - r, btnY + btnH, r);
-        ctx.lineTo(btnX + r, btnY + btnH);
-        ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - r, r);
-        ctx.lineTo(btnX, btnY + r);
-        ctx.arcTo(btnX, btnY, btnX + r, btnY, r);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
+            // 辉光背景
+            var glowW = textW + Math.floor(40 * scale);
+            var glowH = Math.floor(40 * scale);
+            var glowX = hintX - glowW / 2;
+            var glowY = hintY - glowH / 2;
+            ctx.globalAlpha = _titleAlpha * _tapAlpha * 0.5;
+            var grad = ctx.createRadialGradient(hintX, hintY, 0, hintX, hintY, Math.max(glowW, glowH) / 2);
+            grad.addColorStop(0, 'rgba(232,213,163,0.35)');
+            grad.addColorStop(1, 'rgba(232,213,163,0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(glowX, glowY, glowW, glowH);
 
-        var btnTextSize = Math.floor(18 * scale);
-        ctx.font = btnTextSize + 'px sans-serif';
-        ctx.fillStyle = '#e8d5a3';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('开始游戏', sw / 2, btnY + btnH / 2);
+            // 文字
+            ctx.globalAlpha = _titleAlpha * _tapAlpha;
+            ctx.fillStyle = '#e8d5a3';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(hintText, hintX, hintY);
+        } else {
+            // 开始按钮（淡入）
+            var btnW = Math.floor(160 * scale);
+            var btnH = Math.floor(48 * scale);
+            var btnX = sw / 2 - btnW / 2;
+            var btnY = sh * 0.58 - btnH / 2;
+
+            ctx.globalAlpha = _titleAlpha * _btnAlpha * (_btnHover ? 1 : 0.85);
+            ctx.fillStyle = '#2a1f0e';
+            ctx.strokeStyle = '#e8d5a3';
+            ctx.lineWidth = Math.floor(2 * scale);
+            var r = Math.floor(8 * scale);
+            ctx.beginPath();
+            ctx.moveTo(btnX + r, btnY);
+            ctx.lineTo(btnX + btnW - r, btnY);
+            ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + r, r);
+            ctx.lineTo(btnX + btnW, btnY + btnH - r);
+            ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - r, btnY + btnH, r);
+            ctx.lineTo(btnX + r, btnY + btnH);
+            ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - r, r);
+            ctx.lineTo(btnX, btnY + r);
+            ctx.arcTo(btnX, btnY, btnX + r, btnY, r);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            var btnTextSize = Math.floor(18 * scale);
+            ctx.font = btnTextSize + 'px sans-serif';
+            ctx.fillStyle = '#e8d5a3';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('开始游戏', sw / 2, btnY + btnH / 2);
+        }
 
         ctx.restore();
     }
 
     function handleTitleClick(x, y) {
+        if (!_activated) {
+            _activated = true;
+            return false;
+        }
+
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var scale = getScreenScale();
@@ -126,12 +169,17 @@ function createTitleRenderer(deps) {
         _titleAlpha = 0;
         _fadeIn = true;
         _btnHover = false;
+        _activated = false;
+        _tapAlpha = 1;
+        _tapBlink = 0;
+        _btnAlpha = 0;
     }
 
     return {
         update: update,
         renderTitle: renderTitle,
         handleTitleClick: handleTitleClick,
+        isActivated: function() { return _activated; },
         reset: reset
     };
 }
