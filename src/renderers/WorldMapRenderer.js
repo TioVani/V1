@@ -113,6 +113,17 @@ function createWorldMapRenderer(deps) {
         // 背景
         ctx.fillStyle = '#1a1a2e';
         ctx.fillRect(0, 0, sw, sh);
+        var config = wms.getConfig();
+        var bgImg = null;
+        var assets = getAssets();
+        if (config && config.worldId === 'world_01' && assets.worldMapBg01) {
+            bgImg = assets.worldMapBg01;
+        } else if (config && config.worldId === 'world_02' && assets.worldMapBg02) {
+            bgImg = assets.worldMapBg02;
+        }
+        if (bgImg) {
+            ctx.drawImage(bgImg, -_camX, -_camY, config.width * scale, config.height * scale);
+        }
 
         // 地图区域
         var entities = wms.getDiscoveredEntities();

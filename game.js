@@ -196,6 +196,7 @@ var createAssetManager = _gameModules.createAssetManager;
 var IMAGE_GROUPS = _gameModules.IMAGE_GROUPS;
 var BEAUTY_CONFIG = _gameModules.BEAUTY_CONFIG;
 var CHARACTER_MAP = _gameModules.CHARACTER_MAP;
+var AUDIO_CONFIG = _gameModules.AUDIO_CONFIG;
 var assetManager = null;
 var upgradeEngine = null;
 var upgradeRenderer = null;
@@ -510,9 +511,15 @@ var _joystickStartX = 0;
 var _joystickStartY = 0;
 var _joystickDX = 0;
 var _joystickDY = 0;
-// 教学战斗标志
-var _isTutorialBattle = false;
-var _tutorialEntityId = null;
+// 教学状态（收敛为单一对象，减少散弹式修改）
+var _tutorial = {
+    active: false,
+    entityId: null,
+    ending: false,
+    victoryPopup: null,
+    retryCount: 0,
+    completed: false
+};
 var _worldMapBattleEntityId = null;
 var renderGameOver = null;
 var renderPausedMenu = null;
@@ -595,6 +602,7 @@ var getStarBaseScore = null;
 var gameLifecycleSystem = null;
 var startGame = null;
 var endGame = null;
+var onTutorialFail = null;
 var pauseGame = null;
 var resumeGame = null;
 var restartGame = null;
@@ -744,6 +752,8 @@ const Assets = {
     titleBgImage: null,
     fightBgImage: null,     // 战斗场景背景图片（初始）
     fightBgImage2: null,    // 战斗场景背景图片（2000分解锁）
+    worldMapBg01: null,     // 世界地图背景 world_01
+    worldMapBg02: null,     // 世界地图背景 world_02
     bgPositionCache: null,  // 缓存背景图片位置信息
     fightBgPositionCache: null,  // 缓存战斗背景图片位置信息
     fightBgPositionCache2: null, // 缓存第二张战斗背景图片位置信息
@@ -1043,6 +1053,9 @@ function init() {
         // 加载玩家数据
         loadPlayerData();
 
+        // 恢复教学完成状态
+        if (playerData.tutorialCompleted) _tutorial.completed = true;
+
         // 上传排行榜数据到云存储
         storageSystem.uploadLeaderboardData();
 
@@ -1084,6 +1097,8 @@ function init() {
         Assets.shopIcon = assetManager.get('shopIcon');
         Assets.towerIcon = assetManager.get('towerIcon');
         Assets.bossImage = assetManager.get('bossImage');
+        Assets.worldMapBg01 = assetManager.get('worldMapBg01');
+        Assets.worldMapBg02 = assetManager.get('worldMapBg02');
         Assets.characterImages.starter = assetManager.get('char_starter');
         Assets.characterImages.warrior = assetManager.get('char_warrior');
         Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
@@ -1393,8 +1408,9 @@ function init() {
         _log('材料使用系统模块初始化完成');
 
         // 初始化音频系统
-        audioSystem = createAudioSystem({ sfx: AUDIO_CONFIG.sfx });
+        audioSystem = createAudioSystem({ sfx: AUDIO_CONFIG.sfx, bgm: AUDIO_CONFIG.bgm });
         audioSystem.init();
+        audioSystem.playBgm('mainMenu', 0.4);
 
         // 初始化动画系统模块
         animationSystem = createAnimationSystem({
@@ -1700,7 +1716,7 @@ function init() {
         createMonster = function(type, x, y, options) { return monsterSpawnSystem.createMonster(type, x, y, options); };
         calculateMonsterPositions = function(count, baseY) { return monsterSpawnSystem.calculateMonsterPositions(count, baseY); };
         checkUnlockCharacter = function() { monsterSpawnSystem.checkUnlockCharacter(); };
-        checkMonsterAppear = function() { monsterSpawnSystem.checkMonsterAppear(); };
+        checkMonsterAppear = function() { if (_tutorial.active) return; monsterSpawnSystem.checkMonsterAppear(); };
         spawnMonster = function(type, options) { return monsterSpawnSystem.spawnMonster(type, options); };
         getActiveMonster = function() { return monsterSpawnSystem.getActiveMonster(); };
         getActiveMonsters = function() { return monsterSpawnSystem.getActiveMonsters(); };
@@ -2905,6 +2921,7 @@ function init() {
             setLastBossStunTime: function(val) { _lastBossStunTime = val; },
             createTimeDamageAnimation: function(dmg) { createTimeDamageAnimation(dmg); },
             endGame: function() { endGame(); },
+            getIsTutorialBattle: function() { return _tutorial.active; },
             // 觉醒系统
             getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || playerData); },
             getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || playerData); },
@@ -3029,7 +3046,9 @@ function init() {
             resumeStageTimers: function() { if (stageModeSystem) { stageModeSystem.resumeTimers(); } },
             getGameEndTime: function() { return gameEndTime; },
             setGameEndTime: function(val) { gameEndTime = val; },
-            clearPoisonPuddles: function() { poisonPuddleSystem.clearPoisonPuddles(); }
+            clearPoisonPuddles: function() { poisonPuddleSystem.clearPoisonPuddles(); },
+            getIsTutorialBattle: function() { return _tutorial.active; },
+            onTutorialFail: function() { if (onTutorialFail) onTutorialFail(); }
         });
         startGame = function() {
             if (rhythmSystem) rhythmSystem.reset();
@@ -3040,30 +3059,86 @@ function init() {
             gameLifecycleSystem.startGame();
         };
         endGame = function() {
-            gameLifecycleSystem.endGame();
-            // 教学战斗结束：胜利直接回世界地图
-            if (_isTutorialBattle) {
-                _log('教学战斗结束，返回世界地图');
-                _isTutorialBattle = false;
+            if (_tutorial.ending) return;
+            if (_tutorial.active) {
+                // 教学胜利：只有胜利走到这里（失败走 onTutorialFail）
+                _tutorial.ending = true;
+                _tutorial.active = false;
                 godMode = false;
-                // 清理定时器
-                clearTimerInterval();
-                clearMoveInterval();
-                clearMonsterAttackInterval();
+                playerData.godMode = false;
+
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
                 if (stopPetAttackTimer) stopPetAttackTimer();
-                // 教学胜利回调
+                if (normalBattleAdapter) normalBattleAdapter.destroy();
+                monsters = [];
+
                 worldMapSystem.onTutorialWin();
                 worldMapSystem.markNeedsRespawn();
+                if (_tutorial.entityId) {
+                    worldMapSystem.resolveEntity(_tutorial.entityId);
+                }
                 worldMapSystem.restoreReturnPosition();
                 worldMapSystem.saveProgress();
-                state = GAME_STATE.WORLDMAP;
-                _tutorialEntityId = null;
-            } else if (_worldMapBattleEntityId) {
-                // 大地图敌人战斗结束，标记实体为已解决
+
+                _tutorial.victoryPopup = {
+                    text: '教学完成！',
+                    subtext: '新区域已解锁，继续探索吧',
+                    createdAt: Date.now(),
+                    onClose: function() {
+                        _tutorial.victoryPopup = null;
+                        _tutorial.ending = false;
+                        _tutorial.retryCount = 0;
+                        _tutorial.entityId = null;
+                        _tutorial.completed = true;
+                        playerData.tutorialCompleted = true;
+                        savePlayerData();
+                        state = GAME_STATE.WORLDMAP;
+                    }
+                };
+                state = GAME_STATE.TUTORIAL;
+                return;
+            }
+            gameLifecycleSystem.endGame();
+            if (_worldMapBattleEntityId) {
                 worldMapSystem.resolveEntity(_worldMapBattleEntityId);
                 worldMapSystem.saveProgress();
                 _worldMapBattleEntityId = null;
             }
+        };
+        onTutorialFail = function() {
+            if (_tutorial.ending) return;
+            _tutorial.ending = true;
+            _log('教学战斗失败，自动重开');
+
+            if (normalBattleAdapter && normalBattleAdapter.cancelPendingVictory) {
+                normalBattleAdapter.cancelPendingVictory();
+            }
+
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+            if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+            if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+            if (stopPetAttackTimer) stopPetAttackTimer();
+
+            _tutorial.retryCount++;
+            if (_tutorial.retryCount > 3) {
+                _log('教学重试次数已达上限');
+                _tutorial.active = false;
+                _tutorial.ending = false;
+                godMode = false;
+                playerData.godMode = false;
+                worldMapSystem.restoreReturnPosition();
+                worldMapSystem.saveProgress();
+                _tutorial.entityId = null;
+                state = GAME_STATE.WORLDMAP;
+                return;
+            }
+
+            startGame();
+            spawnMonster('slime');
+            tipShowTipOnce('tutorial_retry', '再试一次！点击灵光攻击邪灵');
+            _tutorial.ending = false;
         };
         pauseGame = function() { gameLifecycleSystem.pauseGame(); };
         resumeGame = function() { gameLifecycleSystem.resumeGame(); };
@@ -3193,13 +3268,13 @@ function init() {
             getAssets: function() { return Assets; },
             onStartClick: function() {
                 _log('点击开始游戏');
+                if (audioSystem) audioSystem.stopBgm(1500);
                 stateMachine.transitionTo(GAME_STATE.LOADING);
                 setTimeout(function() {
                     stateMachine.transitionTo(GAME_STATE.CUTSCENE);
                     if (cutsceneRenderer) {
-                        var skippable = !!(playerData.worldMapProgress && playerData.worldMapProgress.cutsceneWatched);
                         cutsceneRenderer.loadCutscene({
-                            skippable: skippable,
+                            skippable: true,
                             frames: [
                                 { text: '在人类出现之前，世界没有"灵"。', duration: 4, bgColor: '#0a0a15', textColor: '#8a7a5a' },
                                 { text: '当第一个人类打磨出第一件石器——\n他的意识向那块石头投射了第一道意义能量。', duration: 5, bgColor: '#0a0a15', textColor: '#e8d5a3' },
@@ -3207,11 +3282,6 @@ function init() {
                                 { text: '而你，即将踏入这片灵域……', duration: 4, bgColor: '#0a0a15', textColor: '#e8d5a3' }
                             ]
                         });
-                        if (!skippable) {
-                            if (!playerData.worldMapProgress) playerData.worldMapProgress = { currentWorldId: 'world_01', worlds: {} };
-                            playerData.worldMapProgress.cutsceneWatched = true;
-                            savePlayerData(true);
-                        }
                     }
                 }, 100);
             }
@@ -3238,12 +3308,29 @@ function init() {
                 _log('实体交互结果:', result.type, result.entity ? result.entity.id : '');
                 if (result.type === 'tutorial') {
                     _log('触发教学战斗');
-                    _isTutorialBattle = true;
-                    _tutorialEntityId = result.entity.id;
+                    _tutorial.active = true;
+                    _tutorial.entityId = result.entity.id;
+                    _tutorial.ending = false;
+                    _tutorial.retryCount = 0;
                     worldMapSystem.snapshotReturnPosition();
-                    // 教学战斗开启无敌，防止死亡
                     godMode = true;
+                    playerData.godMode = true;
+
+                    // 启动游戏（初始化引擎、UI等基础）
                     startGame();
+
+                    // === 硬杀所有干扰源 ===
+                    // 杀倒计时/星星生成/怪物攻击定时器
+                    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                    if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+                    if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                    if (stopPetAttackTimer) stopPetAttackTimer();
+                    // 设置超长倒计时（防止计时器归零触发结束）
+                    timeLeft = 9999;
+
+                    // 只生成一只怪
+                    spawnMonster('slime');
+                    tipShowTipOnce('tutorial_start', '点击灵光攻击邪灵！净化它！');
                 }
                 if (result.type === 'enemy') {
                     _log('触发敌人战斗:', result.entity.id);
@@ -3393,6 +3480,14 @@ function handleTouchStart(res) {
 
     _log('触摸点数:', touches.length, '状态:', state);
 
+    // 教学胜利弹窗拦截（优先于所有状态判断，300ms保护期防误触）
+    if (_tutorial.victoryPopup) {
+        if (Date.now() - _tutorial.victoryPopup.createdAt >= 300) {
+            _tutorial.victoryPopup.onClose();
+        }
+        return;
+    }
+
     // ===== 启动画面触摸 =====
     if (state === GAME_STATE.TITLE && titleRenderer) {
         titleRenderer.handleTitleClick(x, y);
@@ -3401,7 +3496,11 @@ function handleTouchStart(res) {
 
     // ===== 过场动画跳过 =====
     if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) {
-        cutsceneRenderer.skip();
+        if (cutsceneRenderer.hitTestSkipBtn(x, y)) {
+            cutsceneRenderer.skip();
+        } else {
+            cutsceneRenderer.showSkipBtn();
+        }
         return;
     }
 
@@ -3412,9 +3511,9 @@ function handleTouchStart(res) {
             worldMapRenderer.advanceDialogue();
             return;
         }
-        // 菜单栏按钮检测（优先于地图操作）
+        // 菜单栏按钮检测（优先于地图操作，教学完成前不显示）
         var _hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
-        if (_hasUnlockedStarter) {
+        if (_hasUnlockedStarter && _tutorial.completed) {
             var _menuBtnSize = Math.floor(50 * scale);
             var _menuBtnX = Math.floor(15 * scale);
             var _menuBtnY = screenHeight - Math.floor(65 * scale);
@@ -4999,9 +5098,30 @@ function render() {
                     worldMapRenderer.updateCamera(1/60);
                     worldMapRenderer.renderWorldMap();
                 }
-                if (state === GAME_STATE.WORLDMAP && renderMenuBar) renderMenuBar();
+                if (state === GAME_STATE.WORLDMAP && renderMenuBar && _tutorial.completed) renderMenuBar();
             };
-            render._dispatch[GAME_STATE.TUTORIAL] = renderGame;
+            render._dispatch[GAME_STATE.TUTORIAL] = function() {
+                if (_tutorial.victoryPopup) {
+                    // 弹窗渲染：半透明底 + 文字（adapter 已 destroy，跳过战斗场景）
+                    ctx.fillStyle = 'rgba(10, 10, 21, 0.85)';
+                    ctx.fillRect(0, 0, screenWidth, screenHeight);
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#e8d5a3';
+                    ctx.font = 'bold 28px sans-serif';
+                    ctx.fillText(_tutorial.victoryPopup.text, screenWidth / 2, screenHeight / 2 - 30);
+                    ctx.fillStyle = '#a89870';
+                    ctx.font = '18px sans-serif';
+                    ctx.fillText(_tutorial.victoryPopup.subtext, screenWidth / 2, screenHeight / 2 + 20);
+                    ctx.fillStyle = '#666';
+                    ctx.font = '14px sans-serif';
+                    ctx.fillText('点击任意处继续', screenWidth / 2, screenHeight / 2 + 60);
+                    ctx.restore();
+                } else {
+                    renderGame();
+                }
+            };
             render._dispatch[GAME_STATE.MENU] = renderMenu;
             render._dispatch[GAME_STATE.PLAYING] = renderGame;
             render._dispatch[GAME_STATE.PAUSED] = function() { renderGame(); renderPausedMenu(); };

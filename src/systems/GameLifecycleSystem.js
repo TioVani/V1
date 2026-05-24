@@ -148,6 +148,10 @@ function createGameLifecycleSystem(deps) {
     var getGameEndTime = deps.getGameEndTime;
     var setGameEndTime = deps.setGameEndTime;
 
+    // 教学
+    var getIsTutorialBattle = deps.getIsTutorialBattle || null;
+    var onTutorialFailFn = deps.onTutorialFail || null;
+
     /**
      * 开始游戏
      */
@@ -275,7 +279,11 @@ function createGameLifecycleSystem(deps) {
                 }
             }
             if (tl <= 0) {
-                endGame();
+                if (getIsTutorialBattle && getIsTutorialBattle()) {
+                    if (onTutorialFailFn) onTutorialFailFn();
+                } else {
+                    endGame();
+                }
             }
         }, 1000));
 
@@ -298,8 +306,8 @@ function createGameLifecycleSystem(deps) {
 
         startPetAttackTimer();
 
-        // 高分玩家直接生成怪物
-        if (bestScore >= CONFIG.monsterAppearScore) {
+        // 高分玩家直接生成怪物（教学战斗跳过，由教程流程自行生怪）
+        if (bestScore >= CONFIG.monsterAppearScore && !(getIsTutorialBattle && getIsTutorialBattle())) {
             spawnMonster('slime');
             Logger.info('玩家最高分已达', bestScore, '，游戏开始时直接生成怪物');
         }
@@ -504,7 +512,11 @@ function createGameLifecycleSystem(deps) {
                 resetStar();
             }
             if (tl <= 0) {
-                endGame();
+                if (getIsTutorialBattle && getIsTutorialBattle()) {
+                    if (onTutorialFailFn) onTutorialFailFn();
+                } else {
+                    endGame();
+                }
             }
         }, 1000));
 

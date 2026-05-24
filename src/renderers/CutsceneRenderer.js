@@ -16,6 +16,12 @@ function createCutsceneRenderer(deps) {
     var _skippable = false;
     var _fading = false;
     var _fadeAlpha = 0;
+    var _skipBtnVisible = false;
+    var _skipBtnAlpha = 0;
+    var _skipBtnX = 0;
+    var _skipBtnY = 0;
+    var _skipBtnW = 0;
+    var _skipBtnH = 0;
 
     function loadCutscene(config) {
         _frames = config.frames || [];
@@ -25,6 +31,8 @@ function createCutsceneRenderer(deps) {
         _skippable = config.skippable !== false;
         _fading = true;
         _fadeAlpha = 1;
+        _skipBtnVisible = false;
+        _skipBtnAlpha = 0;
     }
 
     function update(dt) {
@@ -97,14 +105,33 @@ function createCutsceneRenderer(deps) {
             }
         }
 
-        // 跳过提示
+        // 跳过按钮
         if (_skippable) {
-            var hintSize = Math.floor(12 * scale);
-            ctx.font = hintSize + 'px sans-serif';
-            ctx.fillStyle = 'rgba(255,255,255,0.4)';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('点击跳过', sw - Math.floor(20 * scale), sh - Math.floor(20 * scale));
+            if (!_skipBtnVisible) {
+                var hintSize = Math.floor(12 * scale);
+                ctx.font = hintSize + 'px sans-serif';
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('点击屏幕跳过', sw - Math.floor(20 * scale), sh - Math.floor(20 * scale));
+            } else {
+                _skipBtnAlpha = Math.min(_skipBtnAlpha + 0.06, 1);
+                var btnFontSize = Math.floor(14 * scale);
+                var btnPad = Math.floor(12 * scale);
+                ctx.font = btnFontSize + 'px sans-serif';
+                var btnTextW = ctx.measureText('跳过').width + btnPad * 2;
+                var btnTextH = btnFontSize + btnPad * 2;
+                var btnX = sw - btnTextW - Math.floor(16 * scale);
+                var btnY = Math.floor(16 * scale);
+                _skipBtnX = btnX; _skipBtnY = btnY; _skipBtnW = btnTextW; _skipBtnH = btnTextH;
+
+                ctx.globalAlpha = _skipBtnAlpha;
+                ctx.fillStyle = 'rgba(232,213,163,0.8)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('跳过', btnX + btnTextW / 2, btnY + btnTextH / 2);
+                ctx.globalAlpha = 1;
+            }
         }
 
         // 淡入遮罩
@@ -134,6 +161,17 @@ function createCutsceneRenderer(deps) {
         _playing = false;
         _fading = false;
         _fadeAlpha = 0;
+        _skipBtnVisible = false;
+        _skipBtnAlpha = 0;
+    }
+
+    function showSkipBtn() {
+        if (_skippable && _playing) _skipBtnVisible = true;
+    }
+
+    function hitTestSkipBtn(x, y) {
+        if (!_skipBtnVisible) return false;
+        return x >= _skipBtnX && x <= _skipBtnX + _skipBtnW && y >= _skipBtnY && y <= _skipBtnY + _skipBtnH;
     }
 
     return {
@@ -142,7 +180,9 @@ function createCutsceneRenderer(deps) {
         renderCutscene: renderCutscene,
         skip: skip,
         isPlaying: isPlaying,
-        reset: reset
+        reset: reset,
+        showSkipBtn: showSkipBtn,
+        hitTestSkipBtn: hitTestSkipBtn
     };
 }
 

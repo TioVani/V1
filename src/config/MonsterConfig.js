@@ -829,6 +829,33 @@ const BOSS_LIST = [
 
 // 古灵配置 - 使用统一古灵系统（MonsterTypes 通过 Monsters 引用自动获取新名称）
 const MonsterTypes = {
+    dust: {
+        id: 'dust',
+        name: Monsters.dust.name,
+        emoji: Monsters.dust.emoji,
+        baseHp: Monsters.dust.baseHp,
+        timeReward: 4,
+        rarity: Monsters.dust.rarity,
+        skills: Monsters.dust.skills
+    },
+    wisp: {
+        id: 'wisp',
+        name: Monsters.wisp.name,
+        emoji: Monsters.wisp.emoji,
+        baseHp: Monsters.wisp.baseHp,
+        timeReward: 5,
+        rarity: Monsters.wisp.rarity,
+        skills: Monsters.wisp.skills
+    },
+    shard: {
+        id: 'shard',
+        name: Monsters.shard.name,
+        emoji: Monsters.shard.emoji,
+        baseHp: Monsters.shard.baseHp,
+        timeReward: 6,
+        rarity: Monsters.shard.rarity,
+        skills: Monsters.shard.skills
+    },
     slime: {
         id: 'slime',
         name: Monsters.slime.name,
