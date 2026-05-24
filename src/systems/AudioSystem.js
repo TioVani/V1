@@ -146,6 +146,60 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+
+    function playCharacterStep() {
+        var el = document.querySelector('audio[data-bgm-id="characterStep"]');
+        if (!el) return;
+        if (!el.paused) return;
+        el.playbackRate = 0.85 + Math.random() * 0.3; // 0.85~1.15 随机变调
+        el.volume = 0.3;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+        // 手动循环：每次播完换 pitch 再播
+        if (!el._stepLoop) {
+            el._stepLoop = true;
+            el.addEventListener('ended', function() {
+                if (el.paused) return; // 已被 stopCharacterStep 停掉
+                el.playbackRate = 0.85 + Math.random() * 0.3;
+                el.currentTime = 0;
+                el.play().catch(function() {});
+            });
+        }
+    }
+
+    function stopCharacterStep() {
+        var el = document.querySelector('audio[data-bgm-id="characterStep"]');
+        if (!el) return;
+        el.pause();
+        el.currentTime = 0;
+    }
+
+    function playUiSkip() {
+        var el = document.querySelector('audio[data-bgm-id="uiSkip"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function fadeOutAudio(dataId, fadeMs) {
+        var el = document.querySelector('audio[data-bgm-id="' + dataId + '"]');
+        if (!el || el.paused) return;
+        var startVol = el.volume;
+        var step = 50;
+        var steps = fadeMs / step;
+        var decay = startVol / steps;
+        var timer = setInterval(function() {
+            el.volume = Math.max(0, el.volume - decay);
+            if (el.volume <= 0) {
+                clearInterval(timer);
+                el.pause();
+                el.currentTime = 0;
+                el.volume = startVol;
+            }
+        }, step);
+    }
+
     function playBgm(id, volume) {
         _bgmVolume = volume || 0.4;
         var el = document.querySelector('audio[data-bgm-id="' + id + '"]');
@@ -213,6 +267,10 @@ function createAudioSystem(deps) {
         playMonsterDodge: playMonsterDodge,
         playUiEnter: playUiEnter,
         playUiEnter2: playUiEnter2,
+        playCharacterStep: playCharacterStep,
+        stopCharacterStep: stopCharacterStep,
+        playUiSkip: playUiSkip,
+        fadeOutAudio: fadeOutAudio,
         destroy: destroy
     };
 }

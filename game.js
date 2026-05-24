@@ -3496,6 +3496,7 @@ function handleTouchStart(res) {
     // ===== 过场动画跳过 =====
     if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) {
         if (cutsceneRenderer.hitTestSkipBtn(x, y)) {
+            if (audioSystem) { audioSystem.playUiSkip(); audioSystem.fadeOutAudio('uiEnter', 250); }
             cutsceneRenderer.skip();
         } else {
             cutsceneRenderer.showSkipBtn();
