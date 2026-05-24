@@ -16909,12 +16909,12 @@
               _loadBuffer(sfxList[i].src, sfxList[i].id);
           }
 
-          // BGM: 用 <audio> 元素预加载
+          // BGM + UI 音效: 用 <audio> 元素预加载（兼容 file://）
           for (var j = 0; j < bgmList.length; j++) {
               var audio = document.createElement('audio');
               audio.src = bgmList[j].src;
               audio.preload = 'auto';
-              audio.loop = true;
+              audio.loop = bgmList[j].loop !== false;
               audio.dataset.bgmId = bgmList[j].id;
               audio.style.display = 'none';
               document.body.appendChild(audio);
@@ -17011,6 +17011,22 @@
           _play(_buffers['monsterDodge'], 0.9, 1.1, 0.2);
       }
 
+      function playUiEnter() {
+          var el = document.querySelector('audio[data-bgm-id="uiEnter"]');
+          if (!el) return;
+          el.volume = 0.6;
+          el.currentTime = 0;
+          el.play().catch(function() {});
+      }
+
+      function playUiEnter2() {
+          var el = document.querySelector('audio[data-bgm-id="uiEnter2"]');
+          if (!el) return;
+          el.volume = 0.6;
+          el.currentTime = 0;
+          el.play().catch(function() {});
+      }
+
       function playBgm(id, volume) {
           _bgmVolume = volume || 0.4;
           var el = document.querySelector('audio[data-bgm-id="' + id + '"]');
@@ -17076,6 +17092,8 @@
           playPetAttack: playPetAttack,
           playMeteorImpact: playMeteorImpact,
           playMonsterDodge: playMonsterDodge,
+          playUiEnter: playUiEnter,
+          playUiEnter2: playUiEnter2,
           destroy: destroy
       };
   }
@@ -38675,6 +38693,9 @@
               if (_fadeAlpha <= 0) {
                   _fadeAlpha = 0;
                   _fading = false;
+                  // 淡入结束，帧正式显示，触发 onShow
+                  var frame = _frames[_currentFrame];
+                  if (frame && frame.onShow) frame.onShow();
               }
               return;
           }
@@ -38691,6 +38712,10 @@
               _currentFrame++;
               if (_currentFrame >= _frames.length) {
                   _finish();
+              } else {
+                  // 新帧开始淡入
+                  _fading = true;
+                  _fadeAlpha = 1;
               }
           }
       }
@@ -40195,7 +40220,9 @@
           { id: 'petAttack',    src: 'assets/audio/pet_attack.mp3' },
       ],
       bgm: [
-          { id: 'mainMenu',     src: 'assets/audio/01MainMenu.ogg' },
+          { id: 'mainMenu',     src: 'assets/audio/01MainMenu.ogg', loop: true },
+          { id: 'uiEnter',      src: 'assets/audio/UI_Enter.ogg', loop: false },
+          { id: 'uiEnter2',     src: 'assets/audio/UI_Enter2.ogg', loop: false },
       ],
   };
 

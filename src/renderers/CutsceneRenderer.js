@@ -43,6 +43,9 @@ function createCutsceneRenderer(deps) {
             if (_fadeAlpha <= 0) {
                 _fadeAlpha = 0;
                 _fading = false;
+                // 淡入结束，帧正式显示，触发 onShow
+                var frame = _frames[_currentFrame];
+                if (frame && frame.onShow) frame.onShow();
             }
             return;
         }
@@ -59,6 +62,10 @@ function createCutsceneRenderer(deps) {
             _currentFrame++;
             if (_currentFrame >= _frames.length) {
                 _finish();
+            } else {
+                // 新帧开始淡入
+                _fading = true;
+                _fadeAlpha = 1;
             }
         }
     }

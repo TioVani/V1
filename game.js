@@ -3267,7 +3267,7 @@ function init() {
             getAssets: function() { return Assets; },
             onStartClick: function() {
                 _log('点击开始游戏');
-                if (audioSystem) audioSystem.stopBgm(1500);
+                if (audioSystem) { audioSystem.playUiEnter(); audioSystem.stopBgm(1500); }
                 stateMachine.transitionTo(GAME_STATE.LOADING);
                 setTimeout(function() {
                     stateMachine.transitionTo(GAME_STATE.CUTSCENE);
@@ -3277,7 +3277,7 @@ function init() {
                             frames: [
                                 { text: '在人类出现之前，世界没有"灵"。', duration: 4, bgColor: '#0a0a15', textColor: '#8a7a5a' },
                                 { text: '当第一个人类打磨出第一件石器——\n他的意识向那块石头投射了第一道意义能量。', duration: 5, bgColor: '#0a0a15', textColor: '#e8d5a3' },
-                                { text: '这就是最早的"灵"。', duration: 3, bgColor: '#0a0a15', textColor: '#8a7a5a' },
+                                { text: '这就是最早的"灵"。', duration: 3, bgColor: '#0a0a15', textColor: '#8a7a5a', onShow: function() { if (audioSystem) audioSystem.playUiEnter2(); } },
                                 { text: '而你，即将踏入这片灵域……', duration: 4, bgColor: '#0a0a15', textColor: '#e8d5a3' }
                             ]
                         });

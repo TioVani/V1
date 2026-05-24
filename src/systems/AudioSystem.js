@@ -28,12 +28,12 @@ function createAudioSystem(deps) {
             _loadBuffer(sfxList[i].src, sfxList[i].id);
         }
 
-        // BGM: 用 <audio> 元素预加载
+        // BGM + UI 音效: 用 <audio> 元素预加载（兼容 file://）
         for (var j = 0; j < bgmList.length; j++) {
             var audio = document.createElement('audio');
             audio.src = bgmList[j].src;
             audio.preload = 'auto';
-            audio.loop = true;
+            audio.loop = bgmList[j].loop !== false;
             audio.dataset.bgmId = bgmList[j].id;
             audio.style.display = 'none';
             document.body.appendChild(audio);
@@ -130,6 +130,22 @@ function createAudioSystem(deps) {
         _play(_buffers['monsterDodge'], 0.9, 1.1, 0.2);
     }
 
+    function playUiEnter() {
+        var el = document.querySelector('audio[data-bgm-id="uiEnter"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playUiEnter2() {
+        var el = document.querySelector('audio[data-bgm-id="uiEnter2"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playBgm(id, volume) {
         _bgmVolume = volume || 0.4;
         var el = document.querySelector('audio[data-bgm-id="' + id + '"]');
@@ -195,6 +211,8 @@ function createAudioSystem(deps) {
         playPetAttack: playPetAttack,
         playMeteorImpact: playMeteorImpact,
         playMonsterDodge: playMonsterDodge,
+        playUiEnter: playUiEnter,
+        playUiEnter2: playUiEnter2,
         destroy: destroy
     };
 }

@@ -67,7 +67,9 @@ export var AUDIO_CONFIG = {
         { id: 'petAttack',    src: 'assets/audio/pet_attack.mp3' },
     ],
     bgm: [
-        { id: 'mainMenu',     src: 'assets/audio/01MainMenu.ogg' },
+        { id: 'mainMenu',     src: 'assets/audio/01MainMenu.ogg', loop: true },
+        { id: 'uiEnter',      src: 'assets/audio/UI_Enter.ogg', loop: false },
+        { id: 'uiEnter2',     src: 'assets/audio/UI_Enter2.ogg', loop: false },
     ],
 };
 
