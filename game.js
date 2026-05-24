@@ -3324,7 +3324,10 @@ function init() {
                 _log('过场播放完毕，进入大地图');
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 if (worldMapSystem) worldMapSystem.loadWorld('world_01');
-                if (audioSystem) audioSystem.playBgm('shuhanTheme', 0.4);
+                if (audioSystem) {
+                    audioSystem.playBgm('shuhanTheme', 0.4);
+                    audioSystem.fadeBgmVolume(0.32, 5000); // 5秒内衰减到80%
+                }
             }
         });
 
