@@ -15,6 +15,18 @@ function createWorldMapRenderer(deps) {
     var JOYSTICK_MAX_RADIUS = 60;
     var _camX = 0;
     var _camY = 0;
+    var _mapScale = 1;
+
+    // 地图专用缩放：确保地图图片覆盖整个屏幕（cover 模式）
+    function _computeMapScale() {
+        var wms = getWorldMapSystem();
+        if (!wms) return;
+        var config = wms.getConfig();
+        if (!config) return;
+        var sw = getScreenWidth();
+        var sh = getScreenHeight();
+        _mapScale = Math.max(sw / config.width, sh / config.height);
+    }
     var _dialogue = null;       // { lines: [], index: 0 }
     var _dialogueCallback = null;
     var _confirmEntity = null;  // { id, type, x, y, label }
@@ -66,47 +78,54 @@ function createWorldMapRenderer(deps) {
 
     function checkConfirmHit(x, y) {
         if (!_confirmEntity) return false;
-        var scale = getScreenScale();
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var sp = worldToScreen(_confirmEntity.x, _confirmEntity.y);
-        var ir = (_confirmEntity.interactRadius || 40) * scale;
-        // 确认按钮在实体上方
-        var btnW = Math.floor(80 * scale);
-        var btnH = Math.floor(36 * scale);
+        var ir = (_confirmEntity.interactRadius || 40) * _mapScale;
+        var btnW = Math.floor(80 * _mapScale);
+        var btnH = Math.floor(36 * _mapScale);
         var btnX = sp.x - btnW / 2;
-        var btnY = sp.y - ir - Math.floor(40 * scale);
+        var btnY = sp.y - ir - Math.floor(40 * _mapScale);
         return x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH;
     }
 
     function worldToScreen(wx, wy) {
-        var scale = getScreenScale();
         return {
-            x: wx * scale - _camX,
-            y: wy * scale - _camY
+            x: wx * _mapScale - _camX,
+            y: wy * _mapScale - _camY
         };
     }
 
     function updateCamera(dt) {
         var wms = getWorldMapSystem();
         if (!wms) return;
+        var config = wms.getConfig();
+        if (!config) return;
+        _computeMapScale();
         var pos = wms.getPlayerPos();
-        var scale = getScreenScale();
         var sw = getScreenWidth();
         var sh = getScreenHeight();
-        var targetCamX = pos.x * scale - sw / 2;
-        var targetCamY = pos.y * scale - sh / 2;
+        var targetCamX = pos.x * _mapScale - sw / 2;
+        var targetCamY = pos.y * _mapScale - sh / 2;
         _camX += (targetCamX - _camX) * CAMERA_SMOOTHING;
         _camY += (targetCamY - _camY) * CAMERA_SMOOTHING;
+        // 摄像机边界夹紧：不让镜头超出地图图片范围
+        var mapW = config.width * _mapScale;
+        var mapH = config.height * _mapScale;
+        var maxCamX = Math.max(0, mapW - sw);
+        var maxCamY = Math.max(0, mapH - sh);
+        _camX = Math.max(0, Math.min(_camX, maxCamX));
+        _camY = Math.max(0, Math.min(_camY, maxCamY));
     }
 
     function renderWorldMap() {
         var ctx = getCtx();
         var sw = getScreenWidth();
         var sh = getScreenHeight();
-        var scale = getScreenScale();
         var wms = getWorldMapSystem();
         if (!wms) return;
+        _computeMapScale();
+        var scale = _mapScale;
 
         ctx.save();
 
@@ -116,12 +135,12 @@ function createWorldMapRenderer(deps) {
         var config = wms.getConfig();
         var bgImg = null;
         var assets = getAssets();
-        if (config && config.worldId === 'world_01' && assets.worldMapBg01) {
-            bgImg = assets.worldMapBg01;
-        } else if (config && config.worldId === 'world_02' && assets.worldMapBg02) {
-            bgImg = assets.worldMapBg02;
+        if (config) {
+            var assetKey = 'worldMapBg' + config.worldId.replace('world_', '');
+            var assetVal = assets[assetKey];
+            if (assetVal) bgImg = assetVal;
         }
-        if (bgImg) {
+        if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
             ctx.drawImage(bgImg, -_camX, -_camY, config.width * scale, config.height * scale);
         }
 
@@ -308,9 +327,9 @@ function createWorldMapRenderer(deps) {
 
         // 世界名称
         var worldId = wms.getWorldId();
-        var worldNames = { world_01: '灵域初境', world_02: '冥河幽境·埃及' };
+        var worldName = config ? config.name : worldId;
         ctx.textAlign = 'left';
-        ctx.fillText(worldNames[worldId] || worldId, Math.floor(15 * scale), Math.floor(15 * scale));
+        ctx.fillText(worldName, Math.floor(15 * scale), Math.floor(15 * scale));
 
         // NPC 对话框
         if (_dialogue && _dialogue.lines.length > 0) {
@@ -406,10 +425,15 @@ function createWorldMapRenderer(deps) {
         return labels[type] || '按 E 交互';
     }
 
+    function getCameraState() {
+        return { camX: _camX, camY: _camY, scale: _mapScale };
+    }
+
     return {
         updateCamera: updateCamera,
         renderWorldMap: renderWorldMap,
         worldToScreen: worldToScreen,
+        getCameraState: getCameraState,
         showDialogue: showDialogue,
         dismissDialogue: dismissDialogue,
         isDialogueOpen: isDialogueOpen,

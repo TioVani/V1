@@ -521,6 +521,7 @@ var _tutorial = {
     completed: false
 };
 var _worldMapBattleEntityId = null;
+var _lastPortalTime = 0;
 var renderGameOver = null;
 var renderPausedMenu = null;
 var renderLeaderboard = null;
@@ -754,6 +755,20 @@ const Assets = {
     fightBgImage2: null,    // 战斗场景背景图片（2000分解锁）
     worldMapBg01: null,     // 世界地图背景 world_01
     worldMapBg02: null,     // 世界地图背景 world_02
+    worldMapBg03: null,
+    worldMapBg04: null,
+    worldMapBg05: null,
+    worldMapBg06: null,
+    worldMapBg07: null,
+    worldMapBg08: null,
+    worldMapBg09: null,
+    worldMapBg10: null,
+    worldMapBg11: null,
+    worldMapBg12: null,
+    worldMapBg13: null,
+    worldMapBg14: null,
+    worldMapBg15: null,
+    worldMapBg16: null,
     bgPositionCache: null,  // 缓存背景图片位置信息
     fightBgPositionCache: null,  // 缓存战斗背景图片位置信息
     fightBgPositionCache2: null, // 缓存第二张战斗背景图片位置信息
@@ -1099,6 +1114,20 @@ function init() {
         Assets.bossImage = assetManager.get('bossImage');
         Assets.worldMapBg01 = assetManager.get('worldMapBg01');
         Assets.worldMapBg02 = assetManager.get('worldMapBg02');
+        Assets.worldMapBg03 = assetManager.get('worldMapBg03');
+        Assets.worldMapBg04 = assetManager.get('worldMapBg04');
+        Assets.worldMapBg05 = assetManager.get('worldMapBg05');
+        Assets.worldMapBg06 = assetManager.get('worldMapBg06');
+        Assets.worldMapBg07 = assetManager.get('worldMapBg07');
+        Assets.worldMapBg08 = assetManager.get('worldMapBg08');
+        Assets.worldMapBg09 = assetManager.get('worldMapBg09');
+        Assets.worldMapBg10 = assetManager.get('worldMapBg10');
+        Assets.worldMapBg11 = assetManager.get('worldMapBg11');
+        Assets.worldMapBg12 = assetManager.get('worldMapBg12');
+        Assets.worldMapBg13 = assetManager.get('worldMapBg13');
+        Assets.worldMapBg14 = assetManager.get('worldMapBg14');
+        Assets.worldMapBg15 = assetManager.get('worldMapBg15');
+        Assets.worldMapBg16 = assetManager.get('worldMapBg16');
         Assets.characterImages.starter = assetManager.get('char_starter');
         Assets.characterImages.warrior = assetManager.get('char_warrior');
         Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
@@ -3359,6 +3388,12 @@ function init() {
                     worldMapSystem.saveProgress();
                 }
                 if (result.type === 'portal') {
+                    var _now = Date.now();
+                    if (_now - _lastPortalTime < 3000) {
+                        $P.showToast({ title: '传送冷却中...', icon: 'none', duration: 1000 });
+                        return;
+                    }
+                    _lastPortalTime = _now;
                     _log('传送到:', result.targetWorld);
                     var fromWorld = worldMapSystem.getWorldId();
                     worldMapSystem.saveProgress();
@@ -3410,7 +3445,14 @@ function init() {
                 }
             }
         });
-        document.addEventListener('keyup', function(e) { _keysDown[e.key.toLowerCase()] = false; });
+        document.addEventListener('keyup', function(e) {
+            _keysDown[e.key.toLowerCase()] = false;
+            // 键盘松手时输出位置
+            if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
+                var _pp = worldMapSystem.getPlayerPos();
+                console.log('[POS] worldId=' + worldMapSystem.getWorldId() + ' x=' + Math.round(_pp.x) + ' y=' + Math.round(_pp.y));
+            }
+        });
 
         _log('大世界探索系统初始化完成');
 
@@ -3483,6 +3525,39 @@ function handleTouchStart(res) {
             _tutorial.victoryPopup.onClose();
         }
         return;
+    }
+
+    // ===== 调试面板关闭/操作（最高优先级，不受任何状态限制）=====
+    if (debugPanelOpen && debugRenderer) {
+        var _dpResult = debugRenderer.handleDebugPanelTouch(x, y);
+        if (_dpResult === 'close') {
+            debugPanelOpen = false;
+            return;
+        }
+        if (_dpResult) {
+            executeDebugAction(_dpResult);
+            return;
+        }
+        return;
+    }
+
+    // ===== 开发者战斗调参工具（优先级最高）=====
+    if (devBattleSystem && devBattleSystem.isVisible()) {
+        devBattleSystem.handleTouch(x, y);
+        return;
+    }
+
+    // ===== 调试按钮（WORLDMAP状态，不受教学状态限制）=====
+    if (state === GAME_STATE.WORLDMAP) {
+        var _dbSz = Math.floor(32 * scale);
+        var _dbOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
+        var _dbX = screenWidth - Math.floor(50 * scale) + _dbOv.dx * scale;
+        var _dbY = Math.floor(15 * scale) + _dbOv.dy * scale;
+        if (x >= _dbX && x <= _dbX + _dbSz && y >= _dbY && y <= _dbY + _dbSz) {
+            debugPanelOpen = true;
+            _log('打开调试面板');
+            return;
+        }
     }
 
     // ===== 启动画面触摸 =====
@@ -3587,6 +3662,20 @@ function handleTouchStart(res) {
             }
         }
 
+        // 角色图标点击（进入编队系统，教学完成后可用）
+        if (_tutorial.completed && playerData.ownedCharacters && playerData.ownedCharacters.length > 0 && playerData.currentCharacterId) {
+            var _charBaseX = screenWidth - Math.floor(180 * scale);
+            var _charBaseY = screenHeight - Math.floor(92 * scale);
+            var _charRightX = _charBaseX + Math.floor(90 * scale);
+            var _charRightY = _charBaseY - Math.floor(2 * scale);
+            var _charIconSz = Math.floor(50 * scale);
+            if (x >= _charRightX && x <= _charRightX + _charIconSz && y >= _charRightY && y <= _charRightY + _charIconSz) {
+                _log('大地图点击角色图标，进入编队');
+                stateMachine.transitionTo(GAME_STATE.SQUAD);
+                return;
+            }
+        }
+
         // 触屏实体交互（二次确认机制）
         if (worldMapRenderer.isConfirmOpen()) {
             if (worldMapRenderer.checkConfirmHit(x, y)) {
@@ -3609,6 +3698,14 @@ function handleTouchStart(res) {
             }
         }
         // 摇杆起始
+        // 调试：点击地图输出世界坐标
+        var _camState = worldMapRenderer.getCameraState ? worldMapRenderer.getCameraState() : null;
+        if (_camState) {
+            var _ms = _camState.scale;
+            var _wx = Math.round((x + _camState.camX) / _ms);
+            var _wy = Math.round((y + _camState.camY) / _ms);
+            console.log('[MAP] worldId=' + (worldMapSystem.getWorldId ? worldMapSystem.getWorldId() : '?') + ' x=' + _wx + ' y=' + _wy);
+        }
         _joystickActive = true;
         _joystickStartX = x;
         _joystickStartY = y;
@@ -5068,6 +5165,13 @@ function render() {
             if (wdx !== 0 || wdy !== 0) worldMapSystem.movePlayer(wdx, wdy, dt);
         }
         worldMapSystem.update(dt);
+
+        // 触发线自动切换地图
+        var _tl = worldMapSystem.consumeTriggerLine();
+        if (_tl && _tl.targetWorld) {
+            worldMapSystem.saveProgress();
+            worldMapSystem.loadWorld(_tl.targetWorld, worldMapSystem.getWorldId());
+        }
     }
     if (state === GAME_STATE.TITLE && titleRenderer) titleRenderer.update(dt);
     if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) cutsceneRenderer.update(dt);
@@ -5626,6 +5730,10 @@ function handleTouchEnd(res) {
             _joystickActive = false;
             _joystickDX = 0;
             _joystickDY = 0;
+            if (worldMapSystem) {
+                var _pp = worldMapSystem.getPlayerPos();
+                console.log('[POS] worldId=' + worldMapSystem.getWorldId() + ' x=' + Math.round(_pp.x) + ' y=' + Math.round(_pp.y));
+            }
         }
 
         // 挂机奖励结果弹窗触摸处理

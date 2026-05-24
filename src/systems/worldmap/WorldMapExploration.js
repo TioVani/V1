@@ -4,6 +4,7 @@
 function createWorldMapExploration(deps) {
     var getWorldConfig = deps.getWorldConfig;
     var getEntityStates = deps.getEntityStates;
+    var setEntityStates = deps.setEntityStates;
     var getActiveEntities = deps.getActiveEntities;
     var getPlayerPos = deps.getPlayerPos;
     var setPlayerPos = deps.setPlayerPos;
@@ -85,6 +86,7 @@ function createWorldMapExploration(deps) {
         var wData = playerData.worldMapProgress.worlds[_currentWorldId];
         if (!wData) return false;
         if (wData.playerPos) setPlayerPos(wData.playerPos.x, wData.playerPos.y);
+        if (wData.entities) setEntityStates(wData.entities);
         return true;
     }
 

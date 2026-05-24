@@ -217,6 +217,16 @@ function createWorldMapEntity(deps) {
 
     function getEntityStates() { return _entityStates; }
 
+    function setEntityStates(saved) {
+        if (!saved) return;
+        for (var id in saved) {
+            if (_entityStates[id]) {
+                if (saved[id].discovered) _entityStates[id].discovered = true;
+                if (saved[id].resolved) _entityStates[id].resolved = true;
+            }
+        }
+    }
+
     return {
         init: init,
         updateDiscoveries: updateDiscoveries,
@@ -231,6 +241,7 @@ function createWorldMapEntity(deps) {
         isEntityResolved: isEntityResolved,
         getEntityById: getEntityById,
         getEntityStates: getEntityStates,
+        setEntityStates: setEntityStates,
         setTutorialComplete: setTutorialComplete,
         setHiddenEntityIds: setHiddenEntityIds,
         isEntityActive: isEntityActive
