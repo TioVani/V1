@@ -146,7 +146,6 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
-
     function playUiEnter3() {
         var el = document.querySelector('audio[data-bgm-id="uiEnter3"]');
         if (!el) return;

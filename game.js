@@ -5162,7 +5162,12 @@ function render() {
                     wdy = (_joystickDY / jLen) * (normLen / maxR);
                 }
             }
-            if (wdx !== 0 || wdy !== 0) worldMapSystem.movePlayer(wdx, wdy, dt);
+            if (wdx !== 0 || wdy !== 0) {
+                worldMapSystem.movePlayer(wdx, wdy, dt);
+                if (audioSystem) audioSystem.playCharacterStep();
+            } else {
+                if (audioSystem) audioSystem.stopCharacterStep();
+            }
         }
         worldMapSystem.update(dt);
 
