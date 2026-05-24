@@ -67,8 +67,8 @@ export var AUDIO_CONFIG = {
         { id: 'petAttack',    src: 'assets/audio/pet_attack.mp3' },
     ],
     bgm: [
-        { id: 'mainMenu',     src: 'assets/audio/01MainMenu.ogg', loop: true },
-        { id: 'shuhanTheme',  src: "assets/audio/02Shuhan's Theme.ogg", loop: true },
+        { id: 'mainMenu',     src: 'assets/audio/music/01MainMenu.ogg', loop: true },
+        { id: 'shuhanTheme',  src: "assets/audio/music/02Shuhan's Theme.ogg", loop: true },
         { id: 'uiEnter',      src: 'assets/audio/UI_Enter.ogg', loop: false },
         { id: 'uiEnter2',     src: 'assets/audio/UI_Enter2.ogg', loop: false },
         { id: 'uiEnter3',     src: 'assets/audio/UI_Enter3.ogg', loop: false },
