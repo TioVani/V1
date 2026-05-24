@@ -162,6 +162,10 @@ function createNormalBattleAdapter(deps) {
     var getDropTierFn = deps.getDropTier;
     var getAwakeConfigFn = deps.getAwakeConfig;
 
+    // ═══ 教学战斗 ═══
+    var getIsTutorialBattle = deps.getIsTutorialBattle || null;
+    var _pendingVictoryTimeout = null;
+
     // ═══ BattleEngine 实例 ═══
     var battleEngine = null;
     var active = false;
@@ -937,9 +941,23 @@ function createNormalBattleAdapter(deps) {
 
         if (result) {
             syncEngineStateBack();
+            // 教学战斗 HP 阈值胜利检查
+            if (checkTutorialVictory()) return true;
         }
 
         return result;
+    }
+
+    // 教学战斗：检查怪物 HP 是否降到阈值以下，直接触发胜利
+    function checkTutorialVictory() {
+        if (!getIsTutorialBattle || !getIsTutorialBattle()) return false;
+        var m = getActiveMonster();
+        if (!m || !m.active) return false;
+        if (m.hp / m.maxHp <= 0.3) {
+            if (deps.endGame) deps.endGame();
+            return true;
+        }
+        return false;
     }
 
     function syncEngineStateBack(engineOverride) {
@@ -1016,6 +1034,16 @@ function createNormalBattleAdapter(deps) {
 
     function handleMonsterDeath(isElementalCombo, m, state, GAME_STATE, playerData) {
         if (!m) return;
+
+        // 教学战斗中：胜利由 endGame 处理，跳过普通死亡流程
+        if (getIsTutorialBattle && getIsTutorialBattle()) {
+            Logger.info('教学战斗中怪物死亡，跳过普通死亡处理');
+            var monsters2 = getMonsters();
+            for (var mi = 0; mi < monsters2.length; mi++) {
+                if (monsters2[mi].id === m.id) { monsters2.splice(mi, 1); break; }
+            }
+            return;
+        }
 
         var MonsterTypes = getMonsterTypes();
         var MonstersConfig = getMonstersConfig();
@@ -1945,7 +1973,13 @@ function createNormalBattleAdapter(deps) {
         initBossEngine: initBossEngine,
         releaseEngine: releaseEngine,
         getBattleEngine: function() { return battleEngine; },
-        calculateCrit: calculateCrit
+        calculateCrit: calculateCrit,
+        cancelPendingVictory: function() {
+            if (_pendingVictoryTimeout) {
+                clearTimeout(_pendingVictoryTimeout);
+                _pendingVictoryTimeout = null;
+            }
+        }
     };
 }
 

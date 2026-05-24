@@ -32,8 +32,11 @@ export var IMAGE_GROUPS = {
         { id: 'char_warriorPortrait',     src: 'assets/images/character/XXZS.png' },
     ],
     battle: [
-        { id: 'fightBgImage',             src: 'assets/images/battle/Fight_01_BG.jpg' },
-        { id: 'fightBgImage2',            src: 'assets/images/battle/Fight_02_BG.jpg' },
+        { id: 'fightBgImage',             src: 'assets/images/battle/Fight_03_BG.jpg' },
+    ],
+    worldmap: [
+        { id: 'worldMapBg01',             src: 'assets/images/worldmap/world_01.jpg' },
+        { id: 'worldMapBg02',             src: 'assets/images/worldmap/world_02.jpg' },
     ],
     beauty: [
         // 由 AssetManager 根据 BEAUTY_CONFIG 自动生成
@@ -62,6 +65,9 @@ export var AUDIO_CONFIG = {
         { id: 'meteorImpact', src: 'assets/audio/meteor_impact.mp3' },
         { id: 'dodgeHeal',    src: 'assets/audio/dodge_heal.mp3' },
         { id: 'petAttack',    src: 'assets/audio/pet_attack.mp3' },
+    ],
+    bgm: [
+        { id: 'mainMenu',     src: 'assets/audio/01MainMenu.ogg' },
     ],
 };
 

@@ -129,10 +129,15 @@ function createWorldMapSystem(deps) {
         if (savePlayerData) savePlayerData(true);
     }
 
+    function getConfig() {
+        return getWorldConfig(_exploration.getWorldId());
+    }
+
     return {
         loadWorld: loadWorld,
         update: update,
         getWorldId: getWorldId,
+        getConfig: getConfig,
         getExplorationPercent: getExplorationPercent,
         getCompletionPercent: getCompletionPercent,
         movePlayer: movePlayer,
