@@ -200,6 +200,19 @@ function createAudioSystem(deps) {
         }
     }
 
+    function fadeBgmVolume(targetVolume, durationMs) {
+        if (!_bgmEl) return;
+        var el = _bgmEl;
+        var startVol = el.volume;
+        var step = 50;
+        var steps = durationMs / step;
+        var decay = (startVol - targetVolume) / steps;
+        var timer = setInterval(function() {
+            el.volume = Math.max(targetVolume, el.volume - decay);
+            if (el.volume <= targetVolume) clearInterval(timer);
+        }, step);
+    }
+
     function stopBgm(fadeMs) {
         if (!_bgmEl) return;
         var el = _bgmEl;
@@ -234,6 +247,7 @@ function createAudioSystem(deps) {
     return {
         init: init,
         playBgm: playBgm,
+        fadeBgmVolume: fadeBgmVolume,
         stopBgm: stopBgm,
         playClick: playClick,
         playMenuClick: playMenuClick,
