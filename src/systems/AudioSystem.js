@@ -147,6 +147,14 @@ function createAudioSystem(deps) {
     }
 
 
+    function playUiEnter3() {
+        var el = document.querySelector('audio[data-bgm-id="uiEnter3"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playCharacterStep() {
         var el = document.querySelector('audio[data-bgm-id="characterStep"]');
         if (!el) return;
@@ -267,6 +275,7 @@ function createAudioSystem(deps) {
         playMonsterDodge: playMonsterDodge,
         playUiEnter: playUiEnter,
         playUiEnter2: playUiEnter2,
+        playUiEnter3: playUiEnter3,
         playCharacterStep: playCharacterStep,
         stopCharacterStep: stopCharacterStep,
         playUiSkip: playUiSkip,

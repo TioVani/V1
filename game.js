@@ -3278,7 +3278,7 @@ function init() {
                                 { text: '在人类出现之前，世界没有"灵"。', duration: 4, bgColor: '#0a0a15', textColor: '#8a7a5a' },
                                 { text: '当第一个人类打磨出第一件石器——\n他的意识向那块石头投射了第一道意义能量。', duration: 5, bgColor: '#0a0a15', textColor: '#e8d5a3' },
                                 { text: '这就是最早的"灵"。', duration: 3, bgColor: '#0a0a15', textColor: '#8a7a5a', onShow: function() { if (audioSystem) audioSystem.playUiEnter2(); } },
-                                { text: '而你，即将踏入这片灵域……', duration: 4, bgColor: '#0a0a15', textColor: '#e8d5a3' }
+                                { text: '而你，即将踏入这片灵域……', duration: 4, bgColor: '#0a0a15', textColor: '#e8d5a3', onShow: function() { if (audioSystem) audioSystem.playUiEnter3(); } }
                             ]
                         });
                     }
@@ -3496,7 +3496,7 @@ function handleTouchStart(res) {
     // ===== 过场动画跳过 =====
     if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) {
         if (cutsceneRenderer.hitTestSkipBtn(x, y)) {
-            if (audioSystem) { audioSystem.playUiSkip(); audioSystem.fadeOutAudio('uiEnter', 250); }
+            if (audioSystem) { audioSystem.playUiSkip(); audioSystem.fadeOutAudio('uiEnter', 250); audioSystem.fadeOutAudio('uiEnter2', 250); audioSystem.fadeOutAudio('uiEnter3', 250); }
             cutsceneRenderer.skip();
         } else {
             cutsceneRenderer.showSkipBtn();
