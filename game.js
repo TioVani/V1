@@ -3496,6 +3496,7 @@ function handleTouchStart(res) {
     // ===== 过场动画跳过 =====
     if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) {
         if (cutsceneRenderer.hitTestSkipBtn(x, y)) {
+            if (audioSystem) audioSystem.playUiSkip();
             cutsceneRenderer.skip();
         } else {
             cutsceneRenderer.showSkipBtn();
@@ -5064,7 +5065,12 @@ function render() {
                     wdy = (_joystickDY / jLen) * (normLen / maxR);
                 }
             }
-            if (wdx !== 0 || wdy !== 0) worldMapSystem.movePlayer(wdx, wdy, dt);
+            if (wdx !== 0 || wdy !== 0) {
+                worldMapSystem.movePlayer(wdx, wdy, dt);
+                if (audioSystem) audioSystem.playCharacterStep();
+            } else {
+                if (audioSystem) audioSystem.stopCharacterStep();
+            }
         }
         worldMapSystem.update(dt);
     }
