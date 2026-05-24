@@ -5096,48 +5096,6 @@ function render() {
                     worldMapRenderer.updateCamera(1/60);
                     worldMapRenderer.renderWorldMap();
                 }
-                // 指引箭头：角色边缘指向最近未完成的实体
-                if (worldMapSystem && worldMapRenderer) {
-                    var _guideEnts = worldMapSystem.getEntities();
-                    var _guideTgt = null;
-                    var _guideMinD = Infinity;
-                    var _gp = worldMapSystem.getPlayerPos();
-                    for (var _gii = 0; _gii < _guideEnts.length; _gii++) {
-                        var _ge = _guideEnts[_gii];
-                        if (!_tutorial.completed && _ge.type !== 'tutorial') continue;
-                        if (_tutorial.completed && _ge.type === 'tutorial') continue;
-                        if (!_tutorial.completed && _ge.requireTutorial) continue;
-                        if (worldMapSystem.isEntityResolved(_ge.id)) continue;
-                        var _gdx = _ge.x - _gp.x;
-                        var _gdy = _ge.y - _gp.y;
-                        var _gd = Math.sqrt(_gdx * _gdx + _gdy * _gdy);
-                        if (_gd <= (_ge.interactRadius || 40) * 1.5) continue;
-                        if (_gd < _guideMinD) { _guideMinD = _gd; _guideTgt = _ge; }
-                    }
-                    if (_guideTgt) {
-                        var _sc = getScreenScale();
-                        var _gpsp = worldMapRenderer.worldToScreen(_gp.x, _gp.y);
-                        var _gtsp = worldMapRenderer.worldToScreen(_guideTgt.x, _guideTgt.y);
-                        var _ga = Math.atan2(_gtsp.y - _gpsp.y, _gtsp.x - _gpsp.x);
-                        var _gd2 = 12 * _sc + 14 * _sc;
-                        var _gax = _gpsp.x + Math.cos(_ga) * _gd2;
-                        var _gay = _gpsp.y + Math.sin(_ga) * _gd2;
-                        var _gc = _guideTgt.type === 'tutorial' ? '#ffd700' : _guideTgt.type === 'enemy' ? '#e74c3c' : _guideTgt.type === 'chest' ? '#f0c040' : '#ffffff';
-                        ctx.save();
-                        ctx.globalAlpha = 0.7;
-                        ctx.translate(_gax, _gay);
-                        ctx.rotate(_ga);
-                        ctx.fillStyle = _gc;
-                        ctx.beginPath();
-                        ctx.moveTo(10 * _sc, 0);
-                        ctx.lineTo(-6 * _sc, -7 * _sc);
-                        ctx.lineTo(-6 * _sc, 7 * _sc);
-                        ctx.closePath();
-                        ctx.fill();
-                        ctx.globalAlpha = 1;
-                        ctx.restore();
-                    }
-                }
                 if (state === GAME_STATE.WORLDMAP && renderMenuBar && _tutorial.completed) renderMenuBar();
             };
             render._dispatch[GAME_STATE.TUTORIAL] = function() {
