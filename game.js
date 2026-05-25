@@ -522,6 +522,7 @@ var _tutorial = {
     completed: false
 };
 var _worldMapBattleEntityId = null;
+var _battleMusicTriggered = false;
 var _lastPortalTime = 0;
 var renderGameOver = null;
 var renderPausedMenu = null;
@@ -3108,6 +3109,7 @@ function init() {
             if (dragSystem) dragSystem.reset();
             if (linkChainSystem) linkChainSystem.reset();
             if (touchGestureSystem) touchGestureSystem.reset();
+            _battleMusicTriggered = false;
             gameLifecycleSystem.startGame();
         };
         endGame = function() {
@@ -3119,6 +3121,7 @@ function init() {
                 godMode = false;
                 playerData.godMode = false;
 
+                if (audioSystem) { audioSystem.endBattle(); audioSystem.exitBattle(); }
                 if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
                 if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
                 if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
@@ -3153,6 +3156,7 @@ function init() {
                 return;
             }
             gameLifecycleSystem.endGame();
+            if (_worldMapBattleEntityId && audioSystem) audioSystem.endBattle();
             if (_worldMapBattleEntityId) {
                 worldMapSystem.resolveEntity(_worldMapBattleEntityId);
                 worldMapSystem.saveProgress();
@@ -3180,6 +3184,7 @@ function init() {
                 _tutorial.ending = false;
                 godMode = false;
                 playerData.godMode = false;
+                if (audioSystem) { audioSystem.endBattle(); audioSystem.exitBattle(); }
                 worldMapSystem.restoreReturnPosition();
                 worldMapSystem.saveProgress();
                 _tutorial.entityId = null;
@@ -3372,6 +3377,7 @@ function init() {
                     godMode = true;
                     playerData.godMode = true;
 
+                    if (audioSystem) audioSystem.enterBattle();
                     // 启动游戏（初始化引擎、UI等基础）
                     startGame();
 
@@ -3389,6 +3395,7 @@ function init() {
                     _log('触发敌人战斗:', result.entity.id);
                     _worldMapBattleEntityId = result.entity.id;
                     worldMapSystem.snapshotReturnPosition();
+                    if (audioSystem) audioSystem.enterBattle();
                     startGame();
                 }
                 if (result.type === 'tower') {
@@ -5053,6 +5060,7 @@ function handleTouchStart(res) {
 
             if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
                 _log('点击重新开始按钮');
+                if (audioSystem) audioSystem.restartBattle();
                 startGame();
             }
 
@@ -5061,6 +5069,7 @@ function handleTouchStart(res) {
 
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
+            if (audioSystem) audioSystem.exitBattle();
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
         }
 
@@ -5350,6 +5359,12 @@ function render() {
         if (isCombat) {
             // BattleEngine 每帧 tick（处理 pendingDeaths、攻击者、时间倒计时等）
             if (normalBattleAdapter) normalBattleAdapter.update();
+
+            // 普通战斗：第一个灵光出现时播放战斗音乐
+            if (state === GAME_STATE.PLAYING && !_battleMusicTriggered && stars && stars.length > 0) {
+                _battleMusicTriggered = true;
+                if (audioSystem) audioSystem.playBattleBgm();
+            }
 
             // 运行时不变量检查（仅调试模式）
             if (invariantChecker) invariantChecker.check();

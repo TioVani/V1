@@ -927,7 +927,8 @@ function createLinkChainSystem(deps) {
         update: update,
         render: render,
         setResultCallback: setResultCallback,
-        reset: reset
+        reset: reset,
+        _injectRhythmSkillSystem: function() {}
     };
 }
 

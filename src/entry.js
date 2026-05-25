@@ -107,6 +107,7 @@ import { createUpgradePetStrategy } from './systems/upgrade/strategies/UpgradePe
 import { createUpgradeStarStrategy } from './systems/upgrade/strategies/UpgradeStarStrategy.js';
 import { createUpgradeRenderer } from './renderers/UpgradeRenderer.js';
 import { createRhythmSystem } from './systems/RhythmSystem.js';
+import { createRhythmSkillSystem } from './systems/RhythmSkillSystem.js';
 import { createChargeSystem } from './systems/ChargeSystem.js';
 import { createDragSystem } from './systems/DragSystem.js';
 import { createLinkChainSystem } from './systems/LinkChainSystem.js';
@@ -307,6 +308,7 @@ var GameModules = {
 
     // D2-D5 战斗维度
     createRhythmSystem: createRhythmSystem,
+    createRhythmSkillSystem: createRhythmSkillSystem,
     createChargeSystem: createChargeSystem,
     createDragSystem: createDragSystem,
     createLinkChainSystem: createLinkChainSystem,

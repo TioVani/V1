@@ -18,6 +18,12 @@ function createAudioSystem(deps) {
     var _bgmPreDuckVolume = 0;
     var _voActive = false;
 
+    // 战斗音乐状态
+    var _savedBgmId = null;
+    var _savedBgmVolume = 0;
+    var _battleMusicPending = false;
+    var _battleIds = ['battle01', 'battle02', 'battle03'];
+
     function init() {
         try {
             ctx = createWebAudioContext();
@@ -306,6 +312,41 @@ function createAudioSystem(deps) {
         }
     }
 
+    // ===== 普通战斗音乐切换 =====
+
+    function enterBattle() {
+        if (_bgmEl) {
+            _savedBgmId = _bgmEl.dataset.bgmId;
+            _savedBgmVolume = _bgmEl.volume;
+        }
+        stopBgm(500);
+        _battleMusicPending = true;
+    }
+
+    function playBattleBgm() {
+        if (!_battleMusicPending) return;
+        _battleMusicPending = false;
+        var idx = Math.floor(Math.random() * _battleIds.length);
+        playBgm(_battleIds[idx], 0.4);
+    }
+
+    function endBattle() {
+        stopBgm(500);
+    }
+
+    function exitBattle() {
+        _battleMusicPending = false;
+        if (_savedBgmId) {
+            playBgm(_savedBgmId, _savedBgmVolume);
+            _savedBgmId = null;
+            _savedBgmVolume = 0;
+        }
+    }
+
+    function restartBattle() {
+        _battleMusicPending = true;
+    }
+
     function destroy() {
         stopBgm();
         // 移除所有 BGM audio 元素
@@ -340,6 +381,11 @@ function createAudioSystem(deps) {
         playVo: playVo,
         stopVo: stopVo,
         fadeOutAudio: fadeOutAudio,
+        enterBattle: enterBattle,
+        playBattleBgm: playBattleBgm,
+        endBattle: endBattle,
+        exitBattle: exitBattle,
+        restartBattle: restartBattle,
         destroy: destroy
     };
 }
