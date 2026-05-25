@@ -37,6 +37,16 @@ export var IMAGE_GROUPS = {
     worldmap: [
         { id: 'worldMapBg01',             src: 'assets/images/worldmap/world_01.jpg' },
         { id: 'worldMapBg02',             src: 'assets/images/worldmap/world_02.jpg' },
+        { id: 'worldMapBg03',             src: 'assets/images/worldmap/world_03.jpg' },
+        { id: 'worldMapBg05',             src: 'assets/images/worldmap/world_05.jpg' },
+        { id: 'worldMapBg06',             src: 'assets/images/worldmap/world_06.jpg' },
+        { id: 'worldMapBg07',             src: 'assets/images/worldmap/world_07.jpg' },
+        { id: 'worldMapBg08',             src: 'assets/images/worldmap/world_08.jpg' },
+        { id: 'worldMapBg10',             src: 'assets/images/worldmap/world_10.jpg' },
+        { id: 'worldMapBg13',             src: 'assets/images/worldmap/world_13.jpg' },
+        { id: 'worldMapBg14',             src: 'assets/images/worldmap/world_14.jpg' },
+        { id: 'worldMapBg15',             src: 'assets/images/worldmap/world_15.jpg' },
+        { id: 'worldMapBg16',             src: 'assets/images/worldmap/world_16.jpg' },
     ],
     beauty: [
         // 由 AssetManager 根据 BEAUTY_CONFIG 自动生成
@@ -56,6 +66,7 @@ export var AUDIO_CONFIG = {
     sfx: [
         { id: 'click',        src: 'assets/audio/click.mp3' },
         { id: 'menuClick',    src: 'assets/audio/menu_S.wav' },
+        { id: 'uiSkip',       src: 'assets/audio/UI_Skip.ogg' },
         { id: 'towerClick',   src: 'assets/audio/tower_click.mp3' },
         { id: 'backpack',     src: 'assets/audio/backpack_click.mp3' },
         { id: 'monsterHit',   src: 'assets/audio/monster_hit.mp3' },

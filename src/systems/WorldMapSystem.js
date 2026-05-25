@@ -13,6 +13,8 @@ function createWorldMapSystem(deps) {
     var savePlayerData = deps.savePlayerData;
     var getPlayerData = deps.getPlayerData;
     var _needsRespawn = false;
+    var _prevPos = null;
+    var _onTriggerLine = null;
 
     var player = createWorldMapPlayer({
         getWorldConfig: function() { return getWorldConfig(_exploration.getWorldId()); }
@@ -29,6 +31,7 @@ function createWorldMapSystem(deps) {
     var _exploration = createWorldMapExploration({
         getWorldConfig: getWorldConfig,
         getEntityStates: entity.getEntityStates,
+        setEntityStates: entity.setEntityStates,
         getActiveEntities: entity.getActiveEntities,
         getPlayerPos: player.getPlayerPos,
         setPlayerPos: player.setPlayerPos,
@@ -55,6 +58,8 @@ function createWorldMapSystem(deps) {
         player.init(config);
         entity.init(config);
         unlock.init(config);
+        _prevPos = null;
+        _onTriggerLine = null;
 
         var pd = getPlayerData();
         var visited = _exploration.isWorldVisited(pd, worldId);
@@ -78,6 +83,11 @@ function createWorldMapSystem(deps) {
         return true;
     }
 
+    // 线段两侧判断（叉积符号）
+    function _crossSign(px, py, x1, y1, x2, y2) {
+        return (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
+    }
+
     function update(dt) {
         if (_needsRespawn) {
             entity.respawnEntities();
@@ -85,6 +95,30 @@ function createWorldMapSystem(deps) {
         }
         entity.updateDiscoveries();
         entity.updateRespawnTimers(dt);
+
+        // 触发线检测
+        var config = getWorldConfig(_exploration.getWorldId());
+        if (config && config.triggerLines) {
+            var pos = player.getPlayerPos();
+            if (_prevPos) {
+                for (var i = 0; i < config.triggerLines.length; i++) {
+                    var tl = config.triggerLines[i];
+                    var s1 = _crossSign(_prevPos.x, _prevPos.y, tl.x1, tl.y1, tl.x2, tl.y2);
+                    var s2 = _crossSign(pos.x, pos.y, tl.x1, tl.y1, tl.x2, tl.y2);
+                    if ((s1 > 0 && s2 <= 0) || (s1 < 0 && s2 >= 0)) {
+                        _onTriggerLine = tl;
+                        break;
+                    }
+                }
+            }
+            _prevPos = { x: pos.x, y: pos.y };
+        }
+    }
+
+    function consumeTriggerLine() {
+        var tl = _onTriggerLine;
+        _onTriggerLine = null;
+        return tl;
     }
 
     // === 地图管理 ===
@@ -161,7 +195,8 @@ function createWorldMapSystem(deps) {
         isTutorialComplete: isTutorialComplete,
         onTutorialWin: onTutorialWin,
         onTutorialLose: onTutorialLose,
-        saveProgress: saveProgress
+        saveProgress: saveProgress,
+        consumeTriggerLine: consumeTriggerLine
     };
 }
 
