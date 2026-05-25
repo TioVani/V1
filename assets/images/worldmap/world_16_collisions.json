@@ -1,0 +1,34 @@
+[
+  {
+    "id": "bound_top",
+    "type": "rect",
+    "x": 0,
+    "y": -20,
+    "w": 1408,
+    "h": 20
+  },
+  {
+    "id": "bound_bottom",
+    "type": "rect",
+    "x": 0,
+    "y": 768,
+    "w": 1408,
+    "h": 20
+  },
+  {
+    "id": "bound_left",
+    "type": "rect",
+    "x": -20,
+    "y": 0,
+    "w": 20,
+    "h": 768
+  },
+  {
+    "id": "bound_right",
+    "type": "rect",
+    "x": 1408,
+    "y": 0,
+    "w": 20,
+    "h": 768
+  }
+]
