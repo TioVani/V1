@@ -15,6 +15,8 @@ function createAudioSystem(deps) {
     var _bgmEl = null;
     var _bgmVolume = 0.4;
     var _pendingBgm = null;
+    var _bgmPreDuckVolume = 0;
+    var _voActive = false;
 
     function init() {
         try {
@@ -195,6 +197,8 @@ function createAudioSystem(deps) {
         el.volume = 0.8;
         el.currentTime = 0;
         el.play().catch(function() {});
+        _duckMusic();
+        el.addEventListener('ended', _onVoEnd);
     }
 
     function stopVo(id) {
@@ -202,6 +206,26 @@ function createAudioSystem(deps) {
         if (!el) return;
         el.pause();
         el.currentTime = 0;
+        el.removeEventListener('ended', _onVoEnd);
+        _unduckMusic();
+    }
+
+    function _duckMusic() {
+        if (!_bgmEl || _voActive) return;
+        _voActive = true;
+        _bgmPreDuckVolume = _bgmEl.volume;
+        _bgmEl.volume = _bgmPreDuckVolume * 0.5;
+    }
+
+    function _unduckMusic() {
+        if (!_bgmEl || !_voActive) return;
+        _voActive = false;
+        _bgmEl.volume = _bgmPreDuckVolume;
+    }
+
+    function _onVoEnd() {
+        this.removeEventListener('ended', _onVoEnd);
+        _unduckMusic();
     }
 
     function fadeOutAudio(dataId, fadeMs) {
@@ -244,13 +268,18 @@ function createAudioSystem(deps) {
     function fadeBgmVolume(targetVolume, durationMs) {
         if (!_bgmEl) return;
         var el = _bgmEl;
-        var startVol = el.volume;
+        var startVol = _voActive ? _bgmPreDuckVolume : el.volume;
         var step = 50;
         var steps = durationMs / step;
         var decay = (startVol - targetVolume) / steps;
         var timer = setInterval(function() {
-            el.volume = Math.max(targetVolume, el.volume - decay);
-            if (el.volume <= targetVolume) clearInterval(timer);
+            if (_voActive) {
+                _bgmPreDuckVolume = Math.max(targetVolume, _bgmPreDuckVolume - decay);
+                el.volume = _bgmPreDuckVolume * 0.5;
+            } else {
+                el.volume = Math.max(targetVolume, el.volume - decay);
+            }
+            if ((_voActive ? _bgmPreDuckVolume : el.volume) <= targetVolume) clearInterval(timer);
         }, step);
     }
 
@@ -258,6 +287,7 @@ function createAudioSystem(deps) {
         if (!_bgmEl) return;
         var el = _bgmEl;
         _bgmEl = null;
+        _voActive = false;
         if (fadeMs > 0) {
             var startVol = el.volume;
             var step = 50;
