@@ -3416,6 +3416,11 @@ function init() {
                     _log('NPC对话:', result.entity.id);
                     if (worldMapRenderer && result.dialogue && result.dialogue.length > 0) {
                         worldMapRenderer.showDialogue(result.dialogue);
+                        // 检查第一句是否有 voice 标记，播放语音
+                        var firstLine = result.dialogue[0];
+                        if (typeof firstLine === 'object' && firstLine.voice && audioSystem) {
+                            audioSystem.playVo(firstLine.voice);
+                        }
                     }
                 }
             }
@@ -3438,7 +3443,11 @@ function init() {
             // E 键交互（worldmap 状态）
             if (key === 'e' && state === GAME_STATE.WORLDMAP && worldMapSystem) {
                 if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
-                    worldMapRenderer.advanceDialogue();
+                    var nextLine = worldMapRenderer.advanceDialogue();
+                    if (typeof nextLine === 'object' && nextLine.voice && audioSystem) {
+                        if (nextLine.stopVoice) audioSystem.stopVo(nextLine.stopVoice);
+                        audioSystem.playVo(nextLine.voice);
+                    }
                 } else {
                     var nearEntity = worldMapSystem.getNearbyEntity();
                     if (nearEntity) {
@@ -3586,7 +3595,11 @@ function handleTouchStart(res) {
     if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
         // 对话框点击推进
         if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
-            worldMapRenderer.advanceDialogue();
+            var nextLine = worldMapRenderer.advanceDialogue();
+            if (typeof nextLine === 'object' && nextLine.voice && audioSystem) {
+                if (nextLine.stopVoice) audioSystem.stopVo(nextLine.stopVoice);
+                audioSystem.playVo(nextLine.voice);
+            }
             return;
         }
         // 菜单栏按钮检测（优先于地图操作，教学完成前不显示）

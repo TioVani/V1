@@ -95,9 +95,9 @@ var WORLDS = {
                 priority: 30,
                 once: false,
                 dialogue: [
-                    '生者啊，冥河的对岸有着不为人知的秘密。',
-                    '想要过河？证明你的实力吧——征服那座试炼之塔，我便渡你过去。',
-                    '古灵们留下的试炼之塔就在北面，那是通往彼岸的唯一途径。'
+                    { text: '生者啊，冥河的对岸有着不为人知的秘密。', voice: 'voLing001' },
+                    { text: '想要过河？证明你的实力吧——征服那座试炼之塔，我便渡你过去。', voice: 'voLing002', stopVoice: 'voLing001' },
+                    { text: '古灵们留下的试炼之塔就在北面，那是通往彼岸的唯一途径。', voice: 'voLing003', stopVoice: 'voLing002' }
                 ]
             },
             {

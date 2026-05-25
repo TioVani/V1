@@ -46,12 +46,14 @@ function createWorldMapRenderer(deps) {
     }
 
     function advanceDialogue() {
-        if (!_dialogue) return;
+        if (!_dialogue) return null;
         _dialogue.index++;
         if (_dialogue.index >= _dialogue.lines.length) {
             if (_dialogueCallback) _dialogueCallback();
             dismissDialogue();
+            return null;
         }
+        return _dialogue.lines[_dialogue.index];
     }
 
     function showConfirm(entity) {
@@ -358,12 +360,13 @@ function createWorldMapRenderer(deps) {
 
             var lineIdx = Math.min(_dialogue.index, _dialogue.lines.length - 1);
             var line = _dialogue.lines[lineIdx];
+            var lineText = typeof line === 'object' ? line.text : line;
             var dlgFontSize = Math.floor(15 * scale);
             ctx.font = dlgFontSize + 'px sans-serif';
             ctx.fillStyle = '#e8d5a3';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.fillText(line, dlgX + Math.floor(20 * scale), dlgY + Math.floor(20 * scale), dlgW - Math.floor(40 * scale));
+            ctx.fillText(lineText, dlgX + Math.floor(20 * scale), dlgY + Math.floor(20 * scale), dlgW - Math.floor(40 * scale));
 
             // 继续提示
             var hintSize = Math.floor(11 * scale);

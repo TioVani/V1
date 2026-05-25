@@ -189,6 +189,21 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playVo(id) {
+        var el = document.querySelector('audio[data-bgm-id="' + id + '"]');
+        if (!el) return;
+        el.volume = 0.8;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function stopVo(id) {
+        var el = document.querySelector('audio[data-bgm-id="' + id + '"]');
+        if (!el) return;
+        el.pause();
+        el.currentTime = 0;
+    }
+
     function fadeOutAudio(dataId, fadeMs) {
         var el = document.querySelector('audio[data-bgm-id="' + dataId + '"]');
         if (!el || el.paused) return;
@@ -292,6 +307,8 @@ function createAudioSystem(deps) {
         playCharacterStep: playCharacterStep,
         stopCharacterStep: stopCharacterStep,
         playUiSkip: playUiSkip,
+        playVo: playVo,
+        stopVo: stopVo,
         fadeOutAudio: fadeOutAudio,
         destroy: destroy
     };

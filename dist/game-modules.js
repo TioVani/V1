@@ -17027,7 +17027,6 @@
           el.play().catch(function() {});
       }
 
-
       function playUiEnter3() {
           var el = document.querySelector('audio[data-bgm-id="uiEnter3"]');
           if (!el) return;
@@ -17108,6 +17107,19 @@
           }
       }
 
+      function fadeBgmVolume(targetVolume, durationMs) {
+          if (!_bgmEl) return;
+          var el = _bgmEl;
+          var startVol = el.volume;
+          var step = 50;
+          var steps = durationMs / step;
+          var decay = (startVol - targetVolume) / steps;
+          var timer = setInterval(function() {
+              el.volume = Math.max(targetVolume, el.volume - decay);
+              if (el.volume <= targetVolume) clearInterval(timer);
+          }, step);
+      }
+
       function stopBgm(fadeMs) {
           if (!_bgmEl) return;
           var el = _bgmEl;
@@ -17142,6 +17154,7 @@
       return {
           init: init,
           playBgm: playBgm,
+          fadeBgmVolume: fadeBgmVolume,
           stopBgm: stopBgm,
           playClick: playClick,
           playMenuClick: playMenuClick,
@@ -39225,16 +39238,6 @@
 
       function getEntityStates() { return _entityStates; }
 
-      function setEntityStates(saved) {
-          if (!saved) return;
-          for (var id in saved) {
-              if (_entityStates[id]) {
-                  if (saved[id].discovered) _entityStates[id].discovered = true;
-                  if (saved[id].resolved) _entityStates[id].resolved = true;
-              }
-          }
-      }
-
       return {
           init: init,
           updateDiscoveries: updateDiscoveries,
@@ -39249,7 +39252,6 @@
           isEntityResolved: isEntityResolved,
           getEntityById: getEntityById,
           getEntityStates: getEntityStates,
-          setEntityStates: setEntityStates,
           setTutorialComplete: setTutorialComplete,
           setHiddenEntityIds: setHiddenEntityIds,
           isEntityActive: isEntityActive
@@ -39262,7 +39264,6 @@
   function createWorldMapExploration(deps) {
       var getWorldConfig = deps.getWorldConfig;
       var getEntityStates = deps.getEntityStates;
-      var setEntityStates = deps.setEntityStates;
       var getActiveEntities = deps.getActiveEntities;
       var getPlayerPos = deps.getPlayerPos;
       var setPlayerPos = deps.setPlayerPos;
@@ -39344,7 +39345,6 @@
           var wData = playerData.worldMapProgress.worlds[_currentWorldId];
           if (!wData) return false;
           if (wData.playerPos) setPlayerPos(wData.playerPos.x, wData.playerPos.y);
-          if (wData.entities) setEntityStates(wData.entities);
           return true;
       }
 
@@ -39512,15 +39512,20 @@
           backgroundImage: 'assets/images/worldmap/world_01.jpg',
           width: 1408,
           height: 768,
-          playerStart: { x: 215, y: 750 },
+          playerStart: { x: 592, y: 368 },
           hasTutorial: true,
           entryCutscene: null,
-          collisions: [],
+          collisions: [
+              { id: "bound_top", type: "rect", x: 0, y: -20, w: 1408, h: 20 },
+              { id: "bound_bottom", type: "rect", x: 0, y: 768, w: 1408, h: 20 },
+              { id: "bound_left", type: "rect", x: -20, y: 0, w: 20, h: 768 },
+              { id: "bound_right", type: "rect", x: 1408, y: 0, w: 20, h: 768 },
+          ],
           entities: [
               {
                   id: 'tutorial_spirits',
                   type: 'tutorial',
-                  x: 353, y: 699,
+                  x: 282, y: 410,
                   discoverRadius: 120,
                   interactRadius: 60,
                   priority: 100,
@@ -39560,10 +39565,20 @@
                   once: false,
                   requireTutorial: true,
                   unlockMenuId: 'tower'
+              },
+              {
+                  id: 'portal',
+                  type: 'portal',
+                  x: 1267, y: 410,
+                  discoverRadius: 100,
+                  interactRadius: 50,
+                  priority: 90,
+                  once: false,
+                  requireTutorial: true,
+                  targetWorld: 'world_02',
+                  requireExploration: 0.8,
+                  lockedMessage: '探索度未达标，无法传送'
               }
-          ],
-          triggerLines: [
-              { x1: 1214, y1: 81, x2: 1293, y2: 125, targetWorld: 'world_02' }
           ]
       },
       world_02: {
@@ -39572,17 +39587,19 @@
           backgroundImage: 'assets/images/worldmap/world_02.jpg',
           width: 1408,
           height: 768,
-          playerStart: { x: 116, y: 746 },
+          playerStart: { x: 70, y: 461 },
           hasTutorial: false,
           entryCutscene: null,
-          collisions: [],
+          collisions: [
+              { id: 'styx_river', type: 'rect', x: 704, y: 0, w: 84, h: 768 }
+          ],
           entities: [
               {
                   id: 'portal_return',
                   type: 'portal',
-                  x: 116, y: 746,
-                  discoverRadius: 120,
-                  interactRadius: 60,
+                  x: 141, y: 461,
+                  discoverRadius: 100,
+                  interactRadius: 50,
                   priority: 90,
                   once: false,
                   targetWorld: 'world_01',
@@ -39615,833 +39632,9 @@
                   hiddenEntityIds: [],
                   lockedMessage: '冥河波涛汹涌，无法通行。或许摆渡人知道方法……',
                   unlockMessage: '摆渡人认可你的实力，渡你过冥河！'
-              },
-              {
-                  id: 'portal_shuhan',
-                  type: 'portal',
-                  x: 1340, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_03',
-                  requireExploration: 0,
-                  lockedMessage: '通往蜀汉的传送门'
-              },
-              {
-                  id: 'portal_world05',
-                  type: 'portal',
-                  x: 660, y: 33,
-                  discoverRadius: 120,
-                  interactRadius: 60,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_05',
-                  requireExploration: 0
               }
           ]
-      },
-      // ===== 蜀汉国区域 =====
-      world_03: {
-          worldId: 'world_03',
-          name: '蜀汉·巷弄',
-          backgroundImage: 'assets/images/worldmap/world_03.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_return_egypt',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_02',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_market',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_04',
-                  requireExploration: 0
-              },
-              {
-                  id: 'enemy_alley',
-                  type: 'enemy',
-                  x: 600, y: 300,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'slime',
-                  level: 3
-              },
-              {
-                  id: 'chest_alley',
-                  type: 'chest',
-                  x: 400, y: 500,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 150, items: ['potion_medium'] }
-              }
-          ]
-      },
-      world_04: {
-          worldId: 'world_04',
-          name: '蜀汉·市集',
-          backgroundImage: 'assets/images/worldmap/world_04.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_alley',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_03',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_temple',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_05',
-                  requireExploration: 0
-              },
-              {
-                  id: 'npc_merchant',
-                  type: 'npc',
-                  x: 500, y: 400,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 30,
-                  once: false,
-                  dialogue: [
-                      '欢迎来到蜀汉市集！这里有各种稀有宝物。',
-                      '听说北面的神庙里藏着远古的秘密……',
-                      '小心巷弄深处的怪物，它们可不是好惹的。'
-                  ]
-              },
-              {
-                  id: 'chest_market',
-                  type: 'chest',
-                  x: 900, y: 250,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 200, items: ['potion_large'] }
-              }
-          ]
-      },
-      world_05: {
-          worldId: 'world_05',
-          name: '蜀汉·神庙',
-          backgroundImage: 'assets/images/worldmap/world_05.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 1270, y: 734 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_market',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_04',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_secret',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_06',
-                  requireExploration: 0.5,
-                  lockedMessage: '神庙深处似乎隐藏着什么，探索更多再说……'
-              },
-              {
-                  id: 'tower_temple',
-                  type: 'tower',
-                  x: 700, y: 200,
-                  discoverRadius: 160,
-                  interactRadius: 80,
-                  priority: 80,
-                  once: false,
-                  unlockMenuId: 'tower'
-              },
-              {
-                  id: 'enemy_temple',
-                  type: 'enemy',
-                  x: 1000, y: 500,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'skeleton',
-                  level: 5
-              },
-              {
-                  id: 'enemy_normal',
-                  type: 'enemy',
-                  x: 846, y: 291,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'slime',
-                  level: 1
-              },
-              {
-                  id: 'portal_return_w02',
-                  type: 'portal',
-                  x: 1284, y: 748,
-                  discoverRadius: 120,
-                  interactRadius: 60,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_02',
-                  requireExploration: 0
-              }
-          ]
-      },
-      world_06: {
-          worldId: 'world_06',
-          name: '蜀汉·秘境',
-          backgroundImage: 'assets/images/worldmap/world_06.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_temple',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_05',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_ruins',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_07',
-                  requireExploration: 0
-              },
-              {
-                  id: 'enemy_secret',
-                  type: 'enemy',
-                  x: 700, y: 400,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'ghost',
-                  level: 6
-              },
-              {
-                  id: 'chest_secret',
-                  type: 'chest',
-                  x: 1100, y: 200,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 300, items: ['rare_gem'] }
-              }
-          ]
-      },
-      world_07: {
-          worldId: 'world_07',
-          name: '蜀汉·古迹',
-          backgroundImage: 'assets/images/worldmap/world_07.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_secret',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_06',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_palace',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_08',
-                  requireExploration: 0.5,
-                  lockedMessage: '古迹深处通往皇城，需要更多探索……'
-              },
-              {
-                  id: 'npc_hermit',
-                  type: 'npc',
-                  x: 600, y: 300,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 30,
-                  once: false,
-                  dialogue: [
-                      '这里是蜀汉最古老的遗迹……',
-                      '传说皇城之下埋藏着无数秘密。',
-                      '小心前行，无尽塔的挑战在等着你。'
-                  ]
-              }
-          ]
-      },
-      // ===== 蜀汉国像素俯视区域 =====
-      world_08: {
-          worldId: 'world_08',
-          name: '蜀汉·皇城',
-          backgroundImage: 'assets/images/worldmap/world_08.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_ruins',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_07',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_garden',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_03',
-                  requireExploration: 0
-              },
-              {
-                  id: 'enemy_palace',
-                  type: 'enemy',
-                  x: 700, y: 300,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'guard',
-                  level: 7
-              },
-              {
-                  id: 'chest_palace',
-                  type: 'chest',
-                  x: 1000, y: 500,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 400, items: ['royal_seal'] }
-              }
-          ]
-      },
-      world_09: {
-          worldId: 'world_09',
-          name: '蜀汉·后庭',
-          backgroundImage: 'assets/images/worldmap/world_09.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_palace',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_08',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_tunnel',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_10',
-                  requireExploration: 0
-              },
-              {
-                  id: 'npc_maiden',
-                  type: 'npc',
-                  x: 500, y: 400,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 30,
-                  once: false,
-                  dialogue: [
-                      '后庭花团锦簇，是个清静的好去处。',
-                      '密道就藏在花丛之后，只有有心人才能发现。',
-                      '穿过密道，就能到达蜀汉的黄昏之地……'
-                  ]
-              }
-          ]
-      },
-      world_10: {
-          worldId: 'world_10',
-          name: '蜀汉·密道',
-          backgroundImage: 'assets/images/worldmap/world_10.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_garden',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_03',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_dusk',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_11',
-                  requireExploration: 0.5,
-                  lockedMessage: '密道尽头似乎通向某个特殊的地方……'
-              },
-              {
-                  id: 'enemy_tunnel',
-                  type: 'enemy',
-                  x: 700, y: 384,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'shadow',
-                  level: 8
-              },
-              {
-                  id: 'tower_tunnel',
-                  type: 'tower',
-                  x: 400, y: 200,
-                  discoverRadius: 160,
-                  interactRadius: 80,
-                  priority: 80,
-                  once: false,
-                  unlockMenuId: 'tower'
-              }
-          ]
-      },
-      // ===== 蜀汉国大地图 =====
-      world_11: {
-          worldId: 'world_11',
-          name: '蜀汉·暮色',
-          backgroundImage: 'assets/images/worldmap/world_11.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_tunnel',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_10',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_dawn',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_12',
-                  requireExploration: 0
-              },
-              {
-                  id: 'enemy_dusk',
-                  type: 'enemy',
-                  x: 700, y: 300,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'dusk_wraith',
-                  level: 9
-              },
-              {
-                  id: 'chest_dusk',
-                  type: 'chest',
-                  x: 1100, y: 500,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 500, items: ['dusk_crystal'] }
-              }
-          ]
-      },
-      world_12: {
-          worldId: 'world_12',
-          name: '蜀汉·晨曦',
-          backgroundImage: 'assets/images/worldmap/world_12.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 70, y: 384 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_dusk',
-                  type: 'portal',
-                  x: 70, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_11',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_tower',
-                  type: 'portal',
-                  x: 1338, y: 384,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_13',
-                  requireExploration: 0.6,
-                  lockedMessage: '晨曦尽头是无尽之塔，需要更多准备……'
-              },
-              {
-                  id: 'npc_sage',
-                  type: 'npc',
-                  x: 700, y: 400,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 30,
-                  once: false,
-                  dialogue: [
-                      '你终于来到了这里，蜀汉的晨曦之地。',
-                      '前方就是传说中的无尽塔，只有最勇敢的冒险者才敢挑战。',
-                      '每层塔都有强大的守护者，祝你好运！'
-                  ]
-              },
-              {
-                  id: 'enemy_dawn',
-                  type: 'enemy',
-                  x: 400, y: 250,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'dawn_guardian',
-                  level: 10
-              }
-          ]
-      },
-      // ===== 无尽塔 =====
-      world_13: {
-          worldId: 'world_13',
-          name: '无尽塔·一层',
-          backgroundImage: 'assets/images/worldmap/world_13.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 704, y: 680 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_dawn',
-                  type: 'portal',
-                  x: 704, y: 680,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_12',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_floor2',
-                  type: 'portal',
-                  x: 704, y: 88,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_14',
-                  requireExploration: 0.8,
-                  lockedMessage: '击败本层守护者才能继续攀登'
-              },
-              {
-                  id: 'enemy_floor1',
-                  type: 'enemy',
-                  x: 704, y: 384,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'tower_guard_1',
-                  level: 11
-              }
-          ]
-      },
-      world_14: {
-          worldId: 'world_14',
-          name: '无尽塔·二层',
-          backgroundImage: 'assets/images/worldmap/world_14.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 704, y: 680 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_floor1',
-                  type: 'portal',
-                  x: 704, y: 680,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_13',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_floor3',
-                  type: 'portal',
-                  x: 704, y: 88,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_15',
-                  requireExploration: 0.8,
-                  lockedMessage: '击败本层守护者才能继续攀登'
-              },
-              {
-                  id: 'enemy_floor2',
-                  type: 'enemy',
-                  x: 500, y: 384,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'tower_guard_2',
-                  level: 13
-              },
-              {
-                  id: 'chest_floor2',
-                  type: 'chest',
-                  x: 900, y: 384,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 500, items: ['tower_key'] }
-              }
-          ]
-      },
-      world_15: {
-          worldId: 'world_15',
-          name: '无尽塔·三层',
-          backgroundImage: 'assets/images/worldmap/world_15.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 704, y: 680 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_floor2',
-                  type: 'portal',
-                  x: 704, y: 680,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_14',
-                  requireExploration: 0
-              },
-              {
-                  id: 'portal_floor4',
-                  type: 'portal',
-                  x: 704, y: 88,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 89,
-                  once: false,
-                  targetWorld: 'world_16',
-                  requireExploration: 0.8,
-                  lockedMessage: '击败本层守护者才能继续攀登'
-              },
-              {
-                  id: 'enemy_floor3',
-                  type: 'enemy',
-                  x: 704, y: 384,
-                  discoverRadius: 80,
-                  interactRadius: 40,
-                  priority: 60,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'tower_guard_3',
-                  level: 15
-              },
-              {
-                  id: 'tower_floor3',
-                  type: 'tower',
-                  x: 400, y: 384,
-                  discoverRadius: 160,
-                  interactRadius: 80,
-                  priority: 80,
-                  once: false,
-                  unlockMenuId: 'tower'
-              }
-          ]
-      },
-      world_16: {
-          worldId: 'world_16',
-          name: '无尽塔·四层',
-          backgroundImage: 'assets/images/worldmap/world_16.jpg',
-          width: 1408,
-          height: 768,
-          playerStart: { x: 704, y: 680 },
-          hasTutorial: false,
-          entryCutscene: null,
-          collisions: [],
-          entities: [
-              {
-                  id: 'portal_floor3',
-                  type: 'portal',
-                  x: 704, y: 680,
-                  discoverRadius: 100,
-                  interactRadius: 50,
-                  priority: 90,
-                  once: false,
-                  targetWorld: 'world_15',
-                  requireExploration: 0
-              },
-              {
-                  id: 'enemy_boss',
-                  type: 'enemy',
-                  x: 704, y: 384,
-                  discoverRadius: 120,
-                  interactRadius: 60,
-                  priority: 100,
-                  once: false,
-                  respawnTime: 0,
-                  monster: 'tower_boss',
-                  level: 20
-              },
-              {
-                  id: 'chest_boss',
-                  type: 'chest',
-                  x: 704, y: 150,
-                  discoverRadius: 60,
-                  interactRadius: 30,
-                  priority: 40,
-                  once: true,
-                  reward: { currency: 1000, items: ['legendary_weapon'] }
-              }
-          ]
-      },
+      }
   };
 
   function getWorldConfig(worldId) {
@@ -40462,8 +39655,6 @@
       var savePlayerData = deps.savePlayerData;
       var getPlayerData = deps.getPlayerData;
       var _needsRespawn = false;
-      var _prevPos = null;
-      var _onTriggerLine = null;
 
       var player = createWorldMapPlayer({
           getWorldConfig: function() { return getWorldConfig(_exploration.getWorldId()); }
@@ -40480,7 +39671,6 @@
       var _exploration = createWorldMapExploration({
           getWorldConfig: getWorldConfig,
           getEntityStates: entity.getEntityStates,
-          setEntityStates: entity.setEntityStates,
           getActiveEntities: entity.getActiveEntities,
           getPlayerPos: player.getPlayerPos,
           setPlayerPos: player.setPlayerPos,
@@ -40507,8 +39697,6 @@
           player.init(config);
           entity.init(config);
           unlock.init(config);
-          _prevPos = null;
-          _onTriggerLine = null;
 
           var pd = getPlayerData();
           var visited = _exploration.isWorldVisited(pd, worldId);
@@ -40532,11 +39720,6 @@
           return true;
       }
 
-      // 线段两侧判断（叉积符号）
-      function _crossSign(px, py, x1, y1, x2, y2) {
-          return (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
-      }
-
       function update(dt) {
           if (_needsRespawn) {
               entity.respawnEntities();
@@ -40544,30 +39727,6 @@
           }
           entity.updateDiscoveries();
           entity.updateRespawnTimers(dt);
-
-          // 触发线检测
-          var config = getWorldConfig(_exploration.getWorldId());
-          if (config && config.triggerLines) {
-              var pos = player.getPlayerPos();
-              if (_prevPos) {
-                  for (var i = 0; i < config.triggerLines.length; i++) {
-                      var tl = config.triggerLines[i];
-                      var s1 = _crossSign(_prevPos.x, _prevPos.y, tl.x1, tl.y1, tl.x2, tl.y2);
-                      var s2 = _crossSign(pos.x, pos.y, tl.x1, tl.y1, tl.x2, tl.y2);
-                      if ((s1 > 0 && s2 <= 0) || (s1 < 0 && s2 >= 0)) {
-                          _onTriggerLine = tl;
-                          break;
-                      }
-                  }
-              }
-              _prevPos = { x: pos.x, y: pos.y };
-          }
-      }
-
-      function consumeTriggerLine() {
-          var tl = _onTriggerLine;
-          _onTriggerLine = null;
-          return tl;
       }
 
       // === 地图管理 ===
@@ -40644,8 +39803,7 @@
           isTutorialComplete: isTutorialComplete,
           onTutorialWin: onTutorialWin,
           onTutorialLose: onTutorialLose,
-          saveProgress: saveProgress,
-          consumeTriggerLine: consumeTriggerLine
+          saveProgress: saveProgress
       };
   }
 
@@ -40657,7 +39815,7 @@
       var getCtx = deps.getCtx;
       var getScreenWidth = deps.getScreenWidth;
       var getScreenHeight = deps.getScreenHeight;
-      deps.getScreenScale;
+      var getScreenScale = deps.getScreenScale;
       var getWorldMapSystem = deps.getWorldMapSystem;
       var getAssets = deps.getAssets;
       var getJoystickState = deps.getJoystickState || function() { return { active: false, startX: 0, startY: 0, dx: 0, dy: 0 }; };
@@ -40666,18 +39824,6 @@
       var JOYSTICK_MAX_RADIUS = 60;
       var _camX = 0;
       var _camY = 0;
-      var _mapScale = 1;
-
-      // 地图专用缩放：确保地图图片覆盖整个屏幕（cover 模式）
-      function _computeMapScale() {
-          var wms = getWorldMapSystem();
-          if (!wms) return;
-          var config = wms.getConfig();
-          if (!config) return;
-          var sw = getScreenWidth();
-          var sh = getScreenHeight();
-          _mapScale = Math.max(sw / config.width, sh / config.height);
-      }
       var _dialogue = null;       // { lines: [], index: 0 }
       var _dialogueCallback = null;
       var _confirmEntity = null;  // { id, type, x, y, label }
@@ -40729,54 +39875,47 @@
 
       function checkConfirmHit(x, y) {
           if (!_confirmEntity) return false;
+          var scale = getScreenScale();
           getScreenWidth();
           getScreenHeight();
           var sp = worldToScreen(_confirmEntity.x, _confirmEntity.y);
-          var ir = (_confirmEntity.interactRadius || 40) * _mapScale;
-          var btnW = Math.floor(80 * _mapScale);
-          var btnH = Math.floor(36 * _mapScale);
+          var ir = (_confirmEntity.interactRadius || 40) * scale;
+          // 确认按钮在实体上方
+          var btnW = Math.floor(80 * scale);
+          var btnH = Math.floor(36 * scale);
           var btnX = sp.x - btnW / 2;
-          var btnY = sp.y - ir - Math.floor(40 * _mapScale);
+          var btnY = sp.y - ir - Math.floor(40 * scale);
           return x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH;
       }
 
       function worldToScreen(wx, wy) {
+          var scale = getScreenScale();
           return {
-              x: wx * _mapScale - _camX,
-              y: wy * _mapScale - _camY
+              x: wx * scale - _camX,
+              y: wy * scale - _camY
           };
       }
 
       function updateCamera(dt) {
           var wms = getWorldMapSystem();
           if (!wms) return;
-          var config = wms.getConfig();
-          if (!config) return;
-          _computeMapScale();
           var pos = wms.getPlayerPos();
+          var scale = getScreenScale();
           var sw = getScreenWidth();
           var sh = getScreenHeight();
-          var targetCamX = pos.x * _mapScale - sw / 2;
-          var targetCamY = pos.y * _mapScale - sh / 2;
+          var targetCamX = pos.x * scale - sw / 2;
+          var targetCamY = pos.y * scale - sh / 2;
           _camX += (targetCamX - _camX) * CAMERA_SMOOTHING;
           _camY += (targetCamY - _camY) * CAMERA_SMOOTHING;
-          // 摄像机边界夹紧：不让镜头超出地图图片范围
-          var mapW = config.width * _mapScale;
-          var mapH = config.height * _mapScale;
-          var maxCamX = Math.max(0, mapW - sw);
-          var maxCamY = Math.max(0, mapH - sh);
-          _camX = Math.max(0, Math.min(_camX, maxCamX));
-          _camY = Math.max(0, Math.min(_camY, maxCamY));
       }
 
       function renderWorldMap() {
           var ctx = getCtx();
           var sw = getScreenWidth();
           var sh = getScreenHeight();
+          var scale = getScreenScale();
           var wms = getWorldMapSystem();
           if (!wms) return;
-          _computeMapScale();
-          var scale = _mapScale;
 
           ctx.save();
 
@@ -40786,12 +39925,12 @@
           var config = wms.getConfig();
           var bgImg = null;
           var assets = getAssets();
-          if (config) {
-              var assetKey = 'worldMapBg' + config.worldId.replace('world_', '');
-              var assetVal = assets[assetKey];
-              if (assetVal) bgImg = assetVal;
+          if (config && config.worldId === 'world_01' && assets.worldMapBg01) {
+              bgImg = assets.worldMapBg01;
+          } else if (config && config.worldId === 'world_02' && assets.worldMapBg02) {
+              bgImg = assets.worldMapBg02;
           }
-          if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
+          if (bgImg) {
               ctx.drawImage(bgImg, -_camX, -_camY, config.width * scale, config.height * scale);
           }
 
@@ -40978,9 +40117,9 @@
 
           // 世界名称
           var worldId = wms.getWorldId();
-          var worldName = config ? config.name : worldId;
+          var worldNames = { world_01: '灵域初境', world_02: '冥河幽境·埃及' };
           ctx.textAlign = 'left';
-          ctx.fillText(worldName, Math.floor(15 * scale), Math.floor(15 * scale));
+          ctx.fillText(worldNames[worldId] || worldId, Math.floor(15 * scale), Math.floor(15 * scale));
 
           // NPC 对话框
           if (_dialogue && _dialogue.lines.length > 0) {
@@ -41076,15 +40215,10 @@
           return labels[type] || '按 E 交互';
       }
 
-      function getCameraState() {
-          return { camX: _camX, camY: _camY, scale: _mapScale };
-      }
-
       return {
           updateCamera: updateCamera,
           renderWorldMap: renderWorldMap,
           worldToScreen: worldToScreen,
-          getCameraState: getCameraState,
           showDialogue: showDialogue,
           dismissDialogue: dismissDialogue,
           isDialogueOpen: isDialogueOpen,
@@ -41136,16 +40270,6 @@
       worldmap: [
           { id: 'worldMapBg01',             src: 'assets/images/worldmap/world_01.jpg' },
           { id: 'worldMapBg02',             src: 'assets/images/worldmap/world_02.jpg' },
-          { id: 'worldMapBg03',             src: 'assets/images/worldmap/world_03.jpg' },
-          { id: 'worldMapBg05',             src: 'assets/images/worldmap/world_05.jpg' },
-          { id: 'worldMapBg06',             src: 'assets/images/worldmap/world_06.jpg' },
-          { id: 'worldMapBg07',             src: 'assets/images/worldmap/world_07.jpg' },
-          { id: 'worldMapBg08',             src: 'assets/images/worldmap/world_08.jpg' },
-          { id: 'worldMapBg10',             src: 'assets/images/worldmap/world_10.jpg' },
-          { id: 'worldMapBg13',             src: 'assets/images/worldmap/world_13.jpg' },
-          { id: 'worldMapBg14',             src: 'assets/images/worldmap/world_14.jpg' },
-          { id: 'worldMapBg15',             src: 'assets/images/worldmap/world_15.jpg' },
-          { id: 'worldMapBg16',             src: 'assets/images/worldmap/world_16.jpg' },
       ],
       beauty: [
           // 由 AssetManager 根据 BEAUTY_CONFIG 自动生成
@@ -41165,7 +40289,6 @@
       sfx: [
           { id: 'click',        src: 'assets/audio/click.mp3' },
           { id: 'menuClick',    src: 'assets/audio/menu_S.wav' },
-          { id: 'uiSkip',       src: 'assets/audio/UI_Skip.ogg' },
           { id: 'towerClick',   src: 'assets/audio/tower_click.mp3' },
           { id: 'backpack',     src: 'assets/audio/backpack_click.mp3' },
           { id: 'monsterHit',   src: 'assets/audio/monster_hit.mp3' },

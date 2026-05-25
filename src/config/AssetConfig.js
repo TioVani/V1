@@ -85,6 +85,9 @@ export var AUDIO_CONFIG = {
         { id: 'uiEnter3',     src: 'assets/audio/UI_Enter3.ogg', loop: false },
         { id: 'characterStep', src: 'assets/audio/Character_Step.ogg', loop: false },
         { id: 'uiSkip',       src: 'assets/audio/UI_Skip.ogg', loop: false },
+        { id: 'voLing001',    src: 'assets/audio/vo/vo_ling_001.ogg', loop: false },
+        { id: 'voLing002',    src: 'assets/audio/vo/vo_ling_002.ogg', loop: false },
+        { id: 'voLing003',    src: 'assets/audio/vo/vo_ling_003.ogg', loop: false },
     ],
 };
 
