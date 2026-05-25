@@ -314,7 +314,7 @@ function createTowerRenderer(deps) {
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
         ctx.textAlign = 'center';
-        ctx.fillText('滑动移动 | 点击格子查看详情', screenWidth / 2, screenHeight - Math.floor(35 * scale));
+        ctx.fillText('滑动/WASD移动 | 点击格子查看详情', screenWidth / 2, screenHeight - Math.floor(35 * scale));
 
         // 返回按钮
         uiCore.drawBackButton();

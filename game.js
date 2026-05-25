@@ -506,6 +506,7 @@ var cutsceneRenderer = null;
 var worldMapSystem = null;
 var worldMapRenderer = null;
 var _keysDown = {};
+var _towerKeyMoveCooldown = 0;
 var _joystickActive = false;
 var _joystickStartX = 0;
 var _joystickStartY = 0;
@@ -592,6 +593,7 @@ var towerRenderer = null;
 var gameBattleRenderer = null;
 // D2-D5 战斗维度系统桥接（在 init() 中创建，全局可访问）
 var rhythmSystem = null;
+var rhythmSkillSystem = null;
 var saturationState = null;
 var chargeSystem = null;
 var dragSystem = null;
@@ -2459,7 +2461,8 @@ function init() {
             getChargeSystem: function() { return chargeSystem; },
             getDragSystem: function() { return dragSystem; },
             getLinkChainSystem: function() { return linkChainSystem; },
-            getSaturationState: function() { return saturationState; }
+            getSaturationState: function() { return saturationState; },
+            getRhythmSkillSystem: function() { return rhythmSkillSystem; }
         });
         renderGame = function() { gameBattleRenderer.renderGame(); };
 
@@ -2793,9 +2796,29 @@ function init() {
             attackMonster: function(dmg, crit, type, target) { attackMonster(dmg, crit, type, target); },
             addScore: function(pts) { score += pts; },
             saturationState: saturationState,
-            getBeautyFrames: function() { return Assets.beautyFrames || []; }
+            getBeautyFrames: function() { return Assets.beautyFrames || []; },
+            rhythmSkillSystem: null  // 后注入
         });
         _log('D4 灵光联连系统初始化完成');
+
+        // D4-节奏技系统（在 linkChainSystem 之后创建，通过回调通信）
+        rhythmSkillSystem = _gameModules.createRhythmSkillSystem({
+            getPlayerData: function() { return playerData; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: function() { return getScreenScale(); },
+            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            addMessage: function(msg, color, important) { addGameMessage(msg, color, important); },
+            createScreenShake: function(i) { createScreenShake(i); },
+            vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
+            addScore: function(pts) { score += pts; },
+            saturationState: saturationState,
+            getBeautyFrames: function() { return Assets.beautyFrames || []; },
+            onComplete: function() { linkChainSystem.onRhythmSkillComplete(); }
+        });
+        // 后注入 rhythmSkillSystem 到 linkChainSystem
+        linkChainSystem._injectRhythmSkillSystem(rhythmSkillSystem);
+        _log('D4-节奏技系统初始化完成');
 
         touchGestureSystem = _gameModules.createTouchGestureSystem({
             chargeSystem: chargeSystem,
@@ -2870,6 +2893,7 @@ function init() {
             getCaptureSystem: function() { return captureSystem; },
             getRhythmSystem: function() { return rhythmSystem; },
             getLinkChainSystem: function() { return linkChainSystem; },
+            getRhythmSkillSystem: function() { return rhythmSkillSystem; },
             getDragSystem: function() { return dragSystem; },
             getPoisonPuddleSystem: function() { return poisonPuddleSystem; },
             getActiveBuffs: function() { return activeBuffs; },
@@ -4178,7 +4202,13 @@ function handleTouchStart(res) {
                 var touchX = touch.clientX;
                 var touchY = touch.clientY;
 
-                // D4 联连触发灵光触摸（优先级最高）
+                // D4-节奏技 节奏灵光触摸（最高优先级，节奏阶段阻断其他交互）
+                if (rhythmSkillSystem && rhythmSkillSystem.isActive()) {
+                    rhythmSkillSystem.handleTouch(touchX, touchY);
+                    continue;   // 节奏阶段所有触摸被消费
+                }
+
+                // D4 联连触发灵光触摸（优先级次高）
                 if (linkChainSystem && linkChainSystem.isReady()) {
                     if (linkChainSystem.handleTriggerTouch(touchX, touchY)) {
                         // 触发成功 → 同时让 TouchGestureSystem 开始追踪此触点
@@ -5192,6 +5222,25 @@ function render() {
         if (_tl && _tl.targetWorld) {
             worldMapSystem.saveProgress();
             worldMapSystem.loadWorld(_tl.targetWorld, worldMapSystem.getWorldId());
+        }
+    }
+    // 无尽之塔键盘移动（WASD / 方向键）
+    if (state === GAME_STATE.TOWER && towerSystem && !towerSystem.inCombat && !towerSystem.hiddenPathDialog) {
+        if (_towerKeyMoveCooldown > 0) _towerKeyMoveCooldown -= dt * 1000;
+        if (_towerKeyMoveCooldown <= 0) {
+            var tdx = 0, tdy = 0;
+            if (_keysDown['w'] || _keysDown['arrowup']) tdy = -1;
+            if (_keysDown['s'] || _keysDown['arrowdown']) tdy = 1;
+            if (_keysDown['a'] || _keysDown['arrowleft']) tdx = -1;
+            if (_keysDown['d'] || _keysDown['arrowright']) tdx = 1;
+            // 网格移动只取主方向
+            if (tdx !== 0 && tdy !== 0) {
+                if (Math.abs(tdx) >= Math.abs(tdy)) tdy = 0; else tdx = 0;
+            }
+            if (tdx !== 0 || tdy !== 0) {
+                towerSystem.movePlayer(tdx, tdy);
+                _towerKeyMoveCooldown = 150;
+            }
         }
     }
     if (state === GAME_STATE.TITLE && titleRenderer) titleRenderer.update(dt);
