@@ -4,7 +4,7 @@
   "description": "",
   "main": "game.js",
   "scripts": {
-    "convert": "node scripts/convert.js",
+    "convert": "node scripts/convert.js && node scripts/generate_collision_data.js",
     "convert:xls": "node scripts/convert.js --to-xls",
     "build": "npm run convert && rollup -c",
     "build:only": "rollup -c",

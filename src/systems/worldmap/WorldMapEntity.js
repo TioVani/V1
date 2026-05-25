@@ -63,6 +63,7 @@ function createWorldMapEntity(deps) {
         for (var i = 0; i < _entities.length; i++) {
             var e = _entities[i];
             if (!isEntityActive(e)) continue;
+            if (e.type === 'teleport') continue;
             var state = _entityStates[e.id];
             if (!state || state.resolved) continue;
             var dx = pos.x - e.x;
@@ -159,7 +160,7 @@ function createWorldMapEntity(deps) {
             var state = _entityStates[e.id];
             if (!state || !state.resolved) continue;
             if (e.once) continue;
-            if (e.type === 'npc' || e.type === 'portal') continue;
+            if (e.type === 'npc' || e.type === 'portal' || e.type === 'teleport') continue;
             if (e.respawnTime && e.respawnTime > 0) {
                 var elapsed = (now - (_resolvedTimestamps[e.id] || 0)) / 1000;
                 if (elapsed < e.respawnTime) continue;
@@ -175,7 +176,7 @@ function createWorldMapEntity(deps) {
             var e = _entities[i];
             if (!e.respawnTime || e.respawnTime <= 0) continue;
             if (e.once) continue;
-            if (e.type === 'npc' || e.type === 'portal') continue;
+            if (e.type === 'npc' || e.type === 'portal' || e.type === 'teleport') continue;
             var state = _entityStates[e.id];
             if (!state || !state.resolved) continue;
             var elapsed = (now - (_resolvedTimestamps[e.id] || 0)) / 1000;

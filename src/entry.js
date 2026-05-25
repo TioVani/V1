@@ -124,6 +124,7 @@ import { createWorldMapPlayer } from './systems/worldmap/WorldMapPlayer.js';
 import { createWorldMapEntity } from './systems/worldmap/WorldMapEntity.js';
 import { createWorldMapExploration } from './systems/worldmap/WorldMapExploration.js';
 import { createWorldMapUnlock } from './systems/worldmap/WorldMapUnlock.js';
+import { COLLISION_BITMAPS } from './config/CollisionBitmapConfig.js';
 import { IMAGE_GROUPS, BEAUTY_CONFIG, AUDIO_CONFIG, CHARACTER_MAP } from './config/AssetConfig.js';
 import { createAssetManager } from './systems/AssetManager.js';
 
@@ -333,6 +334,7 @@ var GameModules = {
     createWorldMapEntity: createWorldMapEntity,
     createWorldMapExploration: createWorldMapExploration,
     createWorldMapUnlock: createWorldMapUnlock,
+    COLLISION_BITMAPS: COLLISION_BITMAPS,
     IMAGE_GROUPS: IMAGE_GROUPS,
     BEAUTY_CONFIG: BEAUTY_CONFIG,
     AUDIO_CONFIG: AUDIO_CONFIG,

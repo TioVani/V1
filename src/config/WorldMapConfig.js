@@ -13,7 +13,13 @@ var WORLDS = {
         playerStart: { x: 215, y: 750 },
         hasTutorial: true,
         entryCutscene: null,
+        collisionMaskData: 'world_01_F01',
+        transparencyMaskData: 'world_01_T01',
         collisions: [],
+        floors: [
+            { id: 1, collisionMaskData: 'world_01_F01', transparencyMaskData: 'world_01_T01', backgroundImage: 'assets/images/worldmap/world_01.jpg' },
+            { id: 2, collisionMaskData: 'world_01_F02', transparencyMaskData: 'world_01_T02', backgroundImage: 'assets/images/worldmap/world_01.jpg' }
+        ],
         entities: [
             {
                 id: 'tutorial_spirits',
@@ -58,6 +64,28 @@ var WORLDS = {
                 once: false,
                 requireTutorial: true,
                 unlockMenuId: 'tower'
+            },
+            {
+                id: 'stairs_01_up',
+                type: 'teleport',
+                x: 377, y: 561,
+                targetX: 222, targetY: 317,
+                targetFloor: 2,
+                discoverRadius: 40,
+                interactRadius: 25,
+                priority: 70,
+                once: false
+            },
+            {
+                id: 'stairs_01_down',
+                type: 'teleport',
+                x: 222, y: 317,
+                targetX: 377, targetY: 561,
+                targetFloor: 1,
+                discoverRadius: 40,
+                interactRadius: 25,
+                priority: 70,
+                once: false
             }
         ],
         triggerLines: [

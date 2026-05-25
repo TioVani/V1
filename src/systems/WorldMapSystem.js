@@ -15,6 +15,7 @@ function createWorldMapSystem(deps) {
     var _needsRespawn = false;
     var _prevPos = null;
     var _onTriggerLine = null;
+    var _teleportCooldown = false;
 
     var player = createWorldMapPlayer({
         getWorldConfig: function() { return getWorldConfig(_exploration.getWorldId()); }
@@ -60,6 +61,7 @@ function createWorldMapSystem(deps) {
         unlock.init(config);
         _prevPos = null;
         _onTriggerLine = null;
+        _teleportCooldown = false;
 
         var pd = getPlayerData();
         var visited = _exploration.isWorldVisited(pd, worldId);
@@ -96,10 +98,36 @@ function createWorldMapSystem(deps) {
         entity.updateDiscoveries();
         entity.updateRespawnTimers(dt);
 
-        // 触发线检测
+        // 传送点检测（自动传送，类似楼梯）
         var config = getWorldConfig(_exploration.getWorldId());
+        var pos = player.getPlayerPos();
+        var teleportEntities = entity.getActiveEntities();
+        var insideAnyTeleport = false;
+        for (var ti = 0; ti < teleportEntities.length; ti++) {
+            var te = teleportEntities[ti];
+            if (te.type !== 'teleport') continue;
+            var tdx = pos.x - te.x;
+            var tdy = pos.y - te.y;
+            var tDist = Math.sqrt(tdx * tdx + tdy * tdy);
+            var tRadius = te.interactRadius || 25;
+            if (tDist <= tRadius) {
+                insideAnyTeleport = true;
+                if (!_teleportCooldown && te.targetX !== undefined && te.targetY !== undefined) {
+                    player.setPlayerPos(te.targetX, te.targetY);
+                    if (te.targetFloor !== undefined) player.switchFloor(te.targetFloor);
+                    _teleportCooldown = true;
+                    break;
+                }
+            }
+        }
+        // 冷却解除：玩家离开所有传送点半径后才能再次触发
+        if (_teleportCooldown && !insideAnyTeleport) {
+            _teleportCooldown = false;
+        }
+
+        // 触发线检测
         if (config && config.triggerLines) {
-            var pos = player.getPlayerPos();
+            pos = player.getPlayerPos();
             if (_prevPos) {
                 for (var i = 0; i < config.triggerLines.length; i++) {
                     var tl = config.triggerLines[i];
@@ -133,6 +161,7 @@ function createWorldMapSystem(deps) {
     function snapshotReturnPosition() { player.snapshotReturnPosition(); }
     function restoreReturnPosition() { player.restoreReturnPosition(); }
     function checkCollision(x, y) { return player.checkCollision(x, y); }
+    function isPlayerOccluded() { return player.isPlayerOccluded(); }
 
     // === 实体交互 ===
     function getEntities() { return entity.getActiveEntities(); }
@@ -180,6 +209,10 @@ function createWorldMapSystem(deps) {
         snapshotReturnPosition: snapshotReturnPosition,
         restoreReturnPosition: restoreReturnPosition,
         checkCollision: checkCollision,
+        isPlayerOccluded: isPlayerOccluded,
+        getOcclusionCanvas: function() { return player.getOcclusionCanvas(); },
+        getCurrentFloor: function() { return player.getCurrentFloor(); },
+        switchFloor: function(floorId) { player.switchFloor(floorId); },
         getEntities: getEntities,
         getNearbyEntity: getNearbyEntity,
         getDiscoveredEntities: getDiscoveredEntities,

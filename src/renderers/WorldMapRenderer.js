@@ -30,6 +30,7 @@ function createWorldMapRenderer(deps) {
     var _dialogue = null;       // { lines: [], index: 0 }
     var _dialogueCallback = null;
     var _confirmEntity = null;  // { id, type, x, y, label }
+    var _playerCanvas = null;
 
     function showDialogue(lines, callback) {
         _dialogue = { lines: lines, index: 0 };
@@ -138,9 +139,17 @@ function createWorldMapRenderer(deps) {
         var bgImg = null;
         var assets = getAssets();
         if (config) {
-            var assetKey = 'worldMapBg' + config.worldId.replace('world_', '');
-            var assetVal = assets[assetKey];
-            if (assetVal) bgImg = assetVal;
+            var baseKey = 'worldMapBg' + config.worldId.replace('world_', '');
+            var currentFloor = wms.getCurrentFloor();
+            if (currentFloor > 1) {
+                var floorKey = baseKey + 'F' + currentFloor;
+                var floorAssetVal = assets[floorKey];
+                if (floorAssetVal) bgImg = floorAssetVal;
+            }
+            if (!bgImg) {
+                var assetVal = assets[baseKey];
+                if (assetVal) bgImg = assetVal;
+            }
         }
         if (bgImg && bgImg.complete && bgImg.naturalWidth > 0) {
             ctx.drawImage(bgImg, -_camX, -_camY, config.width * scale, config.height * scale);
@@ -306,17 +315,55 @@ function createWorldMapRenderer(deps) {
             }
         }
 
-        // 绘制玩家角色
+        // 绘制玩家角色（遮挡区域半透明0.3，非遮挡区域实体1.0）
         var pos = wms.getPlayerPos();
         var psp = worldToScreen(pos.x, pos.y);
         var playerR = Math.floor(12 * scale);
-        ctx.fillStyle = '#3498db';
-        ctx.beginPath();
-        ctx.arc(psp.x, psp.y, playerR, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#2980b9';
-        ctx.lineWidth = Math.floor(2 * scale);
-        ctx.stroke();
+        var strokeW = Math.floor(2 * scale);
+        var occCanvas = wms.getOcclusionCanvas();
+
+        if (occCanvas) {
+            var pcSize = 2 * playerR + 2 * strokeW + 4;
+            if (!_playerCanvas || _playerCanvas.width !== pcSize) {
+                _playerCanvas = document.createElement('canvas');
+                _playerCanvas.width = pcSize;
+                _playerCanvas.height = pcSize;
+            }
+            var pc = _playerCanvas.getContext('2d');
+            var pcCenter = pcSize / 2;
+
+            pc.clearRect(0, 0, pcSize, pcSize);
+            pc.globalCompositeOperation = 'source-over';
+            pc.globalAlpha = 1.0;
+            pc.fillStyle = '#3498db';
+            pc.beginPath();
+            pc.arc(pcCenter, pcCenter, playerR, 0, Math.PI * 2);
+            pc.fill();
+            pc.strokeStyle = '#2980b9';
+            pc.lineWidth = strokeW;
+            pc.stroke();
+
+            pc.globalCompositeOperation = 'destination-out';
+            pc.globalAlpha = 0.7;
+            var pwx = Math.round(pos.x);
+            var pwy = Math.round(pos.y);
+            var margin = 2;
+            pc.drawImage(occCanvas, pwx - 12 - margin, pwy - 12 - margin, 24 + margin * 2, 24 + margin * 2,
+                         pcCenter - (12 + margin) * scale, pcCenter - (12 + margin) * scale,
+                         (24 + margin * 2) * scale, (24 + margin * 2) * scale);
+            pc.globalCompositeOperation = 'source-over';
+            pc.globalAlpha = 1.0;
+
+            ctx.drawImage(_playerCanvas, psp.x - pcCenter, psp.y - pcCenter);
+        } else {
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(psp.x, psp.y, playerR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = strokeW;
+            ctx.stroke();
+        }
 
         // 探索度 HUD
         var exp = wms.getExplorationPercent();
@@ -423,7 +470,8 @@ function createWorldMapRenderer(deps) {
             tower: '按 E 进入',
             portal: '按 E 传送',
             npc: '按 E 对话',
-            barrier: '按 E 查看'
+            barrier: '按 E 查看',
+            teleport: '自动传送'
         };
         return labels[type] || '按 E 交互';
     }
