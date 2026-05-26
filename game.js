@@ -1196,10 +1196,35 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
+            playCharacterStep: function() { if (audioSystem) audioSystem.playCharacterStep(); },
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) {
+                var prevState = state;
+                state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
+                // 进入塔探索：保存当前BGM，播放塔音乐
+                if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
+                    audioSystem.enterTower();
+                    _battleMusicTriggered = false;
+                }
+                // 进入塔战斗：保存塔探索音乐，切换战斗音乐
+                if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
+                    audioSystem.enterBattle();
+                }
+                // 塔战斗结束
+                if (prevState === GAME_STATE.TOWER_COMBAT && state !== GAME_STATE.TOWER_COMBAT && audioSystem) {
+                    if (state === GAME_STATE.TOWER) {
+                        audioSystem.exitBattle(); // 回到探索：恢复塔探索音乐
+                    } else {
+                        audioSystem.endBattle(); // 结算/退出等：只淡出战斗音乐
+                    }
+                }
+                // 回到大地图：恢复记忆的BGM
+                if (state === GAME_STATE.WORLDMAP && audioSystem) {
+                    audioSystem.exitTower();
+                }
+            },
             getGameState: function() { return state; },
             getCtx: function() { return ctx; },
             showToast: function(opts) { $P.showToast(opts); },
@@ -3309,7 +3334,7 @@ runtimeData.godMode = false;
         }, GAME_STATE.BOSS_BATTLE);
 
         modeLifecycle.registerMode('tower', {
-            enter: function(ctx) {},
+            enter: function(ctx) { if (audioSystem) audioSystem.enterBattle(); },
             pause: function() {},
             resume: function(ctx) {},
             cleanup: function() { if (towerSystem) towerSystem.pauseTower(); }
@@ -3335,8 +3360,28 @@ runtimeData.godMode = false;
         stateMachine = createStateMachine({
             getGameState: function() { return state; },
             setGameStateRaw: function(s) {
+                var prevState = state;
                 state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
+                // 进入塔探索：保存当前BGM，播放塔音乐
+                if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
+                    audioSystem.enterTower();
+                    _battleMusicTriggered = false;
+                }
+                // 进入塔战斗：淡出当前BGM，记忆它
+                if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
+                    audioSystem.enterBattle();
+                }
+                // 塔战斗结束
+                if (prevState === GAME_STATE.TOWER_COMBAT && state !== GAME_STATE.TOWER_COMBAT && audioSystem) {
+                    if (state === GAME_STATE.TOWER) {
+                        audioSystem.exitBattle(); // 回到探索：恢复塔探索音乐
+                    } else {
+                        audioSystem.endBattle(); // 结算/退出等：只淡出战斗音乐
+                    }
+                }
+                // 回到大地图：恢复记忆的BGM
                 if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
+                    if (audioSystem) audioSystem.exitTower();
                     worldMapSystem.markNeedsRespawn();
                     worldMapSystem.restoreReturnPosition();
                     worldMapSystem.saveProgress();
@@ -5444,8 +5489,8 @@ function render() {
             // BattleEngine 每帧 tick（处理 pendingDeaths、攻击者、时间倒计时等）
             if (normalBattleAdapter) normalBattleAdapter.update();
 
-            // 普通战斗：第一个灵光出现时播放战斗音乐
-            if (state === GAME_STATE.PLAYING && !_battleMusicTriggered && stars && stars.length > 0) {
+            // 普通战斗 / 塔战斗：第一个灵光出现时播放战斗音乐
+            if ((state === GAME_STATE.PLAYING || state === GAME_STATE.TOWER_COMBAT) && !_battleMusicTriggered && stars && stars.length > 0) {
                 _battleMusicTriggered = true;
                 if (audioSystem) audioSystem.playBattleBgm();
             }

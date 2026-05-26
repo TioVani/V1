@@ -127,6 +127,7 @@ function createTowerSystem(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getSeasonStarTypes = deps.getSeasonStarTypes;
+    var playCharacterStep = deps.playCharacterStep || function () {};
     var clearTimerInterval = deps.clearTimerInterval;
     var clearMoveInterval = deps.clearMoveInterval;
     var clearMonsterAttackInterval = deps.clearMonsterAttackInterval;
@@ -799,6 +800,8 @@ function createTowerSystem(deps) {
 
         playerX = newX;
         playerY = newY;
+
+        playCharacterStep();
 
         updateViewOffset();
 

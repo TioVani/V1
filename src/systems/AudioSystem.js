@@ -24,6 +24,10 @@ function createAudioSystem(deps) {
     var _battleMusicPending = false;
     var _battleIds = ['battle01', 'battle02', 'battle03'];
 
+    // 塔探索音乐状态
+    var _savedTowerBgmId = null;
+    var _savedTowerBgmVolume = 0;
+
     function init() {
         try {
             ctx = createWebAudioContext();
@@ -347,6 +351,29 @@ function createAudioSystem(deps) {
         _battleMusicPending = true;
     }
 
+    // ===== 塔探索音乐切换 =====
+
+    function enterTower() {
+        if (_bgmEl) {
+            _savedTowerBgmId = _bgmEl.dataset.bgmId;
+            _savedTowerBgmVolume = _bgmEl.volume;
+        }
+        stopBgm(500);
+        playBgm('towerExplore', 0.4);
+    }
+
+    function exitTower() {
+        _battleMusicPending = false;
+        _savedBgmId = null;
+        _savedBgmVolume = 0;
+        stopBgm(500);
+        if (_savedTowerBgmId) {
+            playBgm(_savedTowerBgmId, _savedTowerBgmVolume);
+            _savedTowerBgmId = null;
+            _savedTowerBgmVolume = 0;
+        }
+    }
+
     function destroy() {
         stopBgm();
         // 移除所有 BGM audio 元素
@@ -386,6 +413,8 @@ function createAudioSystem(deps) {
         endBattle: endBattle,
         exitBattle: exitBattle,
         restartBattle: restartBattle,
+        enterTower: enterTower,
+        exitTower: exitTower,
         destroy: destroy
     };
 }

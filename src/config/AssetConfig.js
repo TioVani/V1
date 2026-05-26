@@ -87,6 +87,7 @@ export var AUDIO_CONFIG = {
         { id: 'battle01',     src: 'assets/audio/music/031Battle_Girlyourenotlikeme.ogg', loop: true },
         { id: 'battle02',     src: 'assets/audio/music/031Battle_Rockbreaker.ogg', loop: true },
         { id: 'battle03',     src: 'assets/audio/music/031Battle_SSDD.ogg', loop: true },
+        { id: 'towerExplore', src: 'assets/audio/music/05Towerordungeon.ogg', loop: true },
         { id: 'uiEnter',      src: 'assets/audio/UI_Enter.ogg', loop: false },
         { id: 'uiEnter2',     src: 'assets/audio/UI_Enter2.ogg', loop: false },
         { id: 'uiEnter3',     src: 'assets/audio/UI_Enter3.ogg', loop: false },
