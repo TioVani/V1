@@ -158,6 +158,11 @@ function isModeUnlocked(modeId, playerData, bestScore) {
     var config = MODE_UNLOCK[modeId];
     if (!config || config.condition === 'none') return { unlocked: true };
 
+    // 优先检查 saveData 中的解锁标记（来自大地图实体交互）
+    if (modeId === 'tower' && playerData && playerData.towerUnlocked) {
+        return { unlocked: true };
+    }
+
     if (config.condition === 'bestScore') {
         if ((bestScore || 0) >= config.value) return { unlocked: true };
         return { unlocked: false, hint: config.hint };

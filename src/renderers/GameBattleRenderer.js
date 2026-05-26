@@ -7,6 +7,7 @@
  * - 状态同步（combo star attacks, poison ticks, monster spawn checks）
  */
 import { createDelayedHpTracker } from '../utils/DelayedHpTracker.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 var _battleHpTracker = createDelayedHpTracker();
 function createGameBattleRenderer(deps) {
     var getCtx = deps.getCtx;
@@ -23,7 +24,7 @@ function createGameBattleRenderer(deps) {
     // State accessors
     var getState = deps.getState;
     var getGameState = deps.getGameState;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScore = deps.getScore;
     var getTimeLeft = deps.getTimeLeft;
     var getBestScore = deps.getBestScore;
@@ -147,6 +148,7 @@ function createGameBattleRenderer(deps) {
     var getDragSystem = deps.getDragSystem || function () { return null; };
     var getLinkChainSystem = deps.getLinkChainSystem || function () { return null; };
     var getSaturationState = deps.getSaturationState || function () { return null; };
+    var getRhythmSkillSystem = deps.getRhythmSkillSystem || function () { return null; };
 
     function renderGame() {
         var ctx = getCtx();
@@ -154,8 +156,9 @@ function createGameBattleRenderer(deps) {
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
         var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
         var gachaRoundRect = getGachaRoundRect();
@@ -195,13 +198,7 @@ function createGameBattleRenderer(deps) {
         var _isBoss = (state === GAME_STATE.BOSS_BATTLE);
         var _isTower = (state === GAME_STATE.TOWER_COMBAT);
         var _cf = getCombatFeatures();
-        var _paused = (state === GAME_STATE.PAUSED);
-        var _bossPaused = false;
-        if (_isBoss) {
-            var _bbs = getBossBattleSystem();
-            _bossPaused = _bbs && _bbs.getIsPaused && _bbs.getIsPaused();
-        }
-        if (_bossPaused) _paused = true;
+        var _paused = PauseCoordinator.instance.isPaused;
 
         if (_isBoss) {
             // Boss模式：同步 BattleEngine 状态到 game.js 全局变量
@@ -288,18 +285,18 @@ function createGameBattleRenderer(deps) {
             // 优先从 BattleEngine 读取实时战斗状态（隐藏之路 Boss 不走 BattleEngine）
             if (towerSystem.battleEngine && !towerSystem.isHiddenPathBoss) {
                 var _es = towerSystem.battleEngine.getState();
-                playerData.playerHp = _es.playerHp;
-                playerData.maxPlayerHp = _es.playerMaxHp;
-                playerData.playerShield = _es.playerShield;
+                pd.playerHp = _es.playerHp;
+                pd.maxPlayerHp = _es.playerMaxHp;
+                pd.playerShield = _es.playerShield;
                 var playerEffects = getPlayerEffects();
                 playerEffects.stunned = _es.isStunned;
                 playerEffects.stunEndTime = _es.stunEndTime;
                 var _ct = _es.timeLeft != null ? _es.timeLeft : (towerSystem.combatTime || 0);
                 setTimeLeft(_ct);
             } else {
-                playerData.playerHp = towerSystem.playerHp != null ? towerSystem.playerHp : playerData.playerHp;
-                playerData.maxPlayerHp = towerSystem.playerMaxHp || playerData.maxPlayerHp;
-                playerData.playerShield = towerSystem.playerShield || 0;
+                pd.playerHp = towerSystem.playerHp != null ? towerSystem.playerHp : pd.playerHp;
+                pd.maxPlayerHp = towerSystem.playerMaxHp || pd.maxPlayerHp;
+                pd.playerShield = towerSystem.playerShield || 0;
                 var playerEffects = getPlayerEffects();
                 playerEffects.stunned = towerSystem.playerStunned || false;
                 playerEffects.stunEndTime = towerSystem.playerStunEndTime || 0;
@@ -334,7 +331,7 @@ function createGameBattleRenderer(deps) {
 
         // 低血量提示（仅普通模式）
         if (!_isBoss && !_isTower) {
-            if (playerData.playerHp > 0 && playerData.playerHp < (playerData.maxPlayerHp || 100) * 0.3) {
+            if (pd.playerHp > 0 && pd.playerHp < (pd.maxPlayerHp || 100) * 0.3) {
                 tipShowTipOnce('low_hp', '灵核濒危！可以携带治疗和防御类灵光哦');
             }
         }
@@ -357,7 +354,7 @@ function createGameBattleRenderer(deps) {
                     combatState.comboStarLastAttackTime = now;
 
                     // 计算攻击伤害（含暴击判定）
-                    const charStats = getCharacterFullStats(playerData.currentCharacterId);
+                    const charStats = getCharacterFullStats(pd.currentCharacterId);
                     var attackDamage = charStats ? charStats.attack : 10;
                     var isCrit = false;
                     if (calculateCritFn) {
@@ -469,19 +466,20 @@ function createGameBattleRenderer(deps) {
 
         // 暂停按钮（左上角）
         const pauseBtnSize = Math.floor(50 * scale);
+        const pauseBtnY = designOffsetY + Math.floor(15 * scale);
         ctx.fillStyle = '#4a4a6a';
-        fillRoundRect(ctx, 15, 15, pauseBtnSize, pauseBtnSize, 4);
+        fillRoundRect(ctx, Math.floor(15 * scale), pauseBtnY, pauseBtnSize, pauseBtnSize, 4);
         ctx.fillStyle = '#ffffff';
         ctx.font = getFont('pause', scale);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('⏸', 15 + pauseBtnSize/2, 15 + pauseBtnSize/2);
+        ctx.fillText('⏸', Math.floor(15 * scale) + pauseBtnSize/2, pauseBtnY + pauseBtnSize/2);
 
         // 道具快捷使用按钮（暂停按钮下方）- 赛季模式禁用，Boss/塔模式无道具按钮
         const isSeasonMode = (state === GAME_STATE.SEASON_PLAYING);
         if (!isSeasonMode && _cf.itemButtons) {
         const itemBtnSize = Math.floor(45 * scale);
-        const itemBtnY = 75;
+        const itemBtnY = designOffsetY + Math.floor(75 * scale);
 
         // 治疗药水按钮
         var healCount = gameItems.healPotion;
@@ -550,13 +548,13 @@ function createGameBattleRenderer(deps) {
         } // 结束赛季模式道具按钮条件
 
         // 时序星主动技能按钮（只有解锁了时序星且装备到编队且有怪物时才显示）
-        const hasTimeStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('time') !== -1;
-        const hasTimeStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('time') !== -1;
+        const hasTimeStarUnlocked = pd.unlockedStarTypes && pd.unlockedStarTypes.indexOf('time') !== -1;
+        const hasTimeStarEquipped = pd.equippedStars && pd.equippedStars.indexOf('time') !== -1;
         const hasTimeStar = hasTimeStarUnlocked && hasTimeStarEquipped;
         var timeLeft = getTimeLeft();
         if (hasTimeStar && monster.active && !isSeasonMode && _cf.itemButtons) {
             const skillBtnSize = Math.floor(45 * scale);
-            const skillBtnY = 75 + (Math.floor(45 * scale) + 5) * 2 + 5; // 在道具按钮下方
+            const skillBtnY = designOffsetY + Math.floor(75 * scale) + (Math.floor(45 * scale) + 5) * 2 + 5; // 在道具按钮下方
 
             // 计算可消耗的时间（总时间 - 30秒）
             const consumableTime = Math.max(0, timeLeft - 30);
@@ -583,16 +581,16 @@ function createGameBattleRenderer(deps) {
         }
 
         // 贪婪技能按钮（只有解锁了贪婪星星且装备到编队才显示相关UI）
-        const hasGreedyStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('greedy') !== -1;
-        const hasGreedyStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('greedy') !== -1;
+        const hasGreedyStarUnlocked = pd.unlockedStarTypes && pd.unlockedStarTypes.indexOf('greedy') !== -1;
+        const hasGreedyStarEquipped = pd.equippedStars && pd.equippedStars.indexOf('greedy') !== -1;
         const hasGreedyStar = hasGreedyStarUnlocked && hasGreedyStarEquipped;
         if (hasGreedyStar && !isSeasonMode && _cf.greedySkill) {
             const greedyBtnSize = Math.floor(45 * scale);
-            const greedyBtnY = 75 + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时序星技能按钮下方
+            const greedyBtnY = designOffsetY + Math.floor(75 * scale) + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时序星技能按钮下方
 
             if (combatState.greedySkillUnlocked) {
                 // 已解锁，显示可用技能按钮
-                const currentHp = playerData.playerHp != null ? playerData.playerHp : 100;
+                const currentHp = pd.playerHp != null ? pd.playerHp : 100;
                 const potentialDamage = (currentHp - 1) * 5;
 
                 ctx.fillStyle = '#8b0000'; // 深红色表示贪婪技能
@@ -618,8 +616,8 @@ function createGameBattleRenderer(deps) {
 
         // ==================== 技能栏UI ====================
         // 显示已装备的主动技能（非赛季模式）- 右侧圆形标签样式
-        if (!isSeasonMode && getCombatFeatures().skillBar && playerData.skills && playerData.skills.equipped) {
-            const equippedSkills = playerData.skills.equipped;
+        if (!isSeasonMode && getCombatFeatures().skillBar && pd.skills && pd.skills.equipped) {
+            const equippedSkills = pd.skills.equipped;
             // 过滤出主动技能（攻击和辅助）
             const activeSkills = equippedSkills.filter(skillId => {
                 const skill = Skills[skillId];
@@ -633,7 +631,7 @@ function createGameBattleRenderer(deps) {
                 const startX = screenWidth - circleRadius - Math.floor(5 * scale);  // 贴右边缘
                 // 从下方开始计算位置（向上排列）
                 const totalHeight = activeSkills.length * (circleRadius * 2) + (activeSkills.length - 1) * circleGap;
-                const startY = screenHeight - totalHeight - Math.floor(100 * scale);  // 距底部100像素
+                const startY = designBottom - Math.floor(100 * scale) - totalHeight;  // 距底部100像素
 
                 // 绘制每个技能圆形标签
                 activeSkills.forEach((skillId, index) => {
@@ -834,16 +832,16 @@ function createGameBattleRenderer(deps) {
 
         // 显示玩家血量（游戏中始终显示，避免击杀怪物间隙闪烁）
         if (state === GAME_STATE.PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.TOWER_COMBAT) {
-            const currentHp = playerData.playerHp != null ? playerData.playerHp : 100;
-            const maxHp = playerData.maxPlayerHp || 100;
+            const currentHp = pd.playerHp != null ? pd.playerHp : 100;
+            const maxHp = pd.maxPlayerHp || 100;
             const hpPercent = currentHp / maxHp;
             const hpBarWidth = Math.floor(200 * scale);
             const hpBarHeight = Math.floor(12 * scale);
             const hpBarX = screenWidth/2 - hpBarWidth/2;
-            const hpBarY = screenHeight - Math.floor(50 * scale);  // 屏幕最下方
+            const hpBarY = designBottom - Math.floor(50 * scale);
 
             // 护盾条（显示在血条上方）
-            const currentShield = playerData.playerShield || 0;
+            const currentShield = pd.playerShield || 0;
             if (currentShield > 0) {
                 const shieldBarY = hpBarY - Math.floor(16 * scale);
                 const shieldPercent = Math.min(1, currentShield / 50);  // 50点护盾满条
@@ -858,7 +856,7 @@ function createGameBattleRenderer(deps) {
             }
 
             // 怒气值显示（显示在护盾条上方或血条上方）
-            const currentRage = playerData.playerRage || 0;
+            const currentRage = pd.playerRage || 0;
             if (currentRage > 0) {
                 const rageBarY = currentShield > 0 ? hpBarY - Math.floor(30 * scale) : hpBarY - Math.floor(16 * scale);
                 const ragePercent = currentRage / 3;  // 3点怒气满
@@ -877,7 +875,7 @@ function createGameBattleRenderer(deps) {
             fillRoundRect(ctx, hpBarX, hpBarY, hpBarWidth, hpBarHeight, Math.floor(4 * scale));
 
             // 白色残影血条（统一 DelayedHpTracker）
-            var _pDelay = _battleHpTracker.get(getPlayerData(), currentHp, maxHp);
+            var _pDelay = _battleHpTracker.get(getSaveData(), currentHp, maxHp);
             if (_pDelay.delayedHp > currentHp) {
                 ctx.save();
                 ctx.globalAlpha = 0.45;
@@ -998,7 +996,7 @@ function createGameBattleRenderer(deps) {
             const superPerfectHeight = FALLING_CONFIG.superPerfectZone;
 
             // 血条位置参考
-            const hpBarTop = screenHeight - Math.floor(50 * scale);
+            const hpBarTop = designBottom - Math.floor(50 * scale);
             const hpBarHeight = Math.floor(12 * scale);
             const hpBarBottom = hpBarTop + hpBarHeight;
 
@@ -1044,6 +1042,8 @@ function createGameBattleRenderer(deps) {
         if (_dragSys) _dragSys.render(ctx, screenWidth, screenHeight, scale);
         var _linkSys = getLinkChainSystem();
         if (_linkSys) _linkSys.render(ctx, screenWidth, screenHeight, scale);
+        var _rhythmSkillSys = getRhythmSkillSystem();
+        if (_rhythmSkillSys) _rhythmSkillSys.render(ctx, screenWidth, screenHeight, scale);
         var _satState = getSaturationState();
         if (_satState) _satState.render(ctx, screenWidth, screenHeight, scale);
 

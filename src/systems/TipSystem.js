@@ -5,11 +5,12 @@
 import { fillRoundRect } from '../utils/DrawUtils.js';
 
 function createTipSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getCtx = deps.getCtx;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     var activeTip = null;
     var FADE_IN = 300;
@@ -26,7 +27,7 @@ function createTipSystem(deps) {
     };
 
     function showTipOnce(tipId, text) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.seenTips) pd.seenTips = {};
         if (pd.seenTips[tipId]) return;
         pd.seenTips[tipId] = true;
@@ -69,7 +70,8 @@ function createTipSystem(deps) {
         if (alpha <= 0) return;
 
         var screenWidth = getScreenWidth();
-        var tipY = getScreenHeight() * 0.25;
+        var designOffsetY = getDesignOffsetY();
+        var tipY = designOffsetY + Math.floor(203 * scale);
 
         ctx.save();
         ctx.globalAlpha = alpha;

@@ -19,6 +19,7 @@ function createWorldMapPlayer(deps) {
     var _transparencyBitmap = null; // { width, height, data: Uint8Array }
     var _occlusionCanvas = null;
     var _currentFloor = 1;
+    var _facingX = 1;  // 朝向：1=右，-1=左
 
     function init(config) {
         _spawnPoint = { x: config.playerStart.x, y: config.playerStart.y };
@@ -144,7 +145,14 @@ function createWorldMapPlayer(deps) {
     function _isPixelBlocked(px, py) {
         var bm = _collisionBitmap;
         if (px < 0 || px >= bm.width || py < 0 || py >= bm.height) return true;
-        return bm.data[py * bm.width + px] === 1;
+        var idx = py * bm.width + px;
+        if (bm.data[idx] === 0) return false;
+        // 孤立碰撞像素放行：至少有一个 4 邻域像素可通行时不判定为碰撞
+        if (px > 0 && bm.data[idx - 1] === 0) return false;
+        if (px < bm.width - 1 && bm.data[idx + 1] === 0) return false;
+        if (py > 0 && bm.data[idx - bm.width] === 0) return false;
+        if (py < bm.height - 1 && bm.data[idx + bm.width] === 0) return false;
+        return true;
     }
 
     function _parseTileGrid(c) {
@@ -204,32 +212,99 @@ function createWorldMapPlayer(deps) {
     function movePlayer(dx, dy, dt) {
         if (dx === 0 && dy === 0) return;
 
+        // 记录朝向
+        if (dx !== 0) _facingX = dx > 0 ? 1 : -1;
+
         var len = Math.sqrt(dx * dx + dy * dy);
         if (len > 0) {
             dx = dx / len;
             dy = dy / len;
         }
 
-        var newX = _pos.x + dx * _speed * dt;
-        var newY = _pos.y + dy * _speed * dt;
+        var stepX = dx * _speed * dt;
+        var stepY = dy * _speed * dt;
 
         var config = getWorldConfig();
         if (config) {
-            newX = Math.max(_playerRadius, Math.min(config.width - _playerRadius, newX));
-            newY = Math.max(_playerRadius, Math.min(config.height - _playerRadius, newY));
+            var clampedX = _pos.x + stepX;
+            var clampedY = _pos.y + stepY;
+            clampedX = Math.max(_playerRadius, Math.min(config.width - _playerRadius, clampedX));
+            clampedY = Math.max(_playerRadius, Math.min(config.height - _playerRadius, clampedY));
+            stepX = clampedX - _pos.x;
+            stepY = clampedY - _pos.y;
         }
 
-        // 轴分离碰撞：X/Y 各自独立判定，被挡住的轴不动，另一个轴继续滑行
-        var tryX = !checkCollision(newX, _pos.y);
-        var tryY = !checkCollision(tryX ? newX : _pos.x, newY);
+        // 轴分离 + 二分搜索最大合法步长：贴墙滑行
+        var actualX = _tryMoveAxis(_pos.x, stepX, function(x) { return !checkCollision(x, _pos.y); });
+        var actualY = _tryMoveAxis(_pos.y, stepY, function(y) { return !checkCollision(actualX != null ? actualX : _pos.x, y); });
 
-        if (tryX) _pos.x = newX;
-        if (tryY) _pos.y = newY;
+        // 诊断日志
+        console.log('[WM] ', _pos.x.toFixed(1), ',', _pos.y.toFixed(1),
+            ' step:', stepX.toFixed(1), ',', stepY.toFixed(1),
+            ' actual:', (actualX != null ? actualX.toFixed(1) : 'null'), ',', (actualY != null ? actualY.toFixed(1) : 'null'),
+            ' stInCollision:', checkCollision(_pos.x, _pos.y));
 
-        // 防卡死：若两轴都被挡且当前位置嵌在碰撞体内，微推脱出（不传送）
-        if (!tryX && !tryY && checkCollision(_pos.x, _pos.y)) {
+        if (actualX != null) _pos.x = actualX;
+        if (actualY != null) _pos.y = actualY;
+
+        // 两轴都被挡：尝试沿墙滑动（上下左右四个基本方向各试 2px）
+        if (actualX == null && actualY == null) {
+            var _slideDirs = [
+                [0, -1],  // 上
+                [0,  1],  // 下
+                [-1, 0],  // 左
+                [1,  0],  // 右
+            ];
+            var _slideDist = 2;
+            var _didSlide = false;
+            for (var si = 0; si < _slideDirs.length && !_didSlide; si++) {
+                var sx = _pos.x + _slideDirs[si][0] * _slideDist;
+                var sy = _pos.y + _slideDirs[si][1] * _slideDist;
+                if (!checkCollision(sx, sy)) {
+                    _pos.x = sx;
+                    _pos.y = sy;
+                    _didSlide = true;
+                }
+            }
+        }
+
+        // 防卡死：当前位置嵌在碰撞体内
+        if (actualX == null && actualY == null && checkCollision(_pos.x, _pos.y)) {
             _pushOutOfCollision();
         }
+    }
+
+    // 沿轴二分搜索从 start 出发、在 step 方向上的最大合法位置
+    function _tryMoveAxis(start, step, isValid) {
+        var axisName = start === _pos.x ? 'X' : 'Y';
+        if (Math.abs(step) < 0.01) { console.log('[WM] _tryMoveAxis(' + axisName + ') zero step, return null'); return null; }
+        if (!isValid(start)) { console.log('[WM] _tryMoveAxis(' + axisName + ') start ' + start.toFixed(1) + ' invalid, return null'); return null; }
+        if (isValid(start + step)) return start + step;    // 全量通过，无碰撞
+
+        var sign = step > 0 ? 1 : -1;
+        var hi = Math.abs(step);
+        var lo = 0;
+        var best = 0;
+
+        console.log('[WM] _tryMoveAxis(' + axisName + ') binary search start=' + start.toFixed(1) + ' step=' + step.toFixed(2) + ' hi=' + hi.toFixed(2));
+
+        for (var i = 0; i < 8; i++) {
+            var mid = (lo + hi) / 2;
+            var testPos = start + sign * mid;
+            var valid = isValid(testPos);
+            console.log('[WM]   iter' + i + ' mid=' + mid.toFixed(2) + ' pos=' + testPos.toFixed(1) + ' valid=' + valid);
+            if (valid) {
+                best = mid;
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+
+        var result = best > 0.5 ? start + sign * best : null;
+        console.log('[WM] _tryMoveAxis(' + axisName + ') best=' + best.toFixed(2) + ' result=' + (result != null ? result.toFixed(1) : 'null'));
+        if (result != null) return result;
+        return null;
     }
 
     // 从碰撞体内微推脱出：沿 8 方向逐像素试探最近自由位置
@@ -255,6 +330,7 @@ function createWorldMapPlayer(deps) {
 
     function checkCollision(x, y) {
         // 像素级碰撞位图（最高精度，匹配手绘遮罩）
+        // 扫描半径缩小 4px，给角色贴墙滑动留出缓冲空间
         if (_collisionBitmap) {
             var r = _playerRadius;
             var rSq = r * r;
@@ -342,6 +418,7 @@ function createWorldMapPlayer(deps) {
         getOcclusionCanvas: getOcclusionCanvas,
         switchFloor: switchFloor,
         getCurrentFloor: getCurrentFloor,
+        getFacingX: function() { return _facingX; },
         setSpeed: setSpeed
     };
 }

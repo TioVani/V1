@@ -10,9 +10,11 @@ function createGachaRenderer(deps) {
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
     var getGachaRoundRect = deps.getGachaRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getGachaSystem = deps.getGachaSystem;
     var getGachaAnimationConfig = deps.getGachaAnimationConfig;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     function drawGachaStarShape(ctx, cx, cy, spikes, outerRadius, innerRadius) {
         var rot = Math.PI / 2 * 3;
@@ -43,6 +45,7 @@ function createGachaRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var gachaSystem = getGachaSystem();
 
         ctx.fillStyle = 'rgba(0, 0, 20, 0.95)';
@@ -53,9 +56,9 @@ function createGachaRenderer(deps) {
         if (gachaSystem.animationState.phase === 'flying') {
             renderFlyingStar(scale);
         } else if (gachaSystem.animationState.phase === 'revealing' || gachaSystem.animationState.phase === 'complete') {
-            renderRevealedStars(scale);
+            renderRevealedStars(scale, designOffsetY);
             if (gachaSystem.animationState.phase === 'complete') {
-                renderGachaConfirmButton(scale);
+                renderGachaConfirmButton(scale, designOffsetY);
             }
         }
 
@@ -119,12 +122,13 @@ function createGachaRenderer(deps) {
         ctx.restore();
     }
 
-    function renderRevealedStars(scale) {
+    function renderRevealedStars(scale, designOffsetY) {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var gachaSystem = getGachaSystem();
         var GACHA_ANIMATION_CONFIG = getGachaAnimationConfig();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         var results = gachaSystem.animationState.revealedStars;
         var total = gachaSystem.animationState.results.length;
@@ -138,7 +142,7 @@ function createGachaRenderer(deps) {
         var totalWidth = cols * starSize + (cols - 1) * gap;
         var totalHeight = rows * starSize + (rows - 1) * gap;
         var startX = (screenWidth - totalWidth) / 2 + starSize / 2;
-        var startY = screenHeight / 2 - totalHeight / 2 + starSize / 2;
+        var startY = (designOffsetY + designBottom) / 2 - totalHeight / 2 + starSize / 2;
 
         ctx.save();
         ctx.fillStyle = '#FFD700';
@@ -212,16 +216,17 @@ function createGachaRenderer(deps) {
         }
     }
 
-    function renderGachaConfirmButton(scale) {
+    function renderGachaConfirmButton(scale, designOffsetY) {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var gachaRoundRect = getGachaRoundRect();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         var btnWidth = Math.floor(150 * scale);
         var btnHeight = Math.floor(50 * scale);
         var btnX = screenWidth / 2 - btnWidth / 2;
-        var btnY = screenHeight - Math.floor(100 * scale);
+        var btnY = designBottom - Math.floor(100 * scale);
 
         ctx.save();
 

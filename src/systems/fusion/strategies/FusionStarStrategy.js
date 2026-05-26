@@ -14,7 +14,7 @@ var STAR_FUSION_TABLE = {
 };
 
 function createFusionStarStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getStarTypes = deps.getStarTypes;
     var getSeasonStarTypes = deps.getSeasonStarTypes;
     var type = FUSION_TYPES.STAR;

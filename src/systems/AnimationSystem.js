@@ -1,5 +1,6 @@
 import Logger from '../utils/Logger.js';
 import ObjectPool from '../utils/ObjectPool.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 import { vibrateShort } from '../platform/BrowserAPI.js';
 /**
  * 动画系统（Animation System）
@@ -14,7 +15,7 @@ function createAnimationSystem(deps) {
     var getScreenScale = deps.getScreenScale;
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
     var DESIGN_HEIGHT = 812;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getMonster = deps.getMonster;
     var getComboCount = deps.getComboCount;
     var getAssets = deps.getAssets;
@@ -38,13 +39,12 @@ function createAnimationSystem(deps) {
         if (_pauseStartTime !== null) return _pauseStartTime - _pauseAccumulated;
         return Date.now() - _pauseAccumulated;
     }
-    function pauseAnimations() { if (_pauseStartTime === null) _pauseStartTime = Date.now(); }
-    function resumeAnimations() {
-        if (_pauseStartTime !== null) {
-            _pauseAccumulated += Date.now() - _pauseStartTime;
-            _pauseStartTime = null;
-        }
-    }
+
+    // 注册到 PauseCoordinator（全局常驻，owner=null）
+    PauseCoordinator.instance.subscribe(null, 'AnimationSystem', {
+        onPause: function() { if (_pauseStartTime === null) _pauseStartTime = Date.now(); },
+        onResume: function(duration) { _pauseAccumulated += duration; _pauseStartTime = null; }
+    });
 
     // ==================== 内部状态 ====================
     var critAnimations = [];
@@ -690,17 +690,19 @@ function createAnimationSystem(deps) {
         var scale = getScreenScale();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
-        var playerData = getPlayerData();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var pd = getSaveData();
 
         // 玩家血条位置（与渲染代码保持一致）
         var hpBarWidth = Math.floor(200 * scale);
         var hpBarHeight = Math.floor(12 * scale);
         var hpBarX = screenWidth / 2 - hpBarWidth / 2;
-        var hpBarY = screenHeight - Math.floor(50 * scale);
+        var hpBarY = designBottom - Math.floor(50 * scale);
 
         // 获取玩家血量
-        var currentHp = playerData.playerHp != null ? playerData.playerHp : 100;
-        var maxHp = playerData.maxPlayerHp || 100;
+        var currentHp = pd.playerHp != null ? pd.playerHp : 100;
+        var maxHp = pd.maxPlayerHp || 100;
         var hpPercent = currentHp / maxHp;
         if (isNaN(hpPercent) || hpPercent < 0) hpPercent = 1;
         else if (hpPercent > 1) hpPercent = 1;
@@ -852,12 +854,14 @@ function createAnimationSystem(deps) {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         // 血条位置（屏幕下方）
         var hpBarWidth = Math.floor(200 * scale);
         var hpBarHeight = Math.floor(12 * scale);
         var hpBarX = screenWidth / 2 - hpBarWidth / 2;
-        var hpBarY = screenHeight - Math.floor(50 * scale);
+        var hpBarY = designBottom - Math.floor(50 * scale);
 
         for (let i = 0; i < playerDamageAnimations.length; i++) {
             var anim = playerDamageAnimations[i];
@@ -1534,10 +1538,12 @@ function createAnimationSystem(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         // 终点：玩家血条中心
         var endX = screenWidth / 2;
-        var endY = screenHeight - Math.floor(50 * scale);
+        var endY = designBottom - Math.floor(50 * scale);
 
         // 起点左右偏移，让弹幕从怪物旁边飞出，弧线方向跟随偏移方向
         var arcSide = Math.random() < 0.5 ? -1 : 1;
@@ -2182,8 +2188,6 @@ function createAnimationSystem(deps) {
     return {
         // 虚拟时钟（暂停控制）
         getGameTime: getGameTime,
-        pauseAnimations: pauseAnimations,
-        resumeAnimations: resumeAnimations,
 
         // 暴击动画
         createCritAnimation: createCritAnimation,

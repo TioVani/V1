@@ -6,7 +6,7 @@
 import { UPGRADE_CONFIG } from '../../../config/UpgradeConfig.js';
 
 function createUpgradeCharacterStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getCharacters = deps.getCharacters;
     var type = 'character';
 

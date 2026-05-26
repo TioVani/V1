@@ -12,7 +12,7 @@ var EVOLUTION_TYPES = {
 };
 
 function createFusionPetStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getPets = deps.getPets;
     var type = FUSION_TYPES.PET;
 

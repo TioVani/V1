@@ -5,7 +5,7 @@
 import { getNextRarity, FUSION_CONFIG, FUSION_TYPES } from '../../../config/FusionConfig.js';
 
 function createFusionCharacterStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getCharacters = deps.getCharacters;
     var type = FUSION_TYPES.CHARACTER;
 

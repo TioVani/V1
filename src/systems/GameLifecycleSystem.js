@@ -6,7 +6,7 @@ import Logger from '../utils/Logger.js';
 
 function createGameLifecycleSystem(deps) {
     // 核心依赖
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var setGameState = deps.setGameState;
     var getGameState = deps.getGameState;
     var GAME_STATE = deps.GAME_STATE;
@@ -113,10 +113,6 @@ function createGameLifecycleSystem(deps) {
     var getComboCount = deps.getComboCount;
     var setLastComboTime = deps.setLastComboTime;
 
-    // 暂停
-    var getPauseStartTime = deps.getPauseStartTime;
-    var setPauseStartTime = deps.setPauseStartTime;
-
     // 配置
     var getCONFIG = deps.getCONFIG;
 
@@ -157,7 +153,7 @@ function createGameLifecycleSystem(deps) {
      */
     function startGame() {
         Logger.info('踏入灵域');
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var activeBuffs = getActiveBuffs();
         var CONFIG = getCONFIG();
         var bestScore = getBestScore();
@@ -167,8 +163,8 @@ function createGameLifecycleSystem(deps) {
         setGameState(GAME_STATE.PLAYING);
 
         // 清除赛季模式数据，防止结算时被误判
-        if (playerData.seasonData && playerData.seasonData.selection) {
-            playerData.seasonData.selection = null;
+        if (pd.seasonData && pd.seasonData.selection) {
+            pd.seasonData.selection = null;
         }
 
         // 清空
@@ -181,7 +177,7 @@ function createGameLifecycleSystem(deps) {
         setMonsterSplitType(null);
 
         // 重置Boss累积计数
-        playerData.bossKillCount = 0;
+        pd.bossKillCount = 0;
 
         // 重置当局击杀计数
         if (deps.setMonstersKilled) deps.setMonstersKilled(0);
@@ -194,8 +190,8 @@ function createGameLifecycleSystem(deps) {
         resetCombo();
 
         // 重置怒气
-        playerData.playerRage = 0;
-        playerData.tempAttackBonus = 0;
+        pd.playerRage = 0;
+        pd.tempAttackBonus = 0;
 
         // 重置贪婪
         setGreedyHpPool(0);
@@ -230,25 +226,25 @@ function createGameLifecycleSystem(deps) {
         if (deps.clearPoisonPuddles) deps.clearPoisonPuddles();
 
         // 重置玩家血量
-        var currentCharId = playerData.currentCharacterId;
+        var currentCharId = pd.currentCharacterId;
         if (currentCharId) {
             var charStats = getCharacterFullStats(currentCharId);
-            playerData.maxPlayerHp = charStats.hp + activeBuffs.hpBonus;
+            pd.maxPlayerHp = charStats.hp + activeBuffs.hpBonus;
         } else {
-            playerData.maxPlayerHp = 100 + activeBuffs.hpBonus;
+            pd.maxPlayerHp = 100 + activeBuffs.hpBonus;
         }
-        playerData.playerHp = playerData.maxPlayerHp;
-        playerData.playerShield = 0;
+        pd.playerHp = pd.maxPlayerHp;
+        pd.playerShield = 0;
 
         // 初始化道具
         var gameItems = getGameItems();
         var MAX_GAME_ITEMS = getMAX_GAME_ITEMS();
         gameItems.healPotion = Math.min(
-            playerData.items && playerData.items.healPotion ? playerData.items.healPotion.quantity : 0,
+            pd.items && pd.items.healPotion ? pd.items.healPotion.quantity : 0,
             MAX_GAME_ITEMS
         );
         gameItems.timePotion = Math.min(
-            playerData.items && playerData.items.timePotion ? playerData.items.timePotion.quantity : 0,
+            pd.items && pd.items.timePotion ? pd.items.timePotion.quantity : 0,
             MAX_GAME_ITEMS
         );
 
@@ -260,7 +256,7 @@ function createGameLifecycleSystem(deps) {
         var skillSys = getSkillSystem();
         if (skillSys) skillSys.resetSystem();
 
-        Logger.info('游戏开始，HP:', playerData.playerHp, '/', playerData.maxPlayerHp);
+        Logger.info('游戏开始，HP:', pd.playerHp, '/', pd.maxPlayerHp);
 
         // 清除旧定时器
         clearTimerInterval();
@@ -307,9 +303,10 @@ function createGameLifecycleSystem(deps) {
         startPetAttackTimer();
 
         // 高分玩家直接生成怪物（教学战斗跳过，由教程流程自行生怪）
-        if (bestScore >= CONFIG.monsterAppearScore && !(getIsTutorialBattle && getIsTutorialBattle())) {
+        // [DEBUG] 临时注释：开局无条件生怪
+        if (!(getIsTutorialBattle && getIsTutorialBattle())) {
             spawnMonster('slime');
-            Logger.info('玩家最高分已达', bestScore, '，游戏开始时直接生成怪物');
+            Logger.info('游戏开始时直接生成怪物（条件已注释）');
         }
 
         // 初始化普通战斗适配器
@@ -323,7 +320,7 @@ function createGameLifecycleSystem(deps) {
      */
     function startSeasonGame() {
         Logger.info('开始赛季游戏');
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
         setSeasonScore(0);
         setTimeLeft(60);
@@ -333,7 +330,7 @@ function createGameLifecycleSystem(deps) {
         setMonsters([]);
         setMonsterSplitCount(0);
         setMonsterSplitType(null);
-        playerData.bossKillCount = 0;
+        pd.bossKillCount = 0;
         setStarDevourerEscaped(false);
         setVoidEmperorSpawned(false);
         setPlayerPoisoned(false);
@@ -346,21 +343,21 @@ function createGameLifecycleSystem(deps) {
         var charKey = seasonSelection.character;
         if (charKey) {
             var maxLevelStats = getCharacterStatsAtLevel(charKey, getMAX_CHARACTER_LEVEL());
-            playerData.maxPlayerHp = maxLevelStats.hp;
-            playerData.playerHp = maxLevelStats.hp;
+            pd.maxPlayerHp = maxLevelStats.hp;
+            pd.playerHp = maxLevelStats.hp;
         } else {
-            playerData.maxPlayerHp = 100;
-            playerData.playerHp = 100;
+            pd.maxPlayerHp = 100;
+            pd.playerHp = 100;
         }
-        playerData.playerShield = 0;
+        pd.playerShield = 0;
 
-        if (!playerData.seasonData) {
-            playerData.seasonData = {};
+        if (!pd.seasonData) {
+            pd.seasonData = {};
         }
-        playerData.seasonData.selection = seasonSelection;
+        pd.seasonData.selection = seasonSelection;
         saveData();
 
-        Logger.info('赛季游戏开始，HP:', playerData.playerHp);
+        Logger.info('赛季游戏开始，HP:', pd.playerHp);
 
         clearTimerInterval();
         clearMoveInterval();
@@ -447,59 +444,21 @@ function createGameLifecycleSystem(deps) {
             seasonLeaderboard = seasonLeaderboard.slice(0, 20);
             setSeasonLeaderboard(seasonLeaderboard);
 
-            var playerData = getPlayerData();
-            if (playerData.seasonData) {
-                playerData.seasonData.bestScore = getSeasonBestScore();
-                playerData.seasonData.leaderboard = seasonLeaderboard;
+            var pd = getSaveData();
+            if (pd.seasonData) {
+                pd.seasonData.bestScore = getSeasonBestScore();
+                pd.seasonData.leaderboard = seasonLeaderboard;
                 saveData();
             }
         }
     }
 
     /**
-     * 暂停游戏
+     * 恢复普通模式定时器 — 仅重建 setInterval，由 ModeTimers subscriber 的 onResume 调用
      */
-    function pauseGame() {
-        Logger.info('游戏暂停');
-        setGameState(GAME_STATE.PAUSED);
-        setPauseStartTime(Date.now());
-
-        clearTimerInterval();
-        clearMoveInterval();
-        clearMonsterAttackInterval();
-
-        // 暂停偷星者
-        var starThief = getStarThief();
-        if (starThief && starThief.pause) starThief.pause();
-
-        saveDataImmediate();
-    }
-
-    /**
-     * 恢复游戏
-     */
-    function resumeGame() {
-        Logger.info('游戏恢复');
-        var state = getGameState();
-
-        // 闯关模式下恢复闯关定时器
-        if (getGameState() === GAME_STATE.STAGE_PLAYING && resumeStageTimers) {
-            resumeStageTimers();
-            return;
-        }
-
+    function resumeNormalTimers() {
+        Logger.info('普通模式定时器重建');
         setGameState(GAME_STATE.PLAYING);
-
-        if (getPauseStartTime() > 0) {
-            var pd = Date.now() - getPauseStartTime();
-            var sArr = getStars();
-            for (let j = 0; j < sArr.length; j++) {
-                if (sArr[j].disappearTime) {
-                    sArr[j].disappearTime += pd;
-                }
-            }
-            setPauseStartTime(0);
-        }
 
         if (getComboCount() > 0) {
             setLastComboTime(Date.now());
@@ -527,10 +486,6 @@ function createGameLifecycleSystem(deps) {
         setMonsterAttackInterval(setInterval(function() {
             monsterAttackPlayer();
         }, 2000));
-
-        // 恢复偷星者
-        var starThiefResume = getStarThief();
-        if (starThiefResume && starThiefResume.resume) starThiefResume.resume();
     }
     function restartGame() {
         clearTimerInterval();
@@ -604,24 +559,24 @@ function createGameLifecycleSystem(deps) {
         updateTaskStats('totalScore', score, false);
 
         // 扣除已用道具
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var gameItems = getGameItems();
         var MAX_GAME_ITEMS = getMAX_GAME_ITEMS();
         var initialHeal = Math.min(
-            playerData.items && playerData.items.healPotion ? playerData.items.healPotion.quantity : 0,
+            pd.items && pd.items.healPotion ? pd.items.healPotion.quantity : 0,
             MAX_GAME_ITEMS
         );
         var initialTime = Math.min(
-            playerData.items && playerData.items.timePotion ? playerData.items.timePotion.quantity : 0,
+            pd.items && pd.items.timePotion ? pd.items.timePotion.quantity : 0,
             MAX_GAME_ITEMS
         );
         var usedHeal = initialHeal - gameItems.healPotion;
         var usedTime = initialTime - gameItems.timePotion;
-        if (usedHeal > 0 && playerData.items && playerData.items.healPotion) {
-            playerData.items.healPotion.quantity -= usedHeal;
+        if (usedHeal > 0 && pd.items && pd.items.healPotion) {
+            pd.items.healPotion.quantity -= usedHeal;
         }
-        if (usedTime > 0 && playerData.items && playerData.items.timePotion) {
-            playerData.items.timePotion.quantity -= usedTime;
+        if (usedTime > 0 && pd.items && pd.items.timePotion) {
+            pd.items.timePotion.quantity -= usedTime;
         }
 
         saveDataImmediate();
@@ -631,8 +586,7 @@ function createGameLifecycleSystem(deps) {
         startGame: startGame,
         startSeasonGame: startSeasonGame,
         endSeasonGame: endSeasonGame,
-        pauseGame: pauseGame,
-        resumeGame: resumeGame,
+        resumeNormalTimers: resumeNormalTimers,
         restartGame: restartGame,
         endGame: endGame
     };

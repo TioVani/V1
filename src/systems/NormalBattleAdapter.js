@@ -19,10 +19,11 @@ function createNormalBattleAdapter(deps) {
     // ═══ 核心依赖 ═══
     var getGameState = deps.getGameState;
     var getGameConst = deps.getGameConst;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
     var onEngineReady = deps.onEngineReady || null;
 
     // ═══ 星星 ═══
@@ -183,7 +184,7 @@ function createNormalBattleAdapter(deps) {
                 getScale: getScreenScale
             },
             player: {
-                getData: getPlayerData,
+                getData: getSaveData,
                 getCharFullStats: getCharacterFullStats
             },
             animation: {
@@ -222,6 +223,7 @@ function createNormalBattleAdapter(deps) {
 
     // 前置处理：偷星者/毒星/毒液滩/掉落区域限制/收服灵光
     function onBeforeStarClickHook(star, x, y, index) {
+        var designOffsetY = getDesignOffsetY();
         // 跳过蓄力持有的灵光
         if (star._charging) return { skip: true };
 
@@ -236,9 +238,10 @@ function createNormalBattleAdapter(deps) {
                     var fcfg2 = getFallingConfig();
                     var sh2 = getScreenHeight();
                     var scl2 = getScreenScale();
+                    var designBottom2 = Math.min(designOffsetY + Math.floor(812 * scl2), sh2);
                     var totalZone2 = fcfg2.bottomHitZone;
                     var superPerfectH2 = fcfg2.superPerfectZone;
-                    var hpBarTop2 = sh2 - Math.floor(50 * scl2);
+                    var hpBarTop2 = designBottom2 - Math.floor(50 * scl2);
                     var zoneGap2 = Math.floor(10 * scl2);
                     var superPerfectTopY2 = hpBarTop2 - zoneGap2 - totalZone2 + fcfg2.perfectZone;
                     var superPerfectBotY2 = superPerfectTopY2 + superPerfectH2;
@@ -304,6 +307,7 @@ function createNormalBattleAdapter(deps) {
 
     // 伤害计算覆盖（game.js 公式）
     function calculateDamageOverrideHook(star, stats, pd) {
+        var designOffsetY = getDesignOffsetY();
         var state = getGameState();
         var GAME_STATE = getGameConst();
         var isSeasonMode = (state === GAME_STATE.SEASON_PLAYING);
@@ -333,10 +337,11 @@ function createNormalBattleAdapter(deps) {
             var fallingCfg = getFallingConfig();
             var screenHeight = getScreenHeight();
             var scale = getScreenScale();
+            var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenHeight);
             var totalZone = fallingCfg.bottomHitZone;
             var perfectHeight = fallingCfg.perfectZone;
             var superPerfectHeight = fallingCfg.superPerfectZone;
-            var hpBarTop = screenHeight - Math.floor(50 * scale);
+            var hpBarTop = designBottom - Math.floor(50 * scale);
             var zoneGap = Math.floor(10 * scale);
             var perfectTopY = hpBarTop - zoneGap - totalZone;
             var superPerfectTopY = perfectTopY + perfectHeight;
@@ -551,7 +556,7 @@ function createNormalBattleAdapter(deps) {
         var GAME_STATE = getGameConst();
         var state = getGameState();
         var isSeasonMode = (state === GAME_STATE.SEASON_PLAYING);
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var m = getActiveMonster();
 
         // 任务统计（无论是否 prevented 都计数）
@@ -718,7 +723,7 @@ function createNormalBattleAdapter(deps) {
 
     // 特殊星星后处理（模式特有追加效果）
     function onAfterSpecialStarHook(star) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var fx = getPlayerEffects();
         var m = getActiveMonster();
         var state = getGameState();
@@ -797,7 +802,7 @@ function createNormalBattleAdapter(deps) {
         if (!m) return;
         var state = getGameState();
         var GAME_STATE = getGameConst();
-        var pd = getPlayerData();
+        var pd = getSaveData();
 
         // 检查 isElementalCombo — 从引擎状态读取
         var engineState = battleEngine.getState();
@@ -812,7 +817,7 @@ function createNormalBattleAdapter(deps) {
         active = true;
         battleEngine = createBattleEngine(buildEngineDeps());
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var charStats = getCharacterFullStats(pd.currentCharacterId);
 
         Logger.info('[HP] adapter_init | pd.playerHp=' + pd.playerHp + ' maxHp=' + (charStats ? charStats.hp : 100) + ' charId=' + pd.currentCharacterId);
@@ -902,10 +907,19 @@ function createNormalBattleAdapter(deps) {
         }
 
         // 统一同步：玩家状态 → BattleEngine
-        var pd = getPlayerData();
-        Logger.info('[HP] set_state_to_engine | pd.playerHp=' + pd.playerHp + ' shield=' + pd.playerShield);
+        var pd = getSaveData();
+        var hpToSync = pd.playerHp;
+        var shieldToSync = pd.playerShield;
+        if (isTower) {
+            var ts = getTowerSystem();
+            if (ts) {
+                hpToSync = ts.playerHp;
+                shieldToSync = ts.playerShield || 0;
+            }
+        }
+        Logger.info('[HP] set_state_to_engine | hp=' + hpToSync + ' shield=' + shieldToSync + (isTower ? ' [tower]' : ''));
         engine.setPlayerState(
-            pd.playerHp, pd.playerShield,
+            hpToSync, shieldToSync,
             playerEffects.dodging, playerEffects.dodgeEndTime,
             false, 0
         );
@@ -964,12 +978,24 @@ function createNormalBattleAdapter(deps) {
         var eng = engineOverride || battleEngine;
         if (!eng) return;
         var es = eng.getState();
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var fx = getPlayerEffects();
+        var currentState = getGameState();
+        var GAME_STATE = getGameConst();
+        var isTowerSync = (currentState === GAME_STATE.TOWER_COMBAT);
 
-        Logger.info('[HP] sync_back | engine:' + es.playerHp + ' pd:' + pd.playerHp + ' delta:' + (es.playerHp - pd.playerHp));
-        pd.playerHp = es.playerHp;
-        pd.playerShield = es.playerShield;
+        if (isTowerSync) {
+            var ts = getTowerSystem();
+            if (ts) {
+                Logger.info('[HP] sync_back_tower | engine:' + es.playerHp + ' tower:' + ts.playerHp);
+                ts.playerHp = es.playerHp;
+                ts.playerShield = es.playerShield;
+            }
+        } else {
+            Logger.info('[HP] sync_back | engine:' + es.playerHp + ' pd:' + pd.playerHp + ' delta:' + (es.playerHp - pd.playerHp));
+            pd.playerHp = es.playerHp;
+            pd.playerShield = es.playerShield;
+        }
         fx.dodging = es.dodging;
         fx.dodgeEndTime = es.dodgeEndTime;
         fx.stunned = es.isStunned;
@@ -985,7 +1011,7 @@ function createNormalBattleAdapter(deps) {
     // ═══════════════════════════════════════════════════════
 
     function handlePoisonStarEffect(star) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var poisonDmg = 15;
         if (pd.playerShield > 0) {
             var absorb = Math.min(pd.playerShield, poisonDmg);
@@ -1005,11 +1031,14 @@ function createNormalBattleAdapter(deps) {
     }
 
     function handlePuddleStarEffect(star) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var poisonDmg = 15;
+        var designOffsetY = getDesignOffsetY();
+        var scale = getScreenScale();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), getScreenHeight());
         createMeteorAnimation(
             star.x, star.y, poisonDmg, false, 'poison', 0, 1, null,
-            { x: getScreenWidth() / 2, y: getScreenHeight() - 50 * getScreenScale() }
+            { x: getScreenWidth() / 2, y: designBottom - Math.floor(50 * scale) }
         );
         if (pd.playerShield > 0) {
             var absorb = Math.min(pd.playerShield, poisonDmg);
@@ -1444,7 +1473,7 @@ function createNormalBattleAdapter(deps) {
         if (m.rageMultiplier) damage = Math.floor(damage * m.rageMultiplier);
 
         // 无敌模式：伤害归零
-        var pd0 = getPlayerData();
+        var pd0 = getSaveData();
         if (pd0.godMode) damage = 0;
 
         // 觉醒狂暴：HP低于30%时攻击力增加
@@ -1472,6 +1501,9 @@ function createNormalBattleAdapter(deps) {
             try {
                 var GAME_STATE = getGameConst();
                 var state = getGameState();
+                var designOffsetY = getDesignOffsetY();
+                var scale = getScreenScale();
+                var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), getScreenHeight());
                 if (state !== GAME_STATE.PLAYING && state !== GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.STAGE_PLAYING) return;
 
                 var fx = getPlayerEffects();
@@ -1480,11 +1512,11 @@ function createNormalBattleAdapter(deps) {
                     m.hp = Math.max(0, m.hp - counterDamage);
                     addMessage('💫 闪避成功! -' + counterDamage + '冲击', '#00ff88');
                     vibrateShort({ type: 'medium' });
-                    createMeteorAnimation(getScreenWidth() / 2, getScreenHeight() / 2, counterDamage, false, 'dodge', 0, 1, null, null);
+                    createMeteorAnimation(getScreenWidth() / 2, (designOffsetY + designBottom) / 2, counterDamage, false, 'dodge', 0, 1, null, null);
                     createMonsterDamageAnimationFn(m, counterDamage);
                     createHpBarCounterAnimationFn();
                     if (m.hp <= 0) {
-                        handleMonsterDeath(false, m, state, GAME_STATE, getPlayerData());
+                        handleMonsterDeath(false, m, state, GAME_STATE, getSaveData());
                     }
                     fx.dodging = false;
                     fx.dodgeEndTime = 0;
@@ -1495,7 +1527,7 @@ function createNormalBattleAdapter(deps) {
                     fx.dodgeEndTime = 0;
                 }
 
-                var pd = getPlayerData();
+                var pd = getSaveData();
                 var shieldAbsorb = 0;
                 if (pd.playerShield > 0) {
                     shieldAbsorb = Math.min(pd.playerShield, damage);
@@ -1559,7 +1591,7 @@ function createNormalBattleAdapter(deps) {
                                 var shieldGain = (summonedMonster.baseHp || 20) * summonCount * 0.3;
                                 m.shield = (m.shield || 0) + Math.floor(shieldGain);
                                 var summonDamage = (summonedMonster.baseAttack || 5) * summonCount;
-                                pd = getPlayerData();
+                                pd = getSaveData();
                                 if (pd.playerShield > 0) {
                                     var sAbsorb = Math.min(pd.playerShield, summonDamage);
                                     pd.playerShield -= sAbsorb;
@@ -1624,7 +1656,7 @@ function createNormalBattleAdapter(deps) {
     function updatePoisonEffect() {
         var fx = getPlayerEffects();
         if (!fx.poisoned) return;
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var now = Date.now();
         if (now >= fx.poisonEndTime) {
             fx.poisoned = false;
@@ -1651,7 +1683,7 @@ function createNormalBattleAdapter(deps) {
     }
 
     function checkGameOver() {
-        if (getTimeLeftFn() <= 0 || getPlayerData().playerHp <= 0) {
+        if (getTimeLeftFn() <= 0 || getSaveData().playerHp <= 0) {
             if (deps.endGame) deps.endGame();
         }
     }
@@ -1754,7 +1786,7 @@ function createNormalBattleAdapter(deps) {
                     if (damage > 0) {
                         reflectedDamage = Math.floor(damage * m.skills[ri].ratio);
                         if (reflectedDamage > 0) {
-                            var pd = getPlayerData();
+                            var pd = getSaveData();
                             if (pd.playerShield > 0) {
                                 var pAbsorb = Math.min(pd.playerShield, reflectedDamage);
                                 pd.playerShield -= pAbsorb;
@@ -1794,7 +1826,7 @@ function createNormalBattleAdapter(deps) {
             }
             if (poisonSplitSkill && m.hp <= m.maxHp * poisonSplitSkill.hpThreshold) {
                 m.hasPoisonSplit = true;
-                var pd2 = getPlayerData();
+                var pd2 = getSaveData();
                 var poisonDmg = poisonSplitSkill.damage || 20;
                 if (pd2.playerShield > 0) {
                     var psAbsorb = Math.min(pd2.playerShield, poisonDmg);
@@ -1821,7 +1853,7 @@ function createNormalBattleAdapter(deps) {
             for (var ei = 0; ei < monsters.length; ei++) {
                 if (monsters[ei].id === m.id) { monsters.splice(ei, 1); break; }
             }
-            var pd3 = getPlayerData();
+            var pd3 = getSaveData();
             pd3.bossKillCount = 0;
             resetBossStarMechanicFn();
             addMonsterSkillAnimationFn(m, 'escape', '遁入灵隙!');
@@ -1842,7 +1874,7 @@ function createNormalBattleAdapter(deps) {
             addMessage('贪婪技能未解锁', '#ff6b6b');
             return false;
         }
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var currentHp = pd.playerHp != null ? pd.playerHp : 100;
         if (currentHp <= 1) {
             addMessage('灵核活性不足', '#ff6b6b');
@@ -1877,7 +1909,7 @@ function createNormalBattleAdapter(deps) {
         if (!m) return;
         var state = getGameState();
         var GAME_STATE = getGameConst();
-        var pd = getPlayerData();
+        var pd = getSaveData();
 
         if (state === GAME_STATE.STAGE_PLAYING) {
             if (m.hp > 0) return;
@@ -1909,6 +1941,7 @@ function createNormalBattleAdapter(deps) {
         // 塔模式：复用 adapter 统一点击路径，指向塔的 BattleEngine
         active = true;
         battleEngine = engine;
+        towerConfig.skipAutoTimers = true; // 塔模式由 TowerSystem 自己管理怪物攻击，不走 BattleEngine attacker
         // 注入 NormalBattleAdapter 扩展钩子
         towerConfig.extensions = {
             onBeforeStarClick: onBeforeStarClickHook,

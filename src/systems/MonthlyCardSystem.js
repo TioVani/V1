@@ -14,26 +14,27 @@ import Logger from '../utils/Logger.js';
 
 function createMonthlyCardSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScreenWidth = deps.getScreenWidth;
     var saveDataFn = deps.saveData;
     var showToastFn = deps.showToast;
     var getRewardedVideoAd = deps.getRewardedVideoAd;
     var isAdLoaded = deps.isAdLoaded;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // ==================== 核心方法 ====================
 
     function isMonthlyCardClaimedToday(cardType) {
-        var playerData = getPlayerData();
-        if (!playerData.monthlyCards) {
-            playerData.monthlyCards = {
+        var pd = getSaveData();
+        if (!pd.monthlyCards) {
+            pd.monthlyCards = {
                 small: { days: 0, lastClaimDate: null, adsWatched: 0 },
                 large: { days: 0, lastClaimDate: null, adsWatched: 0 }
             };
             return false;
         }
         var today = new Date().toISOString().split('T')[0];
-        return playerData.monthlyCards[cardType].lastClaimDate === today;
+        return pd.monthlyCards[cardType].lastClaimDate === today;
     }
 
     function getTodayString() {
@@ -41,7 +42,8 @@ function createMonthlyCardSystem(deps) {
     }
 
     function handleMonthlyCardClick(x, y, scale) {
-        var startY = Math.floor(150 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var startY = designOffsetY + Math.floor(150 * scale);
         var cardHeight = Math.floor(140 * scale);
         var cardGap = Math.floor(15 * scale);
         var btnW = Math.floor(85 * scale);
@@ -68,8 +70,8 @@ function createMonthlyCardSystem(deps) {
     }
 
     function handleSmallMonthlyCardClick() {
-        var playerData = getPlayerData();
-        var smallCard = playerData.monthlyCards.small;
+        var pd = getSaveData();
+        var smallCard = pd.monthlyCards.small;
 
         if (smallCard.days <= 0) {
             watchAdForMonthlyCard('small');
@@ -79,8 +81,8 @@ function createMonthlyCardSystem(deps) {
     }
 
     function handleLargeMonthlyCardClick() {
-        var playerData = getPlayerData();
-        var largeCard = playerData.monthlyCards.large;
+        var pd = getSaveData();
+        var largeCard = pd.monthlyCards.large;
 
         if (largeCard.days <= 0) {
             watchAdForMonthlyCard('large');
@@ -91,16 +93,16 @@ function createMonthlyCardSystem(deps) {
 
     function watchAdForMonthlyCard(cardType) {
         var MAX_DAYS = 180;
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
-        if (!playerData.monthlyCards) {
-            playerData.monthlyCards = {
+        if (!pd.monthlyCards) {
+            pd.monthlyCards = {
                 small: { days: 0, lastClaimDate: null, adsWatched: 0 },
                 large: { days: 0, lastClaimDate: null, adsWatched: 0 }
             };
         }
 
-        var card = playerData.monthlyCards[cardType];
+        var card = pd.monthlyCards[cardType];
 
         if (card.days >= MAX_DAYS) {
             showToastFn({ title: '月卡天数已达上限！', icon: 'none', duration: 1500 });
@@ -124,16 +126,16 @@ function createMonthlyCardSystem(deps) {
 
     function addMonthlyCardDays(cardType, days) {
         var MAX_DAYS = 180;
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
-        if (!playerData.monthlyCards) {
-            playerData.monthlyCards = {
+        if (!pd.monthlyCards) {
+            pd.monthlyCards = {
                 small: { days: 0, lastClaimDate: null, adsWatched: 0 },
                 large: { days: 0, lastClaimDate: null, adsWatched: 0 }
             };
         }
 
-        var card = playerData.monthlyCards[cardType];
+        var card = pd.monthlyCards[cardType];
 
         if (cardType === 'small') {
             card.days = Math.min(card.days + 30, MAX_DAYS);
@@ -147,16 +149,16 @@ function createMonthlyCardSystem(deps) {
     }
 
     function claimMonthlyCardReward(cardType) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
-        if (!playerData.monthlyCards) {
-            playerData.monthlyCards = {
+        if (!pd.monthlyCards) {
+            pd.monthlyCards = {
                 small: { days: 0, lastClaimDate: null, adsWatched: 0 },
                 large: { days: 0, lastClaimDate: null, adsWatched: 0 }
             };
         }
 
-        var card = playerData.monthlyCards[cardType];
+        var card = pd.monthlyCards[cardType];
         var today = getTodayString();
 
         if (card.lastClaimDate === today) {
@@ -170,7 +172,7 @@ function createMonthlyCardSystem(deps) {
         }
 
         var reward = cardType === 'small' ? 10 : 20;
-        playerData.starSource = (playerData.starSource || 0) + reward;
+        pd.starSource = (pd.starSource || 0) + reward;
 
         card.lastClaimDate = today;
         card.days--;

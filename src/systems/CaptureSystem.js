@@ -29,12 +29,15 @@ var CAPTURE_CONFIG = {
 };
 
 function createCaptureSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getMonsters = deps.getMonsters;
     var addMessage = deps.addMessage;
     var saveData = deps.saveData;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
+    var getScreenScale = deps.getScreenScale || function() { return Math.max(0.7, getScreenWidth() / 375); };
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     var lastCaptureAttempt = 0;
     var captureCooldown = 15000;  // 15秒冷却
@@ -63,13 +66,16 @@ function createCaptureSystem(deps) {
      * @returns {Object|null} star object
      */
     function spawnCaptureStar() {
+        lastCaptureAttempt = Date.now();  // 生成后进入冷却，防止每帧堆积
+
         var screenW = getScreenWidth();
-        var screenH = getScreenHeight();
+        var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var padding = 60;
 
         var star = {
             x: padding + Math.random() * (screenW - padding * 2),
-            y: screenH * 0.65 + Math.random() * (screenH * 0.2),
+            y: designOffsetY + Math.floor(812 * 0.65 * scale) + Math.random() * Math.floor(812 * 0.2 * scale),
             size: 48,
             scale: 1,
             animationFrame: 0,
@@ -185,7 +191,7 @@ function createCaptureSystem(deps) {
             return { handled: true, success: false, rate: 0 };
         }
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var result = attemptCapture(monster, pd, tapInfo);
 
         if (result.success) {

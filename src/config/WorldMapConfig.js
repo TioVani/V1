@@ -1,7 +1,9 @@
 /**
  * WorldMapConfig — 大世界地图数据配置
  * 每个世界独立配置，纯数据无逻辑
+ * 传送点数据已迁移至 TeleportConfig.js，此处不再内联
  */
+import { buildTransferDataForWorld } from './TeleportConfig.js';
 
 var WORLDS = {
     world_01: {
@@ -10,7 +12,6 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_01.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 215, y: 750 },
         hasTutorial: true,
         entryCutscene: null,
         collisionMaskData: 'world_01_F01',
@@ -42,7 +43,8 @@ var WORLDS = {
                 reward: { currency: 100, items: ['potion_small'] }
             },
             {
-                id: 'enemy_01',
+                id: 'E01_enemy_01',
+                name: '灵域小黏',
                 type: 'enemy',
                 x: 634, y: 154,
                 discoverRadius: 80,
@@ -55,42 +57,19 @@ var WORLDS = {
                 level: 1
             },
             {
-                id: 'tower',
-                type: 'tower',
-                x: 1056, y: 102,
-                discoverRadius: 160,
-                interactRadius: 80,
-                priority: 80,
-                once: false,
+                id: 'chest_world01_normal',
+                type: 'chest',
+                x: 1229, y: 745,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
                 requireTutorial: true,
-                unlockMenuId: 'tower'
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
             },
-            {
-                id: 'stairs_01_up',
-                type: 'teleport',
-                x: 377, y: 561,
-                targetX: 222, targetY: 317,
-                targetFloor: 2,
-                discoverRadius: 40,
-                interactRadius: 25,
-                priority: 70,
-                once: false
-            },
-            {
-                id: 'stairs_01_down',
-                type: 'teleport',
-                x: 222, y: 317,
-                targetX: 377, targetY: 561,
-                targetFloor: 1,
-                discoverRadius: 40,
-                interactRadius: 25,
-                priority: 70,
-                once: false
-            }
-        ],
-        triggerLines: [
-            { x1: 1214, y1: 81, x2: 1293, y2: 125, targetWorld: 'world_02' }
-        ]
+            ],
+        triggerLines: [] // 由 TeleportConfig 注入
     },
     world_02: {
         worldId: 'world_02',
@@ -98,22 +77,12 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_02.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 116, y: 746 },
         hasTutorial: false,
         entryCutscene: null,
+        collisionMaskData: 'world_02_F01',
+        transparencyMaskData: 'world_02_T01',
         collisions: [],
         entities: [
-            {
-                id: 'portal_return',
-                type: 'portal',
-                x: 116, y: 746,
-                discoverRadius: 120,
-                interactRadius: 60,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_01',
-                requireExploration: 0
-            },
             {
                 id: 'ferryman',
                 type: 'npc',
@@ -128,44 +97,8 @@ var WORLDS = {
                     { text: '古灵们留下的试炼之塔就在北面，那是通往彼岸的唯一途径。', voice: 'voLing003', stopVoice: 'voLing002' }
                 ]
             },
-            {
-                id: 'styx_barrier',
-                type: 'barrier',
-                x: 745, y: 461,
-                discoverRadius: 200,
-                interactRadius: 60,
-                priority: 85,
-                once: true,
-                requireTowerClear: true,
-                collisionRefs: ['styx_river'],
-                hiddenEntityIds: [],
-                lockedMessage: '冥河波涛汹涌，无法通行。或许摆渡人知道方法……',
-                unlockMessage: '摆渡人认可你的实力，渡你过冥河！'
-            },
-            {
-                id: 'portal_shuhan',
-                type: 'portal',
-                x: 1340, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_03',
-                requireExploration: 0,
-                lockedMessage: '通往蜀汉的传送门'
-            },
-            {
-                id: 'portal_world05',
-                type: 'portal',
-                x: 660, y: 33,
-                discoverRadius: 120,
-                interactRadius: 60,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_05',
-                requireExploration: 0
-            }
-        ]
+            ],
+        triggerLines: []
     },
     // ===== 蜀汉国区域 =====
     world_03: {
@@ -174,35 +107,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_03.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_return_egypt',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_02',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_market',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_04',
-                requireExploration: 0
-            },
-            {
-                id: 'enemy_alley',
+                id: 'E02_enemy_alley',
+                name: '巷弄黏怪',
                 type: 'enemy',
                 x: 600, y: 300,
                 discoverRadius: 80,
@@ -223,7 +134,8 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 150, items: ['potion_medium'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_04: {
         worldId: 'world_04',
@@ -231,33 +143,10 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_04.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
-            {
-                id: 'portal_alley',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_03',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_temple',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_05',
-                requireExploration: 0
-            },
             {
                 id: 'npc_merchant',
                 type: 'npc',
@@ -282,7 +171,8 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 200, items: ['potion_large'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_05: {
         worldId: 'world_05',
@@ -290,58 +180,15 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_05.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 1270, y: 734 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
+        collisionMaskData: 'world_05_F01',
+        transparencyMaskData: 'world_05_T01',
         collisions: [],
         entities: [
             {
-                id: 'portal_market',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_04',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_secret',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_06',
-                requireExploration: 0.5,
-                lockedMessage: '神庙深处似乎隐藏着什么，探索更多再说……'
-            },
-            {
-                id: 'tower_temple',
-                type: 'tower',
-                x: 700, y: 200,
-                discoverRadius: 160,
-                interactRadius: 80,
-                priority: 80,
-                once: false,
-                unlockMenuId: 'tower'
-            },
-            {
-                id: 'enemy_temple',
-                type: 'enemy',
-                x: 1000, y: 500,
-                discoverRadius: 80,
-                interactRadius: 40,
-                priority: 60,
-                once: false,
-                respawnTime: 0,
-                monster: 'skeleton',
-                level: 5
-            },
-            {
-                id: 'enemy_normal',
+                id: 'E03_enemy_normal',
+                name: '神庙幼灵',
                 type: 'enemy',
                 x: 846, y: 291,
                 discoverRadius: 100,
@@ -351,19 +198,9 @@ var WORLDS = {
                 respawnTime: 0,
                 monster: 'slime',
                 level: 1
-            },
-            {
-                id: 'portal_return_w02',
-                type: 'portal',
-                x: 1284, y: 748,
-                discoverRadius: 120,
-                interactRadius: 60,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_02',
-                requireExploration: 0
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_06: {
         worldId: 'world_06',
@@ -371,35 +208,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_06.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_temple',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_05',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_ruins',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_07',
-                requireExploration: 0
-            },
-            {
-                id: 'enemy_secret',
+                id: 'E04_enemy_secret',
+                name: '秘境幽魂',
                 type: 'enemy',
                 x: 700, y: 400,
                 discoverRadius: 80,
@@ -420,7 +235,8 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 300, items: ['rare_gem'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_07: {
         worldId: 'world_07',
@@ -428,34 +244,10 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_07.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
-            {
-                id: 'portal_secret',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_06',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_palace',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_08',
-                requireExploration: 0.5,
-                lockedMessage: '古迹深处通往皇城，需要更多探索……'
-            },
             {
                 id: 'npc_hermit',
                 type: 'npc',
@@ -470,7 +262,8 @@ var WORLDS = {
                     '小心前行，无尽塔的挑战在等着你。'
                 ]
             }
-        ]
+        ],
+        triggerLines: []
     },
     // ===== 蜀汉国像素俯视区域 =====
     world_08: {
@@ -479,35 +272,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_08.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_ruins',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_07',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_garden',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_03',
-                requireExploration: 0
-            },
-            {
-                id: 'enemy_palace',
+                id: 'E05_enemy_palace',
+                name: '皇城守卫',
                 type: 'enemy',
                 x: 700, y: 300,
                 discoverRadius: 80,
@@ -528,7 +299,8 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 400, items: ['royal_seal'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_09: {
         worldId: 'world_09',
@@ -536,33 +308,10 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_09.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
-            {
-                id: 'portal_palace',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_08',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_tunnel',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_10',
-                requireExploration: 0
-            },
             {
                 id: 'npc_maiden',
                 type: 'npc',
@@ -577,7 +326,8 @@ var WORLDS = {
                     '穿过密道，就能到达蜀汉的黄昏之地……'
                 ]
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_10: {
         worldId: 'world_10',
@@ -585,36 +335,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_10.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_garden',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_03',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_dusk',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_11',
-                requireExploration: 0.5,
-                lockedMessage: '密道尽头似乎通向某个特殊的地方……'
-            },
-            {
-                id: 'enemy_tunnel',
+                id: 'E06_enemy_tunnel',
+                name: '密道暗影',
                 type: 'enemy',
                 x: 700, y: 384,
                 discoverRadius: 80,
@@ -628,14 +355,15 @@ var WORLDS = {
             {
                 id: 'tower_tunnel',
                 type: 'tower',
-                x: 400, y: 200,
+                x: 705, y: 410,
                 discoverRadius: 160,
                 interactRadius: 80,
                 priority: 80,
                 once: false,
                 unlockMenuId: 'tower'
             }
-        ]
+        ],
+        triggerLines: []
     },
     // ===== 蜀汉国大地图 =====
     world_11: {
@@ -644,35 +372,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_11.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_tunnel',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_10',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_dawn',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_12',
-                requireExploration: 0
-            },
-            {
-                id: 'enemy_dusk',
+                id: 'E07_enemy_dusk',
+                name: '暮色怨灵',
                 type: 'enemy',
                 x: 700, y: 300,
                 discoverRadius: 80,
@@ -693,7 +399,8 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 500, items: ['dusk_crystal'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_12: {
         worldId: 'world_12',
@@ -701,34 +408,10 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_12.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 70, y: 384 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
-            {
-                id: 'portal_dusk',
-                type: 'portal',
-                x: 70, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_11',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_tower',
-                type: 'portal',
-                x: 1338, y: 384,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_13',
-                requireExploration: 0.6,
-                lockedMessage: '晨曦尽头是无尽之塔，需要更多准备……'
-            },
             {
                 id: 'npc_sage',
                 type: 'npc',
@@ -744,7 +427,8 @@ var WORLDS = {
                 ]
             },
             {
-                id: 'enemy_dawn',
+                id: 'E08_enemy_dawn',
+                name: '晨曦守卫',
                 type: 'enemy',
                 x: 400, y: 250,
                 discoverRadius: 80,
@@ -755,7 +439,8 @@ var WORLDS = {
                 monster: 'dawn_guardian',
                 level: 10
             }
-        ]
+        ],
+        triggerLines: []
     },
     // ===== 无尽塔 =====
     world_13: {
@@ -764,36 +449,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_13.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 704, y: 680 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_dawn',
-                type: 'portal',
-                x: 704, y: 680,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_12',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_floor2',
-                type: 'portal',
-                x: 704, y: 88,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_14',
-                requireExploration: 0.8,
-                lockedMessage: '击败本层守护者才能继续攀登'
-            },
-            {
-                id: 'enemy_floor1',
+                id: 'E09_enemy_floor1',
+                name: '塔层守卫·壹',
                 type: 'enemy',
                 x: 704, y: 384,
                 discoverRadius: 80,
@@ -804,7 +466,8 @@ var WORLDS = {
                 monster: 'tower_guard_1',
                 level: 11
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_14: {
         worldId: 'world_14',
@@ -812,36 +475,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_14.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 704, y: 680 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_floor1',
-                type: 'portal',
-                x: 704, y: 680,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_13',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_floor3',
-                type: 'portal',
-                x: 704, y: 88,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_15',
-                requireExploration: 0.8,
-                lockedMessage: '击败本层守护者才能继续攀登'
-            },
-            {
-                id: 'enemy_floor2',
+                id: 'E10_enemy_floor2',
+                name: '塔层守卫·贰',
                 type: 'enemy',
                 x: 500, y: 384,
                 discoverRadius: 80,
@@ -862,7 +502,8 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 500, items: ['tower_key'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_15: {
         worldId: 'world_15',
@@ -870,36 +511,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_15.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 704, y: 680 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_floor2',
-                type: 'portal',
-                x: 704, y: 680,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_14',
-                requireExploration: 0
-            },
-            {
-                id: 'portal_floor4',
-                type: 'portal',
-                x: 704, y: 88,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 89,
-                once: false,
-                targetWorld: 'world_16',
-                requireExploration: 0.8,
-                lockedMessage: '击败本层守护者才能继续攀登'
-            },
-            {
-                id: 'enemy_floor3',
+                id: 'E11_enemy_floor3',
+                name: '塔层守卫·叁',
                 type: 'enemy',
                 x: 704, y: 384,
                 discoverRadius: 80,
@@ -909,18 +527,9 @@ var WORLDS = {
                 respawnTime: 0,
                 monster: 'tower_guard_3',
                 level: 15
-            },
-            {
-                id: 'tower_floor3',
-                type: 'tower',
-                x: 400, y: 384,
-                discoverRadius: 160,
-                interactRadius: 80,
-                priority: 80,
-                once: false,
-                unlockMenuId: 'tower'
             }
-        ]
+        ],
+        triggerLines: []
     },
     world_16: {
         worldId: 'world_16',
@@ -928,24 +537,13 @@ var WORLDS = {
         backgroundImage: 'assets/images/worldmap/world_16.jpg',
         width: 1408,
         height: 768,
-        playerStart: { x: 704, y: 680 },
-        hasTutorial: false,
+                hasTutorial: false,
         entryCutscene: null,
         collisions: [],
         entities: [
             {
-                id: 'portal_floor3',
-                type: 'portal',
-                x: 704, y: 680,
-                discoverRadius: 100,
-                interactRadius: 50,
-                priority: 90,
-                once: false,
-                targetWorld: 'world_15',
-                requireExploration: 0
-            },
-            {
-                id: 'enemy_boss',
+                id: 'E12_enemy_boss',
+                name: '塔主·幽冥之王',
                 type: 'enemy',
                 x: 704, y: 384,
                 discoverRadius: 120,
@@ -966,9 +564,33 @@ var WORLDS = {
                 once: true,
                 reward: { currency: 1000, items: ['legendary_weapon'] }
             }
-        ]
+        ],
+        triggerLines: []
     },
 };
+
+// 从 TeleportConfig 注入传送数据到每个世界
+function _injectTransferData() {
+    var worldIds = Object.keys(WORLDS);
+    for (var i = 0; i < worldIds.length; i++) {
+        var wid = worldIds[i];
+        var world = WORLDS[wid];
+        var data = buildTransferDataForWorld(wid);
+        // 注入 playerStart（出生点）
+        if (data.playerStart) {
+            world.playerStart = data.playerStart;
+        }
+        // 合并传送 entity 到已有 entities
+        if (data.entities.length > 0) {
+            world.entities = world.entities.concat(data.entities);
+        }
+        // 合并 triggerLines（原有为空数组，直接赋值）
+        if (data.triggerLines.length > 0) {
+            world.triggerLines = data.triggerLines;
+        }
+    }
+}
+_injectTransferData();
 
 function getWorldConfig(worldId) {
     return WORLDS[worldId] || null;

@@ -9,7 +9,7 @@ function createStageRenderer(deps) {
     var uiCore = deps.uiCore;
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getSTAGES = deps.getSTAGES;
     var getCHAPTERS = deps.getCHAPTERS;
     var getUiScrollState = deps.getUiScrollState;
@@ -19,15 +19,18 @@ function createStageRenderer(deps) {
     var getSelectedChapter = deps.getSelectedChapter;
     var getStageModeSystem = deps.getStageModeSystem;
     var getMaterials = deps.getMaterials;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     function renderStageSelect() {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var STAGES = getSTAGES();
         var CHAPTERS = getCHAPTERS();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiScrollState = getUiScrollState();
         var selectedChapter = getSelectedChapter();
         var fillRoundRect = getFillRoundRect();
@@ -44,23 +47,23 @@ function createStageRenderer(deps) {
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(32 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('⚔️ 闯关模式 ⚔️', screenWidth / 2, Math.floor(50 * scale));
+        ctx.fillText('⚔️ 闯关模式 ⚔️', screenWidth / 2, designOffsetY + Math.floor(50 * scale));
 
         // 章节标题
         var chapter = CHAPTERS[selectedChapter];
         ctx.fillStyle = '#87CEEB';
         ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
-        ctx.fillText('第' + selectedChapter + '章: ' + chapter.name, screenWidth / 2, Math.floor(100 * scale));
+        ctx.fillText('第' + selectedChapter + '章: ' + chapter.name, screenWidth / 2, designOffsetY + Math.floor(100 * scale));
 
         // 关卡列表
-        var startY = Math.floor(150 * scale);
+        var startY = designOffsetY + Math.floor(150 * scale);
         var stageHeight = Math.floor(120 * scale);
         var padding = Math.floor(15 * scale);
 
         for (let i = 0; i < chapter.stages.length; i++) {
             var stageId = chapter.stages[i];
             var stage = STAGES[stageId];
-            var stageProgress = playerData.stageProgress && playerData.stageProgress[stageId];
+            var stageProgress = pd.stageProgress && pd.stageProgress[stageId];
             var stars = stageProgress ? stageProgress.stars : 0;
             var isUnlocked = isStageUnlocked(stageId);
 
@@ -110,10 +113,10 @@ function createStageRenderer(deps) {
 
         // 章节切换
         if (selectedChapter > 1) {
-            drawButton('◀', Math.floor(50 * scale), Math.floor(100 * scale), Math.floor(40 * scale), Math.floor(30 * scale), '#4CAF50');
+            drawButton('◀', Math.floor(50 * scale), designOffsetY + Math.floor(100 * scale), Math.floor(40 * scale), Math.floor(30 * scale), '#4CAF50');
         }
         if (selectedChapter < Object.keys(CHAPTERS).length) {
-            drawButton('▶', screenWidth - Math.floor(50 * scale), Math.floor(100 * scale), Math.floor(40 * scale), Math.floor(30 * scale), '#4CAF50');
+            drawButton('▶', screenWidth - Math.floor(50 * scale), designOffsetY + Math.floor(100 * scale), Math.floor(40 * scale), Math.floor(30 * scale), '#4CAF50');
         }
     }
 
@@ -122,6 +125,8 @@ function createStageRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
         var stageModeSystem = getStageModeSystem();
         var Materials = getMaterials();
@@ -143,12 +148,12 @@ function createStageRenderer(deps) {
         ctx.textAlign = 'center';
 
         var titleText = result.stars > 0 ? '🎉 通关成功！' : '💔 挑战失败';
-        ctx.fillText(titleText, screenWidth / 2, Math.floor(80 * scale));
+        ctx.fillText(titleText, screenWidth / 2, designOffsetY + Math.floor(80 * scale));
 
         // 关卡名称
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
-        ctx.fillText(stageData.name, screenWidth / 2, Math.floor(130 * scale));
+        ctx.fillText(stageData.name, screenWidth / 2, designOffsetY + Math.floor(130 * scale));
 
         // 星级显示
         var starText = '';
@@ -157,10 +162,10 @@ function createStageRenderer(deps) {
         }
         ctx.fillStyle = '#FFD700';
         ctx.font = Math.floor(48 * scale) + 'px sans-serif';
-        ctx.fillText(starText, screenWidth / 2, Math.floor(200 * scale));
+        ctx.fillText(starText, screenWidth / 2, designOffsetY + Math.floor(200 * scale));
 
         // 条件完成情况
-        var startY = Math.floor(260 * scale);
+        var startY = designOffsetY + Math.floor(260 * scale);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.textAlign = 'left';
 
@@ -238,7 +243,7 @@ function createStageRenderer(deps) {
         }
 
         // 按钮
-        var btnY = screenHeight - Math.floor(100 * scale);
+        var btnY = designBottom - Math.floor(100 * scale);
         drawButton('重试', screenWidth / 2, btnY, Math.floor(120 * scale), Math.floor(45 * scale), '#4CAF50');
         drawBackButton();
     }

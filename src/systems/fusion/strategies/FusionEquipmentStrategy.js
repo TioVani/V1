@@ -7,7 +7,7 @@ import { getNextRarity, FUSION_CONFIG, FUSION_TYPES } from '../../../config/Fusi
 var FORGE_AFFIXES = ['sharp', 'tough', 'lucky', 'resonance', 'forge'];
 
 function createFusionEquipmentStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getEquipments = deps.getEquipments;
     var type = FUSION_TYPES.EQUIPMENT;
 

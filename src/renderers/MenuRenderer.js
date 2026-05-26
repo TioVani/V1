@@ -11,7 +11,7 @@ function createMenuRenderer(deps) {
     var uiCore = deps.uiCore;
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getBestScore = deps.getBestScore;
     var getScore = deps.getScore;
     var getStarMode = deps.getStarMode;
@@ -94,7 +94,9 @@ function createMenuRenderer(deps) {
                 var sh = getScreenHeight();
                 var sz = Math.floor(50 * sc);
                 var collapsedSz = Math.floor(sz * 0.8);
-                return { x: Math.floor(15 * sc) - Math.floor(20 * sc), y: sh - Math.floor(65 * sc), width: collapsedSz, height: collapsedSz };
+                var designOffsetY = getDesignOffsetY();
+                var designBottom = Math.min(designOffsetY + Math.floor(812 * sc), sh);
+                return { x: Math.floor(15 * sc) - Math.floor(20 * sc), y: designBottom - Math.floor(65 * sc), width: collapsedSz, height: collapsedSz };
             }
         });
         uiConfig.register({
@@ -113,8 +115,9 @@ function createMenuRenderer(deps) {
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
         var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var bestScore = getBestScore();
         var uiScrollState = getUiScrollState();
         var debugPanelOpen = getDebugPanelOpen();
@@ -174,19 +177,19 @@ function createMenuRenderer(deps) {
         }
 
         // 检查是否已解锁青铜小鼎（达到50分）
-        var hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        var hasUnlockedStarter = pd.ownedCharacters && pd.ownedCharacters.indexOf('char_001') !== -1;
 
         // 标题
         var titleOv = uiConfig ? uiConfig.get('menu_title') : { dx: 0, dy: 0 };
         drawText('🏺 器落山河 🏺', screenWidth / 2 + titleOv.dx * scale, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + titleOv.dy * scale, Math.floor(48 * scale), '#ffd700');
 
         // 说明
-        drawText('收集灵韵，唤醒器灵', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) - 30 * scale, Math.floor(24 * scale), '#ffffff');
-        drawText('60秒内尽可能多地收集！', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) + 10 * scale, Math.floor(24 * scale), '#ffffff');
+        drawText('收集灵韵，唤醒器灵', screenWidth / 2, (designOffsetY + designBottom) / 2 - 30 * scale, Math.floor(24 * scale), '#ffffff');
+        drawText('60秒内尽可能多地收集！', screenWidth / 2, (designOffsetY + designBottom) / 2 + 10 * scale, Math.floor(24 * scale), '#ffffff');
 
         // 最高分
         if (bestScore > 0) {
-            drawText('最高分: ' + bestScore, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) + 50 * scale, Math.floor(20 * scale), '#ffd700');
+            drawText('最高分: ' + bestScore, screenWidth / 2, (designOffsetY + designBottom) / 2 + 50 * scale, Math.floor(20 * scale), '#ffd700');
         }
 
         // 开始按钮
@@ -203,6 +206,20 @@ function createMenuRenderer(deps) {
 
             renderMenuBar();
         }
+
+        // 调试按钮（右上角，始终可见）
+        var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
+        var debugIconSize = Math.floor(32 * scale);
+        var debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
+        var debugIconY = designOffsetY + Math.floor(15 * scale) + debugOv.dy * scale;
+
+        ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
+        fillRoundRect(ctx, debugIconX, debugIconY, debugIconSize, debugIconSize, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🔧', debugIconX + debugIconSize / 2, debugIconY + debugIconSize / 2);
     }
 
     function renderMenuBar() {
@@ -210,21 +227,23 @@ function createMenuRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var debugPanelOpen = getDebugPanelOpen();
         var Characters = getCharacters();
         var uiScrollState = getUiScrollState();
         var hasClaimableRewards = getHasClaimableRewards();
         var fillRoundRect = getFillRoundRect();
 
-        var hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        var hasUnlockedStarter = pd.ownedCharacters && pd.ownedCharacters.indexOf('char_001') !== -1;
         if (!hasUnlockedStarter) return;
 
         // 左下角展开菜单
         var menuBtnSize = Math.floor(50 * scale);
         var menuBtnX = Math.floor(15 * scale);
-        var menuBtnY = screenHeight - Math.floor(65 * scale);
+        var menuBtnY = designBottom - Math.floor(65 * scale);
         var menuItemHeight = Math.floor(40 * scale);
         var menuItemWidth = Math.floor(100 * scale);
         var menuGap = Math.floor(8 * scale);
@@ -236,8 +255,9 @@ function createMenuRenderer(deps) {
             { id: 'season', name: '赛季', icon: '⏳', color: '#E74C3C' },
             { id: 'boss', name: '守护灵战', icon: '🏛️', color: '#FF6B6B' },
             { id: 'tower', name: '无尽之塔', icon: '🏰', color: '#8B5CF6' },
-            { id: 'fusion', name: '融合', icon: '🔮', color: '#C084FC' },
-            { id: 'upgrade', name: '升级', icon: '⬆️', color: '#22C55E' }
+            { id: 'idle', name: '挂机', icon: '💤', color: '#60A5FA' },
+            // { id: 'fusion', name: '融合', icon: '🔮', color: '#C084FC' },
+            // { id: 'upgrade', name: '升级', icon: '⬆️', color: '#22C55E' }
         ];
 
         // 展开的菜单项
@@ -246,7 +266,7 @@ function createMenuRenderer(deps) {
                 var item = menuItems[mi];
                 var itemY = menuBtnY - (mi + 1) * (menuItemHeight + menuGap);
                 var iconSize = Math.floor(32 * scale);
-                var unlockResult = isModeUnlocked(item.id, playerData, getBestScore());
+                var unlockResult = isModeUnlocked(item.id, pd, getBestScore());
                 var isLocked = !unlockResult.unlocked;
 
                 ctx.save();
@@ -263,6 +283,8 @@ function createMenuRenderer(deps) {
                         ctx.drawImage(Assets.shopIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
                     } else if (item.id === 'tower' && Assets.towerIcon && Assets.towerIcon.complete) {
                         ctx.drawImage(Assets.towerIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
+                    } else if (item.id === 'idle' && Assets.idleIcon && Assets.idleIcon.complete) {
+                        ctx.drawImage(Assets.idleIcon, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
                     } else if (item.id === 'boss' && Assets.bossImage && Assets.bossImage.complete) {
                         ctx.drawImage(Assets.bossImage, menuBtnX + (menuItemWidth - iconSize) / 2 - Math.floor(30 * scale), itemY + (menuItemHeight - iconSize) / 2, iconSize, iconSize);
                     } else {
@@ -324,7 +346,7 @@ function createMenuRenderer(deps) {
         var settingIconSize = Math.floor(32 * scale);
         var settingsOv = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
         var settingIconX = Math.floor(18 * scale) + settingsOv.dx * scale;
-        var settingIconY = Math.floor(15 * scale) + settingsOv.dy * scale;
+        var settingIconY = designOffsetY + Math.floor(15 * scale) + settingsOv.dy * scale;
 
         if (Assets.settingsIcon && Assets.settingsIcon.complete) {
             ctx.drawImage(Assets.settingsIcon, settingIconX, settingIconY, settingIconSize, settingIconSize);
@@ -336,23 +358,9 @@ function createMenuRenderer(deps) {
             ctx.fillText('⚙️', settingIconX + settingIconSize / 2, settingIconY + settingIconSize / 2);
         }
 
-        // 调试按钮（右上角）
-        var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-        var debugIconSize = Math.floor(32 * scale);
-        var debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
-        var debugIconY = Math.floor(15 * scale) + debugOv.dy * scale;
-
-        ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
-        fillRoundRect(ctx, debugIconX, debugIconY, debugIconSize, debugIconSize, 4);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🔧', debugIconX + debugIconSize / 2, debugIconY + debugIconSize / 2);
-
         // 任务按钮（设置图标下方）
         var taskIconSize = Math.floor(40 * scale);
-        var taskIconY = Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
+        var taskIconY = designOffsetY + Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
         var taskIconX = Math.floor(15 * scale);
 
         if (Assets.taskIcon && Assets.taskIcon.complete) {
@@ -384,21 +392,21 @@ function createMenuRenderer(deps) {
         }
 
         // 角色图标（右下角）
-        if (playerData.ownedCharacters && playerData.ownedCharacters.length > 0 && playerData.currentCharacterId) {
-            var currentCharId = playerData.currentCharacterId;
+        if (pd.ownedCharacters && pd.ownedCharacters.length > 0 && pd.currentCharacterId) {
+            var currentCharId = pd.currentCharacterId;
             var mappedCharId = getCharacterKey(currentCharId);
             var character = Characters[mappedCharId];
 
             if (character) {
                 var baseX = screenWidth - Math.floor(180 * scale);
-                var baseY = screenHeight - Math.floor(92 * scale);
+                var baseY = designBottom - Math.floor(92 * scale);
                 var charExp = getCharacterExperience(currentCharId);
                 var expPercent = charExp.exp / charExp.maxExp;
                 var rightX = baseX + 90;
                 var rightY = baseY - 2;
                 var charIconSize = 50;
 
-                if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete) {
+                if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete && Assets.characterImages[mappedCharId].naturalWidth > 0) {
                     ctx.drawImage(Assets.characterImages[mappedCharId], rightX, rightY, charIconSize, charIconSize);
                 } else {
                     ctx.font = '48px sans-serif';
@@ -575,8 +583,9 @@ function createMenuRenderer(deps) {
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
         var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var bestScore = getBestScore();
         var score = getScore();
         var state = getGameState();
@@ -596,8 +605,8 @@ function createMenuRenderer(deps) {
 
         // 判断是否是赛季模式
         var isSeasonMode = (state === GAME_STATE.SEASON_PLAYING ||
-            (playerData.seasonData && playerData.seasonData.selection &&
-                playerData.seasonData.selection.character));
+            (pd.seasonData && pd.seasonData.selection &&
+                pd.seasonData.selection.character));
 
         // 绘制背景图片（使用缓存的背景位置）
         if (Assets.backgroundImage && Assets.backgroundImage.complete && Assets.bgPositionCache) {
@@ -658,9 +667,9 @@ function createMenuRenderer(deps) {
             // ===== 普通模式结束界面 =====
             drawText('净化中止', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale), Math.floor(48 * scale), '#ffd700');
 
-            drawText(score.toString(), screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale), Math.floor(64 * scale), '#ffd700');
+            drawText(score.toString(), screenWidth / 2, (designOffsetY + designBottom) / 2, Math.floor(64 * scale), '#ffd700');
 
-            drawText('最高分: ' + bestScore, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 2 * scale) + 50 * scale, Math.floor(24 * scale), '#ffffff');
+            drawText('最高分: ' + bestScore, screenWidth / 2, (designOffsetY + designBottom) / 2 + 50 * scale, Math.floor(24 * scale), '#ffffff');
 
             // 鼓励语
             var normalMsg = '不错！继续加油！';
@@ -689,6 +698,7 @@ function createMenuRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
 
         var drawText = uiCore.drawText;
         var drawButton = uiCore.drawButton;

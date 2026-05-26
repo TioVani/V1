@@ -12,7 +12,7 @@ const MAX_CHARACTER_LEVEL = 90;
 
 function createCharacterSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getCharacters = deps.getCharacters;
     var getCharacterKey = deps.getCharacterKey;
     var getEquipments = deps.getEquipments;
@@ -26,14 +26,14 @@ function createCharacterSystem(deps) {
     // ==================== 内部函数 ====================
 
     function initCharacterExperience(charId) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         // 确保 characterExperience 是对象而不是字符串
-        if (typeof playerData.characterExperience !== 'object' || playerData.characterExperience === null) {
+        if (typeof pd.characterExperience !== 'object' || pd.characterExperience === null) {
             Logger.info('characterExperience 类型错误，重置为对象');
-            playerData.characterExperience = {};
+            pd.characterExperience = {};
         }
-        if (!playerData.characterExperience[charId]) {
-            playerData.characterExperience[charId] = {
+        if (!pd.characterExperience[charId]) {
+            pd.characterExperience[charId] = {
                 level: 1,
                 exp: 0,
                 maxExp: 100
@@ -42,15 +42,15 @@ function createCharacterSystem(deps) {
     }
 
     function getCharacterExperience(charId) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         // 确保 characterExperience 存在且是对象
-        if (!playerData.characterExperience || typeof playerData.characterExperience !== 'object') {
-            playerData.characterExperience = {};
+        if (!pd.characterExperience || typeof pd.characterExperience !== 'object') {
+            pd.characterExperience = {};
         }
-        if (!playerData.characterExperience[charId]) {
+        if (!pd.characterExperience[charId]) {
             initCharacterExperience(charId);
         }
-        return playerData.characterExperience[charId];
+        return pd.characterExperience[charId];
     }
 
     function getExpForLevel(level) {
@@ -59,13 +59,13 @@ function createCharacterSystem(deps) {
     }
 
     function addCharacterExperience(charId, exp) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         // 确保 characterExperience 是对象
-        if (typeof playerData.characterExperience !== 'object' || playerData.characterExperience === null) {
+        if (typeof pd.characterExperience !== 'object' || pd.characterExperience === null) {
             Logger.info('characterExperience 类型错误，重置为对象');
-            playerData.characterExperience = {};
+            pd.characterExperience = {};
         }
-        if (!playerData.characterExperience[charId]) {
+        if (!pd.characterExperience[charId]) {
             initCharacterExperience(charId);
         }
 
@@ -73,7 +73,7 @@ function createCharacterSystem(deps) {
         var skillBonuses = getPassiveSkillBonuses();
         var actualExp = Math.floor(exp * skillBonuses.expBonus);
 
-        var charExp = playerData.characterExperience[charId];
+        var charExp = pd.characterExperience[charId];
         var oldLevel = charExp.level;
 
         charExp.exp += actualExp;
@@ -104,12 +104,12 @@ function createCharacterSystem(deps) {
     }
 
     function getCharacterLevelBonus(charId) {
-        var playerData = getPlayerData();
-        if (!playerData.characterExperience || !playerData.characterExperience[charId]) {
+        var pd = getSaveData();
+        if (!pd.characterExperience || !pd.characterExperience[charId]) {
             return 0;
         }
 
-        var charExp = playerData.characterExperience[charId];
+        var charExp = pd.characterExperience[charId];
         // 每级增加1点攻击力
         return charExp.level - 1;
     }
@@ -140,7 +140,7 @@ function createCharacterSystem(deps) {
     }
 
     function getCharacterFullStats(charId) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var Characters = getCharacters();
         var Equipments = getEquipments();
         var Skills = getSkills();
@@ -166,8 +166,8 @@ function createCharacterSystem(deps) {
 
         // 获取角色等级
         var level = 1;
-        if (playerData.characterExperience && playerData.characterExperience[charId]) {
-            level = playerData.characterExperience[charId].level || 1;
+        if (pd.characterExperience && pd.characterExperience[charId]) {
+            level = pd.characterExperience[charId].level || 1;
         }
 
         // 计算等级成长加成
@@ -194,9 +194,9 @@ function createCharacterSystem(deps) {
         };
 
         // ==================== 装备属性加成 ====================
-        if (playerData.equipments && playerData.equipments.equipped) {
-            var equipped = playerData.equipments.equipped;
-            var ownedList = playerData.equipments.owned || [];
+        if (pd.equipments && pd.equipments.equipped) {
+            var equipped = pd.equipments.equipped;
+            var ownedList = pd.equipments.owned || [];
 
             // 通过instanceId查找装备定义
             function findEquipByInstanceId(instanceId) {
@@ -246,9 +246,9 @@ function createCharacterSystem(deps) {
         }
 
         // ==================== 技能属性加成 ====================
-        if (playerData.skills && playerData.skills.equipped) {
-            for (let i = 0; i < playerData.skills.equipped.length; i++) {
-                var skillId = playerData.skills.equipped[i];
+        if (pd.skills && pd.skills.equipped) {
+            for (let i = 0; i < pd.skills.equipped.length; i++) {
+                var skillId = pd.skills.equipped[i];
                 if (Skills && Skills[skillId]) {
                     var skill = Skills[skillId];
                     if (skill.type === 'passive') {
@@ -263,13 +263,13 @@ function createCharacterSystem(deps) {
         }
 
         // ==================== 宠物属性加成 ====================
-        if (playerData.pets && playerData.pets.equipped) {
-            var petUid = playerData.pets.equipped;
+        if (pd.pets && pd.pets.equipped) {
+            var petUid = pd.pets.equipped;
             var equippedPet = null;
             // 通过uid查找宠物配置（兼容旧数据）
-            if (playerData.pets.owned) {
-                for (let pi = 0; pi < playerData.pets.owned.length; pi++) {
-                    var pd = playerData.pets.owned[pi];
+            if (pd.pets.owned) {
+                for (let pi = 0; pi < pd.pets.owned.length; pi++) {
+                    var pd = pd.pets.owned[pi];
                     var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + pi);
                     if (pdUid === petUid) {
                         var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
@@ -290,32 +290,32 @@ function createCharacterSystem(deps) {
         }
 
         // ==================== 材料属性加成 ====================
-        if (playerData.materials) {
-            if (playerData.materials.iceCrystal) {
-                stats.attack += playerData.materials.iceCrystal.usedCount || 0;
+        if (pd.materials) {
+            if (pd.materials.iceCrystal) {
+                stats.attack += pd.materials.iceCrystal.usedCount || 0;
             }
-            if (playerData.materials.fireSource) {
-                stats.attack += (playerData.materials.fireSource.usedCount || 0) * 2;
+            if (pd.materials.fireSource) {
+                stats.attack += (pd.materials.fireSource.usedCount || 0) * 2;
             }
-            if (playerData.materials.critCrystal) {
+            if (pd.materials.critCrystal) {
                 // 暴击率加成由 extraCritRate 统一计算（MaterialSystem.useMaterial 写入），不重复算 usedCount
             }
-            if (playerData.materials.critFireSource) {
-                stats.critDamage += (playerData.materials.critFireSource.usedCount || 0) * 0.2;
+            if (pd.materials.critFireSource) {
+                stats.critDamage += (pd.materials.critFireSource.usedCount || 0) * 0.2;
             }
         }
 
         // 水灵暴晶额外暴击率（MaterialSystem.useMaterial 写入）
-        stats.critRate += playerData.extraCritRate || 0;
+        stats.critRate += pd.extraCritRate || 0;
 
         // 火灵爆源额外暴击伤害（MaterialSystem.useMaterial 写入）
-        stats.critDamage += playerData.extraCritDamage || 0;
+        stats.critDamage += pd.extraCritDamage || 0;
 
         return stats;
     }
 
     function getPassiveSkillBonuses() {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var Skills = getSkills();
 
         var bonuses = {
@@ -326,12 +326,12 @@ function createCharacterSystem(deps) {
             dropRate: 1
         };
 
-        if (!playerData.skills || !playerData.skills.equipped) {
+        if (!pd.skills || !pd.skills.equipped) {
             return bonuses;
         }
 
-        for (let i = 0; i < playerData.skills.equipped.length; i++) {
-            var skillId = playerData.skills.equipped[i];
+        for (let i = 0; i < pd.skills.equipped.length; i++) {
+            var skillId = pd.skills.equipped[i];
             if (Skills && Skills[skillId]) {
                 var skill = Skills[skillId];
                 if (skill.type === 'passive') {
@@ -353,7 +353,7 @@ function createCharacterSystem(deps) {
     function getCurrentCharacterConfig() {
         var gameState = getGameState();
         var seasonSel = getSeasonSelection();
-        var playerD = getPlayerData();
+        var playerD = getSaveData();
         var chars = getCharacters();
 
         // 赛季模式使用赛季选择的角色

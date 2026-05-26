@@ -12,6 +12,8 @@ function createTaskRenderer(deps) {
     var getTasksTab = deps.getTasksTab;
     var getTasksScrollY = deps.getTasksScrollY;
     var setTasksScrollY = deps.setTasksScrollY;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     function drawRoundedRect(ctx, x, y, width, height, radius) {
         ctx.beginPath();
@@ -32,6 +34,8 @@ function createTaskRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
         var tasksTab = getTasksTab();
         var tasksScrollY = getTasksScrollY();
@@ -44,9 +48,9 @@ function createTaskRenderer(deps) {
         ctx.font = 'bold ' + Math.floor(32 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('📋 任务', screenWidth / 2, Math.floor(50 * scale));
+        ctx.fillText('📋 任务', screenWidth / 2, designOffsetY + Math.floor(50 * scale));
 
-        var tabY = Math.floor(100 * scale);
+        var tabY = designOffsetY + Math.floor(100 * scale);
         var tabWidth = Math.floor(100 * scale);
         var tabHeight = Math.floor(36 * scale);
         var tabGap = Math.floor(10 * scale);
@@ -62,7 +66,7 @@ function createTaskRenderer(deps) {
         var achievementTabColor = tasksTab === 'achievements' ? '#FF9800' : '#4a4a6a';
         uiCore.drawButton('🏆 成就', tabStartX + (tabWidth + tabGap) * 2 + tabWidth / 2, tabY, tabWidth, tabHeight, achievementTabColor);
 
-        var listStartY = Math.floor(150 * scale);
+        var listStartY = designOffsetY + Math.floor(150 * scale);
         var itemHeight = tasksTab === 'guide' ? Math.floor(95 * scale) : Math.floor(85 * scale);
         var listHeight = screenHeight - listStartY - Math.floor(80 * scale);
         var totalHeight = tasks.length * itemHeight;
@@ -75,7 +79,7 @@ function createTaskRenderer(deps) {
         for (var index = 0; index < tasks.length; index++) {
             var task = tasks[index];
             var y = listStartY + index * itemHeight - tasksScrollY;
-            if (y + itemHeight > screenHeight - Math.floor(80 * scale) || y < listStartY) continue;
+            if (y + itemHeight > designBottom - Math.floor(80 * scale) || y < listStartY) continue;
 
             var isLocked = tasksTab === 'guide' && !task.unlocked;
 

@@ -7,7 +7,7 @@ export var IMAGE_GROUPS = {
     core: [
         { id: 'backgroundImage',          src: 'assets/images/background/background.png' },
         { id: 'titleBgImage',             src: 'assets/images/background/title_bg.jpg' },
-        { id: 'normalStarImage',          src: 'assets/images/ui/ST.png' },
+        { id: 'normalStarImage',          src: 'assets/images/LG.png' },
         { id: 'iceStarImage',             src: 'assets/images/ui/IST.png' },
         { id: 'fireStarImage',            src: 'assets/images/ui/FST.png' },
     ],
@@ -24,12 +24,16 @@ export var IMAGE_GROUPS = {
         { id: 'seasonIcon',               src: 'assets/images/ui/CS.png' },
         { id: 'shopIcon',                 src: 'assets/images/ui/SP.png' },
         { id: 'towerIcon',                src: 'assets/images/ui/IFT.png' },
+        { id: 'idleIcon',                 src: 'assets/images/ui/IDLE.png' },
         { id: 'bossImage',                src: 'assets/images/ui/BOSS.png' },
+        { id: 'chestImage',               src: 'assets/images/ui/PTBX.png' },
     ],
     character: [
-        { id: 'char_starter',             src: 'assets/images/character/XXSZ_HF.png' },
+        { id: 'char_starter',             src: 'assets/images/character/YCX_HF.png' },
         { id: 'char_warrior',             src: 'assets/images/character/XXZS_HF.png' },
         { id: 'char_warriorPortrait',     src: 'assets/images/character/XXZS.png' },
+        { id: 'char_starterPortrait',     src: 'assets/images/character/YCX_Portrait.png' },
+        { id: 'char_worldMapPlayer',       src: 'assets/images/ui/PLAYER_ALPHA.png' },
     ],
     battle: [
         { id: 'fightBgImage',             src: 'assets/images/battle/Fight_03_BG.jpg' },
@@ -97,6 +101,7 @@ export var AUDIO_CONFIG = {
 // 角色图片映射：id → characterImages 的 key
 export var CHARACTER_MAP = {
     char_starter: 'starter',
+    char_starterPortrait: 'starterPortrait',
     char_warrior: 'warrior',
     char_warriorPortrait: 'warriorPortrait',
 };

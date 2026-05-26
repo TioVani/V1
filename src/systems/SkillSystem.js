@@ -10,7 +10,7 @@ import { getSkillAttackRatio } from '../config/SkillConfig.js';
 
 function createSkillSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getSkills = deps.getSkills;
     var getSkillTypes = deps.getSkillTypes;
     var getActiveMonsters = deps.getActiveMonsters;
@@ -70,7 +70,7 @@ function createSkillSystem(deps) {
 
         // 执行技能效果
         var success = false;
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
         switch (skill.effect) {
             case 'damage':
@@ -86,16 +86,16 @@ function createSkillSystem(deps) {
                     var m = activeMonsters[mi];
 
                     // 暴击判定
-                    var currentCharId = playerData.currentCharacterId;
+                    var currentCharId = pd.currentCharacterId;
                     var charStats = currentCharId ? getCharacterFullStats(currentCharId) : null;
                     var attackRatio = getSkillAttackRatio(skill.rarity);
                     var baseAtk = (charStats && charStats.attack) ? charStats.attack : 10;
                     var damage = Math.floor(baseAtk * attackRatio);
-                    var totalCritRate = (charStats ? charStats.critRate : 0) + (playerData.extraCritRate || 0);
+                    var totalCritRate = (charStats ? charStats.critRate : 0) + (pd.extraCritRate || 0);
                     var isCritical = Math.random() * 100 < totalCritRate;
 
                     if (isCritical) {
-                        var baseCritDamage = (charStats ? charStats.critDamage : 2.0) + (playerData.extraCritDamage || 0);
+                        var baseCritDamage = (charStats ? charStats.critDamage : 2.0) + (pd.extraCritDamage || 0);
                         damage = Math.floor(damage * baseCritDamage);
                         createCritAnimation(m.x, m.y - 30, damage, 0);
                     }
@@ -127,8 +127,8 @@ function createSkillSystem(deps) {
             case 'heal':
                 // 治疗技能：恢复生命值
                 var healAmount = skill.heal;
-                var maxHp = playerData.maxPlayerHp || 100;
-                var currentHp = playerData.playerHp != null ? playerData.playerHp : 100;
+                var maxHp = pd.maxPlayerHp || 100;
+                var currentHp = pd.playerHp != null ? pd.playerHp : 100;
                 var actualHeal = Math.min(healAmount, maxHp - currentHp);
 
                 if (actualHeal <= 0) {
@@ -136,16 +136,16 @@ function createSkillSystem(deps) {
                     return false;
                 }
 
-                playerData.playerHp = Math.min(maxHp, currentHp + healAmount);
+                pd.playerHp = Math.min(maxHp, currentHp + healAmount);
                 addMessage(skill.emoji + ' +' + actualHeal + ' 灵能', '#00ff88');
-                Logger.info('治疗:', actualHeal, '当前HP:', playerData.playerHp);
+                Logger.info('治疗:', actualHeal, '当前HP:', pd.playerHp);
                 success = true;
                 break;
 
             case 'shield':
                 // 护盾技能：获得护盾
                 var shieldAmount = skill.shield;
-                playerData.playerShield = (playerData.playerShield || 0) + shieldAmount;
+                pd.playerShield = (pd.playerShield || 0) + shieldAmount;
 
                 // 如果有免疫效果
                 if (skill.immunity) {
@@ -159,7 +159,7 @@ function createSkillSystem(deps) {
                     addMessage(skill.emoji + ' 护盾+' + shieldAmount, '#cc88ff');
                 }
 
-                Logger.info('护盾:', shieldAmount, '当前护盾:', playerData.playerShield);
+                Logger.info('护盾:', shieldAmount, '当前护盾:', pd.playerShield);
                 success = true;
                 break;
 

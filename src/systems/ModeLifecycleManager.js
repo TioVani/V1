@@ -13,6 +13,7 @@
  */
 import Logger from '../utils/Logger.js';
 import TimerManager from '../utils/TimerManager.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 
 function createModeLifecycleManager(deps) {
     var getGameState = deps.getGameState;
@@ -37,6 +38,21 @@ function createModeLifecycleManager(deps) {
 
     // 模式名 → 游戏状态 的映射
     var modeToState = {};
+
+    // PauseCoordinator — ModeTimers subscriber（全局常驻）
+    PauseCoordinator.instance.subscribe(null, 'ModeTimers', {
+        onPause: function() {
+            if (activeMode && modeTimers[activeMode]) {
+                modeTimers[activeMode].clearAll();
+            }
+        },
+        onResume: function() {
+            var mode = previousMode || activeMode;
+            if (mode && handlers[mode] && handlers[mode].resume) {
+                handlers[mode].resume();
+            }
+        }
+    });
 
     function getOrCreateTimers(modeName) {
         if (!modeTimers[modeName]) {
@@ -114,46 +130,29 @@ function createModeLifecycleManager(deps) {
     }
 
     /**
-     * 暂停当前模式
+     * 暂停当前模式 — 通过 PauseCoordinator 统一调度
      */
     function pauseActive() {
-        if (!activeMode || !handlers[activeMode]) {
+        if (!activeMode) {
             Logger.warn('ModeLifecycle: pauseActive 无活跃模式');
             return;
         }
-
         previousMode = activeMode;
-
-        // 清理该模式的定时器
-        if (modeTimers[activeMode]) {
-            modeTimers[activeMode].clearAll();
-        }
-
-        // 调用模式的 pause handler
-        if (handlers[activeMode].pause) {
-            handlers[activeMode].pause();
-        }
-
+        PauseCoordinator.instance.pause();
         Logger.info('ModeLifecycle: 暂停模式', activeMode);
     }
 
     /**
-     * 恢复当前模式（从暂停恢复）
+     * 恢复当前模式 — 通过 PauseCoordinator 统一调度
      */
     function resumeActive(ctx) {
         var mode = previousMode || activeMode;
-        if (!mode || !handlers[mode]) {
+        if (!mode) {
             Logger.warn('ModeLifecycle: resumeActive 无可恢复模式');
             return;
         }
-
         activeMode = mode;
-
-        // 调用模式的 resume handler
-        if (handlers[mode].resume) {
-            handlers[mode].resume(ctx);
-        }
-
+        PauseCoordinator.instance.resume();
         Logger.info('ModeLifecycle: 恢复模式', mode);
     }
 

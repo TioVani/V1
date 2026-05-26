@@ -6,7 +6,7 @@ import Logger from '../utils/Logger.js';
 
 function createDropSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScore = deps.getScore;
     var getEquipments = deps.getEquipments;
     var getSkills = deps.getSkills;
@@ -18,10 +18,10 @@ function createDropSystem(deps) {
     // ==================== 内部函数 ====================
 
     function dropMaterial() {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         // 确保 materials 对象存在
-        if (!playerData.materials) {
-            playerData.materials = {
+        if (!pd.materials) {
+            pd.materials = {
                 iceCrystal: { quantity: 0, usedCount: 0 },
                 fireSource: { quantity: 0, usedCount: 0 },
                 critCrystal: { quantity: 0, usedCount: 0 },
@@ -35,12 +35,12 @@ function createDropSystem(deps) {
         var srDropRate = Math.random();
 
         // 首次净化守护灵必掉水灵暴晶
-        if (!playerData.firstBossKilled) {
-            playerData.firstBossKilled = true;
-            if (!playerData.materials['critCrystal']) {
-                playerData.materials['critCrystal'] = { quantity: 0, usedCount: 0 };
+        if (!pd.firstBossKilled) {
+            pd.firstBossKilled = true;
+            if (!pd.materials['critCrystal']) {
+                pd.materials['critCrystal'] = { quantity: 0, usedCount: 0 };
             }
-            playerData.materials['critCrystal'].quantity++;
+            pd.materials['critCrystal'].quantity++;
             Logger.info('首次净化守护灵! 必掉水灵暴晶!');
             addMessage('首次净化守护灵！获得水灵暴晶!', '#FF9ECF', true);
             saveData();
@@ -49,10 +49,10 @@ function createDropSystem(deps) {
 
         // Boss有0.8%概率掉落火灵爆源（独立概率）
         if (srDropRate < 0.008) {
-            if (!playerData.materials['critFireSource']) {
-                playerData.materials['critFireSource'] = { quantity: 0, usedCount: 0 };
+            if (!pd.materials['critFireSource']) {
+                pd.materials['critFireSource'] = { quantity: 0, usedCount: 0 };
             }
-            playerData.materials['critFireSource'].quantity++;
+            pd.materials['critFireSource'].quantity++;
             Logger.info('掉落火灵爆源!');
             addMessage('获得火灵爆源!', '#FF9ECF', true);
             saveData();
@@ -61,26 +61,26 @@ function createDropSystem(deps) {
 
         // 0.8% 几率掉落水灵暴晶
         if (dropRate < 0.008) {
-            if (!playerData.materials['critCrystal']) {
-                playerData.materials['critCrystal'] = { quantity: 0, usedCount: 0 };
+            if (!pd.materials['critCrystal']) {
+                pd.materials['critCrystal'] = { quantity: 0, usedCount: 0 };
             }
-            playerData.materials['critCrystal'].quantity++;
+            pd.materials['critCrystal'].quantity++;
             Logger.info('掉落水灵暴晶!');
             addMessage('获得水灵暴晶!', '#00ccff', true);
         } else if (isEnhanced) {
             // 2000分后掉落火灵源
-            if (!playerData.materials['fireSource']) {
-                playerData.materials['fireSource'] = { quantity: 0, usedCount: 0 };
+            if (!pd.materials['fireSource']) {
+                pd.materials['fireSource'] = { quantity: 0, usedCount: 0 };
             }
-            playerData.materials['fireSource'].quantity++;
+            pd.materials['fireSource'].quantity++;
             Logger.info('掉落火灵源!');
             addMessage('获得火灵源!', '#ff6b6b', true);
         } else {
             // 2000分前掉落水灵晶
-            if (!playerData.materials['iceCrystal']) {
-                playerData.materials['iceCrystal'] = { quantity: 0, usedCount: 0 };
+            if (!pd.materials['iceCrystal']) {
+                pd.materials['iceCrystal'] = { quantity: 0, usedCount: 0 };
             }
-            playerData.materials['iceCrystal'].quantity++;
+            pd.materials['iceCrystal'].quantity++;
             Logger.info('掉落水灵晶!');
             addMessage('获得水灵晶!', '#00ccff', true);
         }
@@ -88,8 +88,8 @@ function createDropSystem(deps) {
         // 星辉宝箱掉落
         var chestDropRate = Math.random();
         if (chestDropRate < getStarChestDropRate()) {
-            if (!playerData.items) {
-                playerData.items = {
+            if (!pd.items) {
+                pd.items = {
                     starChest: { quantity: 0 },
                     healPotion: { quantity: 0 },
                     timePotion: { quantity: 0 },
@@ -98,10 +98,10 @@ function createDropSystem(deps) {
                     expPotionLarge: { quantity: 0 }
                 };
             }
-            if (!playerData.items.starChest) {
-                playerData.items.starChest = { quantity: 0 };
+            if (!pd.items.starChest) {
+                pd.items.starChest = { quantity: 0 };
             }
-            playerData.items.starChest.quantity++;
+            pd.items.starChest.quantity++;
             addMessage('获得星辉宝箱!', '#FF9ECF', true);
         }
 
@@ -109,15 +109,15 @@ function createDropSystem(deps) {
     }
 
     function dropEquipment(isBoss) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var Equipments = getEquipments();
 
         // 初始化装备数据
-        if (!playerData.equipments) {
-            playerData.equipments = { owned: [], equipped: { weapon: null, armor: null, accessory: null, set: null } };
+        if (!pd.equipments) {
+            pd.equipments = { owned: [], equipped: { weapon: null, armor: null, accessory: null, set: null } };
         }
-        if (!playerData.equipments.owned) {
-            playerData.equipments.owned = [];
+        if (!pd.equipments.owned) {
+            pd.equipments.owned = [];
         }
 
         // 根据是否为Boss决定掉落品质
@@ -151,7 +151,7 @@ function createDropSystem(deps) {
         var equip = Equipments[equipId];
 
         // 添加到背包
-        playerData.equipments.owned.push({
+        pd.equipments.owned.push({
             id: equipId,
             rarity: equip.rarity,
             level: 1
@@ -164,15 +164,15 @@ function createDropSystem(deps) {
     }
 
     function dropSkill() {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var Skills = getSkills();
 
         // 初始化技能数据
-        if (!playerData.skills) {
-            playerData.skills = { owned: [], equipped: [], gachaTickets: 0 };
+        if (!pd.skills) {
+            pd.skills = { owned: [], equipped: [], gachaTickets: 0 };
         }
-        if (!playerData.skills.owned) {
-            playerData.skills.owned = [];
+        if (!pd.skills.owned) {
+            pd.skills.owned = [];
         }
 
         var skillIds = Object.keys(Skills);
@@ -195,7 +195,7 @@ function createDropSystem(deps) {
         var skill = Skills[skillId];
 
         // 添加到背包
-        playerData.skills.owned.push({
+        pd.skills.owned.push({
             id: skillId,
             level: 1
         });
@@ -207,15 +207,15 @@ function createDropSystem(deps) {
     }
 
     function dropPet(isBoss) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var Pets = getPets();
 
         // 初始化宠物数据
-        if (!playerData.pets) {
-            playerData.pets = { owned: [], equipped: null };
+        if (!pd.pets) {
+            pd.pets = { owned: [], equipped: null };
         }
-        if (!playerData.pets.owned) {
-            playerData.pets.owned = [];
+        if (!pd.pets.owned) {
+            pd.pets.owned = [];
         }
 
         var petIds = Object.keys(Pets);
@@ -249,7 +249,7 @@ function createDropSystem(deps) {
         var pet = Pets[petId];
 
         // 添加到背包
-        playerData.pets.owned.push({
+        pd.pets.owned.push({
             id: petId,
             level: 1,
             exp: 0

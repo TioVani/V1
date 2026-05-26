@@ -52,6 +52,8 @@ import { createDelayedHpTracker } from './utils/DelayedHpTracker.js';
 import { createGameLifecycleSystem } from './systems/GameLifecycleSystem.js';
 import { createPlayerDataSystem } from './systems/PlayerDataSystem.js';
 import { createDebugSystem } from './systems/DebugSystem.js';
+import { createGameDataStore } from './systems/GameDataStore.js';
+import { createMigrationPipeline } from './systems/MigrationPipeline.js';
 import { createUIConfig } from './config/UIConfig.js';
 import { createCombatFontConfig } from './config/CombatFontConfig.js';
 import { createUIEditorSystem } from './systems/UIEditorSystem.js';
@@ -113,6 +115,7 @@ import { createDragSystem } from './systems/DragSystem.js';
 import { createLinkChainSystem } from './systems/LinkChainSystem.js';
 import { createTouchGestureSystem } from './systems/TouchGestureSystem.js';
 import { createSaturationState, SATURATION_COSTS } from './systems/SaturationState.js';
+import { PauseCoordinator } from './utils/PauseCoordinator.js';
 import * as BrowserAPI from './platform/BrowserAPI.js';
 
 // 大世界探索系统
@@ -236,6 +239,8 @@ var GameModules = {
     gachaRoundRect: gachaRoundRect,
     createGameLifecycleSystem: createGameLifecycleSystem,
     createPlayerDataSystem: createPlayerDataSystem,
+    createGameDataStore: createGameDataStore,
+    createMigrationPipeline: createMigrationPipeline,
     createDebugSystem: createDebugSystem,
     createPoisonPuddleSystem: createPoisonPuddleSystem,
     playerEffects: playerEffects,
@@ -341,7 +346,8 @@ var GameModules = {
     BEAUTY_CONFIG: BEAUTY_CONFIG,
     AUDIO_CONFIG: AUDIO_CONFIG,
     CHARACTER_MAP: CHARACTER_MAP,
-    createAssetManager: createAssetManager
+    createAssetManager: createAssetManager,
+    PauseCoordinator: PauseCoordinator
 };
 
 // CommonJS 环境

@@ -8,11 +8,13 @@ function createUpgradeRenderer(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getUpgradeEngine = deps.getUpgradeEngine;
     var uiCore = deps.uiCore;
     var getFillRoundRect = deps.getFillRoundRect;
     var getAssets = deps.getAssets;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     var selectedType = 'character';
     var selectedEntity = null;
@@ -34,6 +36,8 @@ function createUpgradeRenderer(deps) {
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
         var Assets = getAssets();
         var fillRoundRect = getFillRoundRect();
         var drawText = uiCore.drawText;
@@ -51,7 +55,7 @@ function createUpgradeRenderer(deps) {
         }
 
         // 标题
-        drawText('⬆ 升级升星', sw / 2, 40, Math.floor(28 * scale), '#ffd700');
+        drawText('⬆ 升级升星', sw / 2, designOffsetY + Math.floor(40 * scale), Math.floor(28 * scale), '#ffd700');
 
         // 类型标签
         renderTypeTabs(ctx, sw, scale, fillRoundRect);
@@ -67,13 +71,14 @@ function createUpgradeRenderer(deps) {
 
     // ==================== 类型标签 ====================
     function renderTypeTabs(ctx, sw, scale, fillRoundRect) {
+        var designOffsetY = getDesignOffsetY();
         var types = ['character', 'equipment', 'skill', 'pet', 'star'];
         var tabW = Math.floor(52 * scale);
         var tabH = Math.floor(30 * scale);
         var gap = Math.floor(6 * scale);
         var totalW = types.length * tabW + (types.length - 1) * gap;
         var startX = (sw - totalW) / 2;
-        var tabY = Math.floor(75 * scale);
+        var tabY = designOffsetY + Math.floor(75 * scale);
 
         for (var i = 0; i < types.length; i++) {
             var tc = TYPE_CONFIG[types[i]];
@@ -93,6 +98,9 @@ function createUpgradeRenderer(deps) {
 
     // ==================== 实体列表 ====================
     function renderEntityList(ctx, sw, sh, scale, fillRoundRect, drawText) {
+        var designOffsetY = getDesignOffsetY();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var engine = getUpgradeEngine();
         var entities = engine.getAvailableEntities(selectedType);
         var config = UPGRADE_CONFIG.entities[selectedType];
@@ -100,8 +108,8 @@ function createUpgradeRenderer(deps) {
         var padding = Math.floor(6 * scale);
         var listW = sw - Math.floor(40 * scale);
         var listX = Math.floor(20 * scale);
-        var startY = Math.floor(120 * scale);
-        var visibleH = sh - startY - Math.floor(60 * scale);
+        var startY = designOffsetY + Math.floor(120 * scale);
+        var visibleH = designBottom - Math.floor(60 * scale) - startY;
         var totalH = entities.length * (itemH + padding);
         var maxScroll = Math.max(0, totalH - visibleH);
         if (scrollY < 0) scrollY = 0;
@@ -175,6 +183,9 @@ function createUpgradeRenderer(deps) {
 
     // ==================== 详情面板 ====================
     function renderDetailPanel(ctx, sw, sh, scale, fillRoundRect, drawText) {
+        var designOffsetY = getDesignOffsetY();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var engine = getUpgradeEngine();
         var info = engine.getUpgradeInfo(selectedEntity.uid, selectedType);
         if (!info) {
@@ -184,7 +195,7 @@ function createUpgradeRenderer(deps) {
         var config = UPGRADE_CONFIG.entities[selectedType];
         var panelX = Math.floor(15 * scale);
         var panelW = sw - Math.floor(30 * scale);
-        var startY = Math.floor(120 * scale);
+        var startY = designOffsetY + Math.floor(120 * scale);
         var rowH = Math.floor(28 * scale);
         var y = startY;
 
@@ -270,8 +281,8 @@ function createUpgradeRenderer(deps) {
         if (!info.atMaxLevel) {
             var cost = info.upgradeCost;
             var costStr = _formatCost(cost);
-            var playerData = getPlayerData();
-            var canUp = _canAffordCost(playerData, cost);
+            var pd = getSaveData();
+            var canUp = _canAffordCost(pd, cost);
 
             ctx.fillStyle = canUp ? '#4CAF50' : '#444';
             fillRoundRect(ctx, panelX, y, panelW, Math.floor(42 * scale), 8);
@@ -332,7 +343,7 @@ function createUpgradeRenderer(deps) {
         var backBtnW = Math.floor(100 * scale);
         var backBtnH = Math.floor(32 * scale);
         var backBtnX = sw / 2 - backBtnW / 2;
-        var backBtnY = Math.min(y + Math.floor(10 * scale), sh - Math.floor(80 * scale));
+        var backBtnY = Math.min(y + Math.floor(10 * scale), designBottom - Math.floor(80 * scale));
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
         fillRoundRect(ctx, backBtnX, backBtnY, backBtnW, backBtnH, 6);
         ctx.fillStyle = '#aaa';
@@ -346,9 +357,11 @@ function createUpgradeRenderer(deps) {
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
 
         // 返回按钮
-        if (x < Math.floor(60 * scale) && y > sh - Math.floor(60 * scale)) {
+        if (x < Math.floor(60 * scale) && y > designBottom - Math.floor(60 * scale)) {
             return 'back';
         }
 
@@ -359,7 +372,7 @@ function createUpgradeRenderer(deps) {
         var gap = Math.floor(6 * scale);
         var totalW = types.length * tabW + (types.length - 1) * gap;
         var startX = (sw - totalW) / 2;
-        var tabY = Math.floor(75 * scale);
+        var tabY = designOffsetY + Math.floor(75 * scale);
 
         for (var i = 0; i < types.length; i++) {
             var tx = startX + i * (tabW + gap);
@@ -384,8 +397,8 @@ function createUpgradeRenderer(deps) {
         var itemH = Math.floor(55 * scale);
         var padding = Math.floor(6 * scale);
         var listX = Math.floor(20 * scale);
-        var listStartY = Math.floor(120 * scale);
-        var listBottom = sh - Math.floor(60 * scale);
+        var listStartY = designOffsetY + Math.floor(120 * scale);
+        var listBottom = designBottom - Math.floor(60 * scale);
 
         for (var j = 0; j < entities.length; j++) {
             var iy = listStartY + j * (itemH + padding) - scrollY;
@@ -400,13 +413,16 @@ function createUpgradeRenderer(deps) {
     }
 
     function handleDetailTouch(x, y, sw, sh, scale) {
+        var designOffsetY = getDesignOffsetY();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var engine = getUpgradeEngine();
         var info = engine.getUpgradeInfo(selectedEntity.uid, selectedType);
         if (!info) { selectedEntity = null; return 'handled'; }
 
         var panelX = Math.floor(15 * scale);
         var panelW = sw - Math.floor(30 * scale);
-        var startY = Math.floor(120 * scale);
+        var startY = designOffsetY + Math.floor(120 * scale);
         var config = UPGRADE_CONFIG.entities[selectedType];
 
         // 计算按钮位置（与渲染逻辑一致）
@@ -466,7 +482,7 @@ function createUpgradeRenderer(deps) {
         var backBtnW = Math.floor(100 * scale);
         var backBtnH = Math.floor(32 * scale);
         var backBtnX = sw / 2 - backBtnW / 2;
-        var backBtnY = Math.min(y2 + Math.floor(10 * scale), sh - Math.floor(80 * scale));
+        var backBtnY = Math.min(y2 + Math.floor(10 * scale), designBottom - Math.floor(80 * scale));
         if (x >= backBtnX && x <= backBtnX + backBtnW && y >= backBtnY && y <= backBtnY + backBtnH) {
             selectedEntity = null;
             return 'handled';
@@ -487,12 +503,12 @@ function createUpgradeRenderer(deps) {
         return parts.join('  ') || '无';
     }
 
-    function _canAffordCost(playerData, cost) {
+    function _canAffordCost(pd, cost) {
         if (!cost) return true;
         for (var k in cost) {
             if (!cost.hasOwnProperty(k)) continue;
-            var matData = playerData.materials && playerData.materials[k];
-            var have = matData ? (matData.quantity || 0) : (playerData[k] || 0);
+            var matData = pd.materials && pd.materials[k];
+            var have = matData ? (matData.quantity || 0) : (pd[k] || 0);
             if (have < cost[k]) return false;
         }
         return true;

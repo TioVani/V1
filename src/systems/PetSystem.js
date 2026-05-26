@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 /**
  * 宠物系统（Pet System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -6,13 +7,20 @@ import Logger from '../utils/Logger.js';
 
 function createPetSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getPets = deps.getPets;
     var getActiveMonsters = deps.getActiveMonsters;
     var getGameState = deps.getGameState;
     var getGameConst = deps.getGameConst;
     var getStarThief = deps.getStarThief;
     var getBossBattleMode = deps.getBossBattleMode;
+
+    // PauseCoordinator 注册 — 宠物激活时 subscribe，销毁时 unsubscribe
+    var _owner = { _destroyed: true }; // 初始未激活，startPetAttackTimer 时才变活跃
+    PauseCoordinator.instance.subscribe(_owner, 'PetSystem', {
+        onPause: function() { stopPetAttackTimerInternal(); },
+        onResume: function() { startPetAttackTimer(); }
+    });
     var getCurrentStarInterval = deps.getCurrentStarInterval;
     var setCurrentStarInterval = deps.setCurrentStarInterval;
     var getBaseStarInterval = deps.getBaseStarInterval;
@@ -34,16 +42,16 @@ function createPetSystem(deps) {
      */
     function petAttackMonster() {
         // 检查是否装备了宠物
-        var playerData = getPlayerData();
-        var equippedPetId = playerData.pets && playerData.pets.equipped;
+        var pd = getSaveData();
+        var equippedPetId = pd.pets && pd.pets.equipped;
         if (!equippedPetId) return;
 
         var Pets = getPets();
         // 通过uid查找宠物配置（兼容旧数据：直接是petKey）
         var pet = null;
-        if (playerData.pets.owned) {
-            for (let i = 0; i < playerData.pets.owned.length; i++) {
-                var pd = playerData.pets.owned[i];
+        if (pd.pets.owned) {
+            for (let i = 0; i < pd.pets.owned.length; i++) {
+                var pd = pd.pets.owned[i];
                 var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + i);
                 if (pdUid === equippedPetId) {
                     var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
@@ -150,10 +158,10 @@ function createPetSystem(deps) {
 
             case 'heal':
                 // 治疗：攻击时恢复玩家生命
-                var playerData = getPlayerData();
+                var pd = getSaveData();
                 var healAmount = pet.healAmount || 5;
-                var maxHp = playerData.maxPlayerHp || 100;
-                playerData.playerHp = Math.min(maxHp, (playerData.playerHp != null ? playerData.playerHp : 100) + healAmount);
+                var maxHp = pd.maxPlayerHp || 100;
+                pd.playerHp = Math.min(maxHp, (pd.playerHp != null ? pd.playerHp : 100) + healAmount);
                 Logger.info('宠物触发治疗! +', healAmount);
                 break;
 
@@ -184,18 +192,19 @@ function createPetSystem(deps) {
      * 启动宠物攻击定时器
      */
     function startPetAttackTimer() {
+        _owner._destroyed = false; // 激活 subscriber
         if (petAttackTimer) clearInterval(petAttackTimer);
 
-        var playerData = getPlayerData();
-        var equippedPetId = playerData.pets && playerData.pets.equipped;
+        var pd = getSaveData();
+        var equippedPetId = pd.pets && pd.pets.equipped;
         if (!equippedPetId) return;
 
         var Pets = getPets();
         // 通过uid查找宠物配置（兼容旧数据）
         var pet = null;
-        if (playerData.pets.owned) {
-            for (let j = 0; j < playerData.pets.owned.length; j++) {
-                var pd = playerData.pets.owned[j];
+        if (pd.pets.owned) {
+            for (let j = 0; j < pd.pets.owned.length; j++) {
+                var pd = pd.pets.owned[j];
                 var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + j);
                 if (pdUid === equippedPetId) {
                     var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
@@ -260,7 +269,7 @@ function createPetSystem(deps) {
     /**
      * 停止宠物攻击定时器
      */
-    function stopPetAttackTimer() {
+    function stopPetAttackTimerInternal() {
         if (petAttackTimer) {
             clearInterval(petAttackTimer);
             petAttackTimer = null;
@@ -271,7 +280,9 @@ function createPetSystem(deps) {
      * 重置宠物系统（游戏结束时调用）
      */
     function resetSystem() {
-        stopPetAttackTimer();
+        _owner._destroyed = true;
+        PauseCoordinator.instance.unsubscribe('PetSystem');
+        stopPetAttackTimerInternal();
         petLastAttackTime = 0;
     }
 
@@ -279,8 +290,8 @@ function createPetSystem(deps) {
         petAttackMonster: petAttackMonster,
         triggerPetSkill: triggerPetSkill,
         startPetAttackTimer: startPetAttackTimer,
+        stopPetAttackTimer: stopPetAttackTimerInternal,
         updateMonsterBurnStatus: updateMonsterBurnStatus,
-        stopPetAttackTimer: stopPetAttackTimer,
         resetSystem: resetSystem
     };
 }

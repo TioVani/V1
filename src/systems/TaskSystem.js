@@ -45,11 +45,11 @@ export const ACHIEVEMENT_TASKS = [
 // ==================== 任务系统工厂函数 ====================
 
 export function createTaskSystem(deps) {
-    const { getPlayerData, saveData, addCharExp, showToast } = deps;
+    const { getSaveData, saveData, addCharExp, showToast } = deps;
 
     // 初始化任务进度数据
     function initTaskProgress() {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.taskProgress) {
             pd.taskProgress = {
                 guide: {},
@@ -80,7 +80,7 @@ export function createTaskSystem(deps) {
     // 检查并刷新每日任务
     function checkDailyTaskRefresh() {
         initTaskProgress();
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var now = new Date();
         var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
         if (pd.taskProgress.lastDailyRefresh < todayStart) {
@@ -96,7 +96,7 @@ export function createTaskSystem(deps) {
         if (order <= 1) return true;
         var prevTask = GUIDE_TASKS.find(function(t) { return t.order === order - 1; });
         if (!prevTask) return true;
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var prevProgress = pd.taskProgress.guide[prevTask.id];
         return prevProgress && prevProgress.claimed;
     }
@@ -106,7 +106,7 @@ export function createTaskSystem(deps) {
         if (isAdditive === undefined) isAdditive = true;
         initTaskProgress();
         checkDailyTaskRefresh();
-        var pd = getPlayerData();
+        var pd = getSaveData();
 
         // 更新引导任务
         GUIDE_TASKS.forEach(function(task) {
@@ -161,7 +161,7 @@ export function createTaskSystem(deps) {
     function updateTaskStats(statType, value, isAdditive) {
         if (isAdditive === undefined) isAdditive = true;
         initTaskProgress();
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (isAdditive) {
             pd.taskProgress.stats[statType] = (pd.taskProgress.stats[statType] || 0) + value;
         } else {
@@ -174,7 +174,7 @@ export function createTaskSystem(deps) {
     function claimTaskReward(taskId, taskType) {
         if (!taskType) taskType = 'daily';
         initTaskProgress();
-        var pd = getPlayerData();
+        var pd = getSaveData();
 
         var taskList, progressKey;
         if (taskType === 'guide') {
@@ -244,7 +244,7 @@ export function createTaskSystem(deps) {
         if (!taskType) taskType = 'daily';
         initTaskProgress();
         checkDailyTaskRefresh();
-        var pd = getPlayerData();
+        var pd = getSaveData();
 
         var taskList, progressKey;
         if (taskType === 'guide') {
@@ -280,7 +280,7 @@ export function createTaskSystem(deps) {
     // 检查是否有可领取的任务奖励
     function hasClaimableRewards() {
         initTaskProgress();
-        var pd = getPlayerData();
+        var pd = getSaveData();
 
         // 引导任务
         for (let i = 0; i < GUIDE_TASKS.length; i++) {

@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 import { createBannerAd, createRewardedVideoAd } from '../platform/BrowserAPI.js';
 /**
  * AdSystem - 广告系统
@@ -10,18 +11,14 @@ var TIME_CRYSTAL_AD_THRESHOLD = 5;
 
 function createAdSystem(deps) {
     // 依赖
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var setPlayerDataProp = deps.setPlayerDataProp;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var saveData = deps.saveData;
     var addMessage = deps.addMessage;
     var addMonthlyCardDays = deps.addMonthlyCardDays;
-    var resumeGame = deps.resumeGame;
     var restartGame = deps.restartGame;
-    var stopDodgeStarTimer = deps.stopDodgeStarTimer;
-    var stopPetAttackTimer = deps.stopPetAttackTimer;
-    var pauseGameTimers = deps.pauseGameTimers;
     var showToast = deps.showToast;
     var getAdWatchCount = deps.getAdWatchCount;
     var setAdWatchCount = deps.setAdWatchCount;
@@ -97,7 +94,7 @@ function createAdSystem(deps) {
                         // 解锁时序结晶并赠送1个
                         setTimeCrystalUnlocked(true);
                         setPlayerDataProp('timeCrystalUnlocked', true);
-                        var playerData = getPlayerData();
+                        var pd = getSaveData();
                         if (!playerData.materials) playerData.materials = {};
                         if (!playerData.materials.timeCrystal) {
                             playerData.materials.timeCrystal = { quantity: 0 };
@@ -114,7 +111,7 @@ function createAdSystem(deps) {
                         handleItemAdReward(rewardedVideoAd._pendingItemType);
                         rewardedVideoAd._pendingItemType = null;
                         // 恢复游戏定时器
-                        resumeGame();
+                        PauseCoordinator.instance.resume();
                     } else if (rewardedVideoAd._pendingMonthlyCard) {
                         // 月卡广告：添加天数
                         addMonthlyCardDays(rewardedVideoAd._pendingMonthlyCard, 1);
@@ -122,7 +119,7 @@ function createAdSystem(deps) {
                     } else if (rewardedVideoAd._pendingTimeCrystal) {
                         // 时序结晶广告：发放时序结晶
                         rewardedVideoAd._pendingTimeCrystal = false;
-                        var pd = getPlayerData();
+                        var pd = getSaveData();
                         if (!pd.materials) pd.materials = {};
                         if (!pd.materials.timeCrystal) {
                             pd.materials.timeCrystal = { quantity: 0 };
@@ -145,7 +142,7 @@ function createAdSystem(deps) {
                     if (rewardedVideoAd._pendingItemType) {
                         rewardedVideoAd._pendingItemType = null;
                         // 恢复游戏定时器
-                        resumeGame();
+                        PauseCoordinator.instance.resume();
                     }
                     if (rewardedVideoAd._pendingMonthlyCard) {
                         rewardedVideoAd._pendingMonthlyCard = null;
@@ -195,11 +192,9 @@ function createAdSystem(deps) {
             return;
         }
 
-        // 暂停游戏（清除定时器）
+        // 暂停游戏（PauseCoordinator 统一调度）
         Logger.info('播放广告前暂停游戏');
-        pauseGameTimers();
-        stopDodgeStarTimer();
-        stopPetAttackTimer();
+        PauseCoordinator.instance.pause();
 
         // 暂存当前道具类型，广告播放完成后使用
         rewardedVideoAd._pendingItemType = itemType;
@@ -215,7 +210,7 @@ function createAdSystem(deps) {
             });
             rewardedVideoAd._pendingItemType = null;
             // 广告失败，恢复游戏
-            resumeGame();
+            PauseCoordinator.instance.resume();
         });
     }
 
@@ -227,7 +222,7 @@ function createAdSystem(deps) {
 
         if (itemType === 'healPotion') {
             // 治疗药水：直接回满血
-            var playerData = getPlayerData();
+            var pd = getSaveData();
             playerData.playerHp = playerData.maxPlayerHp;
             setAdItemsProp('healPotion', getAdItems().healPotion + 1);
             showToast({

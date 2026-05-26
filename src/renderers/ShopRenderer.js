@@ -12,7 +12,7 @@ function createShopRenderer(deps) {
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getUiScrollState = deps.getUiScrollState;
     // Config objects (imported constants, pass directly)
     var ShopItems = deps.ShopItems;
@@ -22,6 +22,8 @@ function createShopRenderer(deps) {
     var getGachaSystem = deps.getGachaSystem;
     var getMonthlyCardSystem = deps.getMonthlyCardSystem;
     var getCombatState = deps.getCombatState;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     // ==================== renderShop ====================
     function renderShop() {
@@ -29,8 +31,9 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiState = getUiScrollState();
         var drawText = uiCore.drawText;
         var drawButton = uiCore.drawButton;
@@ -51,42 +54,42 @@ function createShopRenderer(deps) {
         }
 
         // 标题
-        drawText('🛒 商城', screenWidth / 2, 50, Math.floor(36 * scale), '#ffd700');
+        drawText('🛒 商城', screenWidth / 2, designOffsetY + Math.floor(50 * scale), Math.floor(36 * scale), '#ffd700');
 
         // 显示货币
         var goldIconSize = Math.floor(16 * scale);
 
         // 灵币
         if (Assets.goldIcon && Assets.goldIcon.complete) {
-            ctx.drawImage(Assets.goldIcon, Math.floor(20 * scale), Math.floor(74 * scale), goldIconSize, goldIconSize);
+            ctx.drawImage(Assets.goldIcon, Math.floor(20 * scale), designOffsetY + Math.floor(74 * scale), goldIconSize, goldIconSize);
         } else {
             ctx.fillStyle = '#FFD700';
             ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
             ctx.textAlign = 'left';
-            ctx.fillText('🪙', Math.floor(20 * scale), Math.floor(85 * scale));
+            ctx.fillText('🪙', Math.floor(20 * scale), designOffsetY + Math.floor(85 * scale));
         }
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(' ' + playerData.gold, Math.floor(40 * scale), Math.floor(85 * scale));
+        ctx.fillText(' ' + pd.gold, Math.floor(40 * scale), designOffsetY + Math.floor(85 * scale));
 
         // 灵石
         var starSourceIconSize = Math.floor(16 * scale);
         if (Assets.starSourceIcon && Assets.starSourceIcon.complete) {
-            ctx.drawImage(Assets.starSourceIcon, Math.floor(130 * scale), Math.floor(74 * scale), starSourceIconSize, starSourceIconSize);
+            ctx.drawImage(Assets.starSourceIcon, Math.floor(130 * scale), designOffsetY + Math.floor(74 * scale), starSourceIconSize, starSourceIconSize);
         } else {
             ctx.fillStyle = '#87CEEB';
-            ctx.fillText('💎', Math.floor(130 * scale), Math.floor(85 * scale));
+            ctx.fillText('💎', Math.floor(130 * scale), designOffsetY + Math.floor(85 * scale));
         }
         ctx.fillStyle = '#87CEEB';
-        ctx.fillText(' ' + (playerData.starSource || 0), Math.floor(150 * scale), Math.floor(85 * scale));
+        ctx.fillText(' ' + (pd.starSource || 0), Math.floor(150 * scale), designOffsetY + Math.floor(85 * scale));
 
         // 标签按钮配置（单行6个标签）
         var tabWidth = Math.floor(50 * scale);
         var tabHeight = Math.floor(30 * scale);
         var tabGap = Math.floor(5 * scale);
         var startX = (screenWidth - (tabWidth * 6 + tabGap * 5)) / 2;
-        var tabY = Math.floor(110 * scale);
+        var tabY = designOffsetY + Math.floor(110 * scale);
 
         // 材料标签按钮
         var materialsColor = uiState.shopTab === 'materials' ? '#ffd700' : '#87CEEB';
@@ -137,19 +140,21 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
         var combatState = getCombatState();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
-        var startY = Math.floor(160 * scale);
+        var startY = designOffsetY + Math.floor(160 * scale);
         var itemHeight = Math.floor(80 * scale);
         var padding = Math.floor(10 * scale);
 
         // 计算滚动限制
         var items = ShopItems.materials;
-        var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
+        var visibleHeight = Math.floor((DESIGN_HEIGHT - 160 - 80) * scale);
         var totalHeight = items.length * (itemHeight + padding);
         var maxScroll = Math.max(0, totalHeight - visibleHeight);
         if (uiState.shopScrollY < 0) uiState.shopScrollY = 0;
@@ -157,7 +162,7 @@ function createShopRenderer(deps) {
 
         // 内容区域裁剪
         var contentTop = startY;
-        var contentBottom = screenHeight - Math.floor(50 * scale);
+        var contentBottom = designBottom - Math.floor(50 * scale);
 
         ctx.save();
         ctx.beginPath();
@@ -199,9 +204,9 @@ function createShopRenderer(deps) {
             // 检查是否买得起
             var canAfford = false;
             if (item.currency === 'gold') {
-                canAfford = playerData.gold >= item.price;
+                canAfford = pd.gold >= item.price;
             } else if (item.currency === 'starSource') {
-                canAfford = (playerData.starSource || 0) >= item.price;
+                canAfford = (pd.starSource || 0) >= item.price;
             }
 
             ctx.fillStyle = canAfford ? '#4CAF50' : '#666666';
@@ -255,7 +260,7 @@ function createShopRenderer(deps) {
             ctx.fillText(timeCrystalItem.description, Math.floor(100 * scale), tcItemY + Math.floor(50 * scale));
 
             // 额外描述：当前持有数量
-            var tcCount = playerData.materials && playerData.materials.timeCrystal ? playerData.materials.timeCrystal.quantity : 0;
+            var tcCount = pd.materials && pd.materials.timeCrystal ? pd.materials.timeCrystal.quantity : 0;
             ctx.fillStyle = '#ffd700';
             ctx.fillText('持有: ' + tcCount, Math.floor(100 * scale), tcItemY + Math.floor(68 * scale));
 
@@ -284,19 +289,21 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
-        var startY = Math.floor(160 * scale);
+        var startY = designOffsetY + Math.floor(160 * scale);
         var itemHeight = Math.floor(80 * scale);
         var padding = Math.floor(10 * scale);
 
         var items = ShopItems.buffs;
 
         // 计算滚动限制
-        var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
+        var visibleHeight = Math.floor((DESIGN_HEIGHT - 160 - 80) * scale);
         var totalHeight = items.length * (itemHeight + padding);
         var maxScroll = Math.max(0, totalHeight - visibleHeight);
         if (uiState.shopScrollY < 0) uiState.shopScrollY = 0;
@@ -304,7 +311,7 @@ function createShopRenderer(deps) {
 
         // 内容区域裁剪
         var contentTop = startY;
-        var contentBottom = screenHeight - Math.floor(50 * scale);
+        var contentBottom = designBottom - Math.floor(50 * scale);
 
         ctx.save();
         ctx.beginPath();
@@ -343,7 +350,7 @@ function createShopRenderer(deps) {
             var btnW = Math.floor(80 * scale);
             var btnH = Math.floor(35 * scale);
 
-            var canAfford = (playerData.starSource || 0) >= item.price;
+            var canAfford = (pd.starSource || 0) >= item.price;
 
             ctx.fillStyle = canAfford ? '#4CAF50' : '#666666';
             fillRoundRect(ctx, btnX, btnY, btnW, btnH, 6);
@@ -375,19 +382,21 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
-        var startY = Math.floor(160 * scale);
+        var startY = designOffsetY + Math.floor(160 * scale);
         var itemHeight = Math.floor(80 * scale);
         var padding = Math.floor(10 * scale);
 
         var items = ShopItems.items;
 
         // 计算滚动限制
-        var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
+        var visibleHeight = Math.floor((DESIGN_HEIGHT - 160 - 80) * scale);
         var totalHeight = items.length * (itemHeight + padding);
         var maxScroll = Math.max(0, totalHeight - visibleHeight);
         if (uiState.shopScrollY < 0) uiState.shopScrollY = 0;
@@ -395,7 +404,7 @@ function createShopRenderer(deps) {
 
         // 内容区域裁剪
         var contentTop = startY;
-        var contentBottom = screenHeight - Math.floor(50 * scale);
+        var contentBottom = designBottom - Math.floor(50 * scale);
 
         ctx.save();
         ctx.beginPath();
@@ -434,7 +443,7 @@ function createShopRenderer(deps) {
             var btnW = Math.floor(80 * scale);
             var btnH = Math.floor(35 * scale);
 
-            var canAfford = playerData.gold >= item.price;
+            var canAfford = pd.gold >= item.price;
 
             ctx.fillStyle = canAfford ? '#4CAF50' : '#666666';
             fillRoundRect(ctx, btnX, btnY, btnW, btnH, 6);
@@ -466,8 +475,9 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
         var gachaSystem = getGachaSystem();
@@ -476,7 +486,7 @@ function createShopRenderer(deps) {
         gachaSystem.checkGachaPoolRotation();
 
         // 卡池选择标签从商城标签下方开始
-        var startY = Math.floor(150 * scale);
+        var startY = designOffsetY + Math.floor(150 * scale);
 
         // ===== 卡池选择标签（水平排列） =====
         var poolTabs = [
@@ -532,7 +542,7 @@ function createShopRenderer(deps) {
 
         // 货币显示
         var currencyIconSize = Math.floor(16 * scale);
-        var currencyText = '灵石: ' + (playerData.starSource || 0);
+        var currencyText = '灵石: ' + (pd.starSource || 0);
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
         var textWidth = ctx.measureText(currencyText).width;
         var totalWidth = currencyIconSize + Math.floor(5 * scale) + textWidth;
@@ -551,7 +561,7 @@ function createShopRenderer(deps) {
 
         // 技能卡池时显示唤灵券数量
         if (gachaSystem.currentPool === 'skills') {
-            var gachaTickets = (playerData.skills && playerData.skills.gachaTickets) ? playerData.skills.gachaTickets : 0;
+            var gachaTickets = (pd.skills && pd.skills.gachaTickets) ? pd.skills.gachaTickets : 0;
             ctx.fillStyle = '#FFD700';
             ctx.fillText('&#x1F3AB; 唤灵券: ' + gachaTickets, screenWidth / 2, infoY + Math.floor(90 * scale));
         }
@@ -563,13 +573,13 @@ function createShopRenderer(deps) {
         var btnGap = Math.floor(20 * scale);
 
         // 获取技能唤灵券数量
-        var gachaTickets = (playerData.skills && playerData.skills.gachaTickets) ? playerData.skills.gachaTickets : 0;
+        var gachaTickets = (pd.skills && pd.skills.gachaTickets) ? pd.skills.gachaTickets : 0;
         var isSkillPool = (gachaSystem.currentPool === 'skills');
 
         // 单抽按钮
         var singleBtnX = screenWidth / 2 - btnWidth - btnGap / 2;
         var canAffordSingleWithTicket = isSkillPool && gachaTickets >= 1;
-        var canAffordSingleWithStar = (playerData.starSource || 0) >= pool.singlePrice;
+        var canAffordSingleWithStar = (pd.starSource || 0) >= pool.singlePrice;
         var canAffordSingle = canAffordSingleWithTicket || canAffordSingleWithStar;
 
         ctx.fillStyle = canAffordSingle ? '#9b59b6' : '#666666';
@@ -596,7 +606,7 @@ function createShopRenderer(deps) {
         // 十连抽按钮
         var tenBtnX = screenWidth / 2 + btnGap / 2;
         var canAffordTenWithTicket = isSkillPool && gachaTickets >= 10;
-        var canAffordTenWithStar = (playerData.starSource || 0) >= pool.tenPrice;
+        var canAffordTenWithStar = (pd.starSource || 0) >= pool.tenPrice;
         var canAffordTen = canAffordTenWithTicket || canAffordTenWithStar;
 
         ctx.fillStyle = canAffordTen ? '#e74c3c' : '#666666';
@@ -639,12 +649,14 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
-        var startY = Math.floor(160 * scale);
+        var startY = designOffsetY + Math.floor(160 * scale);
         var itemHeight = Math.floor(85 * scale);
         var padding = Math.floor(10 * scale);
 
@@ -654,14 +666,14 @@ function createShopRenderer(deps) {
         ctx.textAlign = 'left';
         ctx.fillText('宠物商店', Math.floor(20 * scale), startY - Math.floor(5 * scale));
 
-        var purchasedShopPets = playerData.purchasedShopPets || [];
+        var purchasedShopPets = pd.purchasedShopPets || [];
         var items = ShopItems.pets.filter(function(p) {
             return purchasedShopPets.indexOf(p.id) === -1;
         });
 
         // 计算滚动限制
         var listStartY = startY + Math.floor(20 * scale);
-        var visibleHeight = screenHeight - listStartY - Math.floor(80 * scale);
+        var visibleHeight = Math.floor((DESIGN_HEIGHT - 180 - 80) * scale);
         var totalHeight = items.length * (itemHeight + padding);
         var maxScroll = Math.max(0, totalHeight - visibleHeight);
         if (uiState.shopScrollY < 0) uiState.shopScrollY = 0;
@@ -669,7 +681,7 @@ function createShopRenderer(deps) {
 
         // 内容区域裁剪
         var contentTop = listStartY;
-        var contentBottom = screenHeight - Math.floor(50 * scale);
+        var contentBottom = designBottom - Math.floor(50 * scale);
 
         ctx.save();
         ctx.beginPath();
@@ -716,7 +728,7 @@ function createShopRenderer(deps) {
             var btnW = Math.floor(80 * scale);
             var btnH = Math.floor(35 * scale);
 
-            var canAfford = playerData.gold >= item.price;
+            var canAfford = pd.gold >= item.price;
 
             ctx.fillStyle = canAfford ? '#4CAF50' : '#666666';
             fillRoundRect(ctx, btnX, btnY, btnW, btnH, 6);
@@ -748,20 +760,21 @@ function createShopRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
-        var playerData = getPlayerData();
+        var designOffsetY = getDesignOffsetY();
+        var pd = getSaveData();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
         var monthlyCardSystem = getMonthlyCardSystem();
 
         // 初始化月卡数据（如果不存在）
-        if (!playerData.monthlyCards) {
-            playerData.monthlyCards = {
+        if (!pd.monthlyCards) {
+            pd.monthlyCards = {
                 small: { days: 0, lastClaimDate: null, adsWatched: 0 },
                 large: { days: 0, lastClaimDate: null, adsWatched: 0 }
             };
         }
 
-        var startY = Math.floor(150 * scale);
+        var startY = designOffsetY + Math.floor(150 * scale);
         var cardWidth = screenWidth - Math.floor(40 * scale);
         var cardHeight = Math.floor(140 * scale);  // 减小卡片高度
         var cardGap = Math.floor(15 * scale);
@@ -789,7 +802,7 @@ function createShopRenderer(deps) {
         ctx.fillText('📅 小月卡', Math.floor(40 * scale), smallCardY + Math.floor(25 * scale));
 
         // 小月卡状态
-        var smallDays = playerData.monthlyCards.small.days;
+        var smallDays = pd.monthlyCards.small.days;
         var smallClaimedToday = monthlyCardSystem.isMonthlyCardClaimedToday('small');
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
@@ -852,7 +865,7 @@ function createShopRenderer(deps) {
         ctx.fillText('👑 大月卡', Math.floor(40 * scale), largeCardY + Math.floor(25 * scale));
 
         // 大月卡状态
-        var largeDays = playerData.monthlyCards.large.days;
+        var largeDays = pd.monthlyCards.large.days;
         var largeClaimedToday = monthlyCardSystem.isMonthlyCardClaimedToday('large');
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
@@ -898,7 +911,7 @@ function createShopRenderer(deps) {
             ctx.fillText('看广告', largeBtnX + largeBtnW / 2, largeBtnY + largeBtnH / 2);
             ctx.font = Math.floor(10 * scale) + 'px sans-serif';
             // 确保 monthlyCards 存在
-            var largeAdsWatched = (playerData.monthlyCards && playerData.monthlyCards.large) ? playerData.monthlyCards.large.adsWatched : 0;
+            var largeAdsWatched = (pd.monthlyCards && pd.monthlyCards.large) ? pd.monthlyCards.large.adsWatched : 0;
             ctx.fillText('(' + largeAdsWatched + '/5)', largeBtnX + largeBtnW / 2, largeBtnY + largeBtnH / 2 + Math.floor(18 * scale));
         }
     }

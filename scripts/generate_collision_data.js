@@ -13,6 +13,10 @@ const MASKS = [
     { worldId: 'world_01_F02', src: 'assets/images/worldmap/world_01_F02_coll.png', type: 'collision' },
     { worldId: 'world_01_T01', src: 'assets/images/worldmap/world_01_T01_tran.png', type: 'transparency' },
     { worldId: 'world_01_T02', src: 'assets/images/worldmap/world_01_T02_tran.png', type: 'transparency' },
+    { worldId: 'world_02_F01', src: 'assets/images/worldmap/world_02_F01_coll.png', type: 'collision' },
+    { worldId: 'world_02_T01', src: 'assets/images/worldmap/world_02_T01_tran.png', type: 'transparency' },
+    { worldId: 'world_05_F01', src: 'assets/images/worldmap/world_05_F01_coll.png', type: 'collision' },
+    { worldId: 'world_05_T01', src: 'assets/images/worldmap/world_05_T01_tran.png', type: 'transparency' },
 ];
 
 async function processMask(maskDef) {

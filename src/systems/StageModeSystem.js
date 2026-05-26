@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 /**
  * StageModeSystem - 闯关模式逻辑系统
  * 管理闯关模式的核心逻辑：初始化、战斗流程、星级判定、奖励发放
@@ -10,7 +11,7 @@ function createStageModeSystem(deps) {
     // 基础依赖
     var getSTAGES = deps.getSTAGES;
     var getMonsterTypes = deps.getMonsterTypes;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
@@ -46,6 +47,13 @@ function createStageModeSystem(deps) {
     var stopDodgeStarTimerFn = deps.stopDodgeStarTimer;
     var startPetAttackTimerFn = deps.startPetAttackTimer;
     var stopPetAttackTimerFn = deps.stopPetAttackTimer;
+
+    // PauseCoordinator — 闪避星定时器 subscriber（闯关 startStage 时激活，end 时注销）
+    var _owner = { _destroyed: true }; // 初始未激活，startStage 时才变活跃
+    PauseCoordinator.instance.subscribe(_owner, 'StageDodgeStar', {
+        onPause: function() { if (stopDodgeStarTimerFn) stopDodgeStarTimerFn(); },
+        onResume: function() { if (startDodgeStarTimerFn) startDodgeStarTimerFn(); }
+    });
 
     // 普通战斗适配器
     var getNormalBattleAdapter = deps.getNormalBattleAdapter;
@@ -110,16 +118,16 @@ function createStageModeSystem(deps) {
         rewardsObtained = { gold: 0, exp: 0, materials: {} };
 
         // 重置玩家HP为满血（使用角色属性计算，与普通模式一致）
-        var playerData = getPlayerData();
-        var currentCharId = playerData.currentCharacterId;
+        var pd = getSaveData();
+        var currentCharId = pd.currentCharacterId;
         if (currentCharId) {
             var charStats = getCharacterFullStats(currentCharId);
-            playerData.maxPlayerHp = charStats.hp;
+            pd.maxPlayerHp = charStats.hp;
         } else {
-            playerData.maxPlayerHp = 100;
+            pd.maxPlayerHp = 100;
         }
-        playerData.playerHp = playerData.maxPlayerHp;
-        playerData.playerShield = 0;
+        pd.playerHp = pd.maxPlayerHp;
+        pd.playerShield = 0;
 
         Logger.info('闯关模式初始化:', stage.name);
         return true;
@@ -129,6 +137,7 @@ function createStageModeSystem(deps) {
      * 开始闯关
      */
     function start() {
+        _owner._destroyed = false; // 激活 subscriber
         setGameState(GAME_STATE.STAGE_PLAYING);
 
         // 生成第一个怪物
@@ -348,6 +357,9 @@ function createStageModeSystem(deps) {
      * 结束闯关
      */
     function end(success) {
+        // 注销 PauseCoordinator subscriber
+        _owner._destroyed = true;
+        PauseCoordinator.instance.unsubscribe('StageDodgeStar');
         // 清除所有全局定时器
         if (clearTimerInterval) clearTimerInterval();
         if (clearMoveInterval) clearMoveInterval();
@@ -379,11 +391,11 @@ function createStageModeSystem(deps) {
         };
 
         // 保存关卡进度
-        var playerData = getPlayerData();
-        if (!playerData.stageProgress) {
-            playerData.stageProgress = {};
+        var pd = getSaveData();
+        if (!pd.stageProgress) {
+            pd.stageProgress = {};
         }
-        var prevProgress = playerData.stageProgress[currentStage];
+        var prevProgress = pd.stageProgress[currentStage];
         var prevStars = prevProgress ? prevProgress.stars : 0;
 
         Logger.info('=== 奖励检查 ===');
@@ -400,11 +412,11 @@ function createStageModeSystem(deps) {
                 var reward = currentStageData.rewards[s];
                 if (reward) {
                     if (s === 1 && reward.gold) {
-                        playerData.gold += reward.gold;
+                        pd.gold += reward.gold;
                         rewardsObtained.gold += reward.gold;
                     }
                     if (s === 2 && reward.exp) {
-                        var charId = playerData.currentCharacterId;
+                        var charId = pd.currentCharacterId;
                         if (charId) {
                             addCharacterExperience(charId, reward.exp);
                             rewardsObtained.exp += reward.exp;
@@ -412,15 +424,15 @@ function createStageModeSystem(deps) {
                     }
                     if (s === 3) {
                         if (reward.gold) {
-                            playerData.gold += reward.gold;
+                            pd.gold += reward.gold;
                             rewardsObtained.gold += reward.gold;
                         }
                         if (reward.material) {
                             var matId = reward.material.id;
-                            if (!playerData.materials[matId]) {
-                                playerData.materials[matId] = { quantity: 0, usedCount: 0 };
+                            if (!pd.materials[matId]) {
+                                pd.materials[matId] = { quantity: 0, usedCount: 0 };
                             }
-                            playerData.materials[matId].quantity += reward.material.count;
+                            pd.materials[matId].quantity += reward.material.count;
                             if (!rewardsObtained.materials[matId]) {
                                 rewardsObtained.materials[matId] = 0;
                             }
@@ -431,7 +443,7 @@ function createStageModeSystem(deps) {
             }
 
             // 更新关卡进度
-            playerData.stageProgress[currentStage] = {
+            pd.stageProgress[currentStage] = {
                 stars: starCount,
                 bestScore: score,
                 completed: true
@@ -479,10 +491,10 @@ function createStageModeSystem(deps) {
      * 获取玩家血量百分比
      */
     function getPlayerHpPercent() {
-        var playerData = getPlayerData();
-        if (!playerData) return 0;
-        var maxHp = playerData.maxPlayerHp || 100;
-        var currentHp = playerData.playerHp !== undefined ? playerData.playerHp : maxHp;
+        var pd = getSaveData();
+        if (!pd) return 0;
+        var maxHp = pd.maxPlayerHp || 100;
+        var currentHp = pd.playerHp !== undefined ? pd.playerHp : maxHp;
         if (maxHp <= 0) return 0;
         return Math.floor((currentHp / maxHp) * 100);
     }
@@ -492,17 +504,6 @@ function createStageModeSystem(deps) {
      */
     function togglePause() {
         isPaused = !isPaused;
-        if (isPaused) {
-            // 与普通模式一致：切换到 PAUSED 状态
-            setGameState(GAME_STATE.PAUSED);
-            if (clearTimerInterval) clearTimerInterval();
-            if (clearMoveInterval) clearMoveInterval();
-            if (clearMonsterAttackInterval) clearMonsterAttackInterval();
-            if (stopDodgeStarTimerFn) stopDodgeStarTimerFn();
-            if (stopPetAttackTimerFn) stopPetAttackTimerFn();
-        } else {
-            resumeTimers();
-        }
     }
 
     function resumeTimers() {
@@ -585,8 +586,8 @@ function createStageModeSystem(deps) {
         var prevStageId = stage.unlockCondition.stageId;
         var minStars = stage.unlockCondition.minStars || 1;
 
-        var playerData = getPlayerData();
-        var prevProgress = playerData.stageProgress && playerData.stageProgress[prevStageId];
+        var pd = getSaveData();
+        var prevProgress = pd.stageProgress && pd.stageProgress[prevStageId];
         return prevProgress && prevProgress.stars >= minStars;
     }
 

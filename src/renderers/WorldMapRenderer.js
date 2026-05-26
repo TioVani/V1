@@ -10,6 +10,8 @@ function createWorldMapRenderer(deps) {
     var getWorldMapSystem = deps.getWorldMapSystem;
     var getAssets = deps.getAssets;
     var getJoystickState = deps.getJoystickState || function() { return { active: false, startX: 0, startY: 0, dx: 0, dy: 0 }; };
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     var CAMERA_SMOOTHING = 0.1;
     var JOYSTICK_MAX_RADIUS = 60;
@@ -125,6 +127,8 @@ function createWorldMapRenderer(deps) {
         var ctx = getCtx();
         var sw = getScreenWidth();
         var sh = getScreenHeight();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
         var wms = getWorldMapSystem();
         if (!wms) return;
         _computeMapScale();
@@ -199,25 +203,38 @@ function createWorldMapRenderer(deps) {
                 ctx.fillText('?', sp.x, sp.y);
             } else if (e.type === 'chest') {
                 var resolved = wms.isEntityResolved(e.id);
-                ctx.fillStyle = resolved ? '#555' : '#f0c040';
-                ctx.fillRect(sp.x - ir / 2, sp.y - ir / 2, ir, ir);
-                if (!resolved) {
-                    ctx.fillStyle = '#fff';
-                    ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText('箱', sp.x, sp.y);
+                if (!resolved && assets.chestImage && assets.chestImage.complete) {
+                    var chestSize = ir * 2;
+                    ctx.drawImage(assets.chestImage, sp.x - chestSize / 2, sp.y - chestSize / 2, chestSize, chestSize);
+                } else {
+                    ctx.fillStyle = resolved ? '#555' : '#f0c040';
+                    ctx.fillRect(sp.x - ir / 2, sp.y - ir / 2, ir, ir);
+                    if (!resolved) {
+                        ctx.fillStyle = '#fff';
+                        ctx.font = Math.floor(12 * scale) + 'px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('箱', sp.x, sp.y);
+                    }
                 }
             } else if (e.type === 'enemy') {
                 ctx.fillStyle = '#e74c3c';
                 ctx.beginPath();
                 ctx.arc(sp.x, sp.y, ir * 0.7, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.font = Math.floor(12 * scale) + 'px sans-serif';
+                var enemyName = e.name || '敌';
+                var nameFontSize = Math.floor(10 * scale);
+                ctx.font = nameFontSize + 'px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('敌', sp.x, sp.y);
+                ctx.textBaseline = 'top';
+                var nameY = sp.y + ir * 0.7 + Math.floor(4 * scale);
+                var nameWidth = ctx.measureText(enemyName).width;
+                // 半透明背景条
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(sp.x - nameWidth / 2 - Math.floor(2 * scale), nameY, nameWidth + Math.floor(4 * scale), nameFontSize + Math.floor(4 * scale));
+                // 名字文字
+                ctx.fillStyle = '#fff';
+                ctx.fillText(enemyName, sp.x, nameY + Math.floor(2 * scale));
             } else if (e.type === 'tower') {
                 ctx.fillStyle = '#9b59b6';
                 ctx.fillRect(sp.x - ir / 2, sp.y - ir, ir, ir * 2);
@@ -315,54 +332,113 @@ function createWorldMapRenderer(deps) {
             }
         }
 
-        // 绘制玩家角色（遮挡区域半透明0.3，非遮挡区域实体1.0）
+        // 绘制玩家角色（立绘 + 遮挡区域半透明0.3，非遮挡区域实体1.0）
         var pos = wms.getPlayerPos();
         var psp = worldToScreen(pos.x, pos.y);
         var playerR = Math.floor(12 * scale);
         var strokeW = Math.floor(2 * scale);
         var occCanvas = wms.getOcclusionCanvas();
 
-        if (occCanvas) {
-            var pcSize = 2 * playerR + 2 * strokeW + 4;
-            if (!_playerCanvas || _playerCanvas.width !== pcSize) {
-                _playerCanvas = document.createElement('canvas');
-                _playerCanvas.width = pcSize;
-                _playerCanvas.height = pcSize;
+        var playerImg = assets.char_worldMapPlayer;
+        if (playerImg && playerImg.complete && playerImg.naturalWidth > 0) {
+            var imgRatio = playerImg.naturalWidth / playerImg.naturalHeight;
+            var portraitW = Math.floor(48 * scale);
+            var portraitH = Math.floor(portraitW / imgRatio);
+            var facingX = wms.getFacingX();
+
+            if (occCanvas) {
+                var pcW = portraitW + 4;
+                var pcH = portraitH + 4;
+                if (!_playerCanvas || _playerCanvas.width !== pcW || _playerCanvas.height !== pcH) {
+                    _playerCanvas = document.createElement('canvas');
+                    _playerCanvas.width = pcW;
+                    _playerCanvas.height = pcH;
+                }
+                var pc = _playerCanvas.getContext('2d');
+                var pcCenterX = pcW / 2;
+                var pcCenterY = pcH / 2;
+
+                pc.clearRect(0, 0, pcW, pcH);
+                pc.globalCompositeOperation = 'source-over';
+                pc.globalAlpha = 1.0;
+                // 镜像绘制：朝左时水平翻转
+                if (facingX < 0) {
+                    pc.save();
+                    pc.translate(pcW, 0);
+                    pc.scale(-1, 1);
+                    pc.drawImage(playerImg, pcW / 2 - portraitW / 2, pcCenterY - portraitH / 2, portraitW, portraitH);
+                    pc.restore();
+                } else {
+                    pc.drawImage(playerImg, pcCenterX - portraitW / 2, pcCenterY - portraitH / 2, portraitW, portraitH);
+                }
+
+                pc.globalCompositeOperation = 'destination-out';
+                pc.globalAlpha = 0.7;
+                var pwx = Math.round(pos.x);
+                var pwy = Math.round(pos.y);
+                var margin = 2;
+                pc.drawImage(occCanvas, pwx - 12 - margin, pwy - 12 - margin, 24 + margin * 2, 24 + margin * 2,
+                             pcCenterX - (12 + margin) * scale, pcCenterY - (12 + margin) * scale,
+                             (24 + margin * 2) * scale, (24 + margin * 2) * scale);
+                pc.globalCompositeOperation = 'source-over';
+                pc.globalAlpha = 1.0;
+
+                ctx.drawImage(_playerCanvas, psp.x - pcCenterX, psp.y - pcCenterY);
+            } else {
+                ctx.save();
+                if (facingX < 0) {
+                    ctx.translate(psp.x + portraitW / 2, psp.y - portraitH / 2);
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(playerImg, 0, 0, portraitW, portraitH);
+                } else {
+                    ctx.drawImage(playerImg, psp.x - portraitW / 2, psp.y - portraitH / 2, portraitW, portraitH);
+                }
+                ctx.restore();
             }
-            var pc = _playerCanvas.getContext('2d');
-            var pcCenter = pcSize / 2;
-
-            pc.clearRect(0, 0, pcSize, pcSize);
-            pc.globalCompositeOperation = 'source-over';
-            pc.globalAlpha = 1.0;
-            pc.fillStyle = '#3498db';
-            pc.beginPath();
-            pc.arc(pcCenter, pcCenter, playerR, 0, Math.PI * 2);
-            pc.fill();
-            pc.strokeStyle = '#2980b9';
-            pc.lineWidth = strokeW;
-            pc.stroke();
-
-            pc.globalCompositeOperation = 'destination-out';
-            pc.globalAlpha = 0.7;
-            var pwx = Math.round(pos.x);
-            var pwy = Math.round(pos.y);
-            var margin = 2;
-            pc.drawImage(occCanvas, pwx - 12 - margin, pwy - 12 - margin, 24 + margin * 2, 24 + margin * 2,
-                         pcCenter - (12 + margin) * scale, pcCenter - (12 + margin) * scale,
-                         (24 + margin * 2) * scale, (24 + margin * 2) * scale);
-            pc.globalCompositeOperation = 'source-over';
-            pc.globalAlpha = 1.0;
-
-            ctx.drawImage(_playerCanvas, psp.x - pcCenter, psp.y - pcCenter);
         } else {
-            ctx.fillStyle = '#3498db';
-            ctx.beginPath();
-            ctx.arc(psp.x, psp.y, playerR, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = '#2980b9';
-            ctx.lineWidth = strokeW;
-            ctx.stroke();
+            // fallback：蓝色圆形
+            if (occCanvas) {
+                var pcSize = 2 * playerR + 2 * strokeW + 4;
+                if (!_playerCanvas || _playerCanvas.width !== pcSize) {
+                    _playerCanvas = document.createElement('canvas');
+                    _playerCanvas.width = pcSize;
+                    _playerCanvas.height = pcSize;
+                }
+                var pc = _playerCanvas.getContext('2d');
+                var pcCenter = pcSize / 2;
+
+                pc.clearRect(0, 0, pcSize, pcSize);
+                pc.globalCompositeOperation = 'source-over';
+                pc.globalAlpha = 1.0;
+                pc.fillStyle = '#3498db';
+                pc.beginPath();
+                pc.arc(pcCenter, pcCenter, playerR, 0, Math.PI * 2);
+                pc.fill();
+                pc.strokeStyle = '#2980b9';
+                pc.lineWidth = strokeW;
+                pc.stroke();
+
+                pc.globalCompositeOperation = 'destination-out';
+                pc.globalAlpha = 0.7;
+                var pwx = Math.round(pos.x);
+                var pwy = Math.round(pos.y);
+                var margin = 2;
+                pc.drawImage(occCanvas, pwx - 12 - margin, pwy - 12 - margin, 24 + margin * 2, 24 + margin * 2,
+                             pcCenter - (12 + margin) * scale, pcCenter - (12 + margin) * scale,
+                             (24 + margin * 2) * scale, (24 + margin * 2) * scale);
+                pc.globalCompositeOperation = 'source-over';
+                pc.globalAlpha = 1.0;
+
+                ctx.drawImage(_playerCanvas, psp.x - pcCenter, psp.y - pcCenter);
+            } else {
+                ctx.fillStyle = '#3498db';
+                ctx.beginPath();
+                ctx.arc(psp.x, psp.y, playerR, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#2980b9';
+                ctx.lineWidth = strokeW;
+                ctx.stroke();
+            }
         }
 
         // 探索度 HUD
@@ -372,20 +448,20 @@ function createWorldMapRenderer(deps) {
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'top';
-        ctx.fillText('探索度 ' + Math.floor(exp * 100) + '%', sw - Math.floor(15 * scale), Math.floor(15 * scale));
+        ctx.fillText('探索度 ' + Math.floor(exp * 100) + '%', sw - Math.floor(15 * scale), designOffsetY + Math.floor(15 * scale));
 
         // 世界名称
         var worldId = wms.getWorldId();
         var worldName = config ? config.name : worldId;
         ctx.textAlign = 'left';
-        ctx.fillText(worldName, Math.floor(15 * scale), Math.floor(15 * scale));
+        ctx.fillText(worldName, Math.floor(15 * scale), designOffsetY + Math.floor(15 * scale));
 
         // NPC 对话框
         if (_dialogue && _dialogue.lines.length > 0) {
             var dlgW = sw - Math.floor(40 * scale);
             var dlgH = Math.floor(120 * scale);
             var dlgX = (sw - dlgW) / 2;
-            var dlgY = sh - dlgH - Math.floor(20 * scale);
+            var dlgY = designBottom - Math.floor(20 * scale) - dlgH;
 
             ctx.fillStyle = 'rgba(10,10,21,0.9)';
             ctx.strokeStyle = '#e8d5a3';

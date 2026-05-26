@@ -9,6 +9,8 @@ function createDebugRenderer(deps) {
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
     var getGodMode = deps.getGodMode || function() { return false; };
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     var DEBUG_BUTTONS = [
         { id: 'unlock_chars', label: '🔓 解锁所有角色', color: '#4CAF50' },
@@ -50,12 +52,14 @@ function createDebugRenderer(deps) {
         var scale = getScreenScale();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         var layout = getLayout(scale);
         var panelWidth = layout.panelWidth;
         var panelHeight = layout.panelHeight;
         var panelX = (screenWidth - panelWidth) / 2;
-        var panelY = (screenHeight - panelHeight) / 2;
+        var panelY = (designOffsetY + designBottom - panelHeight) / 2;
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, screenWidth, screenHeight);
@@ -116,12 +120,14 @@ function createDebugRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         var layout = getLayout(scale);
         var panelWidth = layout.panelWidth;
         var panelHeight = layout.panelHeight;
         var panelX = (screenWidth - panelWidth) / 2;
-        var panelY = (screenHeight - panelHeight) / 2;
+        var panelY = (designOffsetY + designBottom - panelHeight) / 2;
 
         var closeBtnSize = Math.floor(30 * scale);
         var closeBtnX = panelX + panelWidth - closeBtnSize - Math.floor(5 * scale);

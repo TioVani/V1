@@ -48,7 +48,7 @@ var ShopItems = {
 
 function createShopSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getActiveBuffs = deps.getActiveBuffs;
     var setActiveBuffs = deps.setActiveBuffs;
     var getGameItems = deps.getGameItems;
@@ -71,30 +71,30 @@ function createShopSystem(deps) {
      * 购买商品
      */
     function purchaseShopItem(item) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
         // 检查货币是否足够
         if (item.currency === 'gold') {
-            if (playerData.gold < item.price) {
+            if (pd.gold < item.price) {
                 showToast({ title: '灵币不足！', icon: 'none', duration: 1500 });
                 return false;
             }
-            playerData.gold -= item.price;
+            pd.gold -= item.price;
         } else if (item.currency === 'starSource') {
-            if ((playerData.starSource || 0) < item.price) {
+            if ((pd.starSource || 0) < item.price) {
                 showToast({ title: '灵石不足！', icon: 'none', duration: 1500 });
                 return false;
             }
-            playerData.starSource -= item.price;
+            pd.starSource -= item.price;
         }
 
         // 根据商品类型处理
         if (ShopItems.materials.indexOf(item) !== -1) {
             // 材料商品：直接添加到背包
-            if (!playerData.materials[item.id]) {
-                playerData.materials[item.id] = { quantity: 0, usedCount: 0 };
+            if (!pd.materials[item.id]) {
+                pd.materials[item.id] = { quantity: 0, usedCount: 0 };
             }
-            playerData.materials[item.id].quantity++;
+            pd.materials[item.id].quantity++;
             showToast({ title: '购买成功！', icon: 'success', duration: 1500 });
             Logger.info('购买材料:', item.name);
         } else if (ShopItems.buffs.indexOf(item) !== -1) {
@@ -122,8 +122,8 @@ function createShopSystem(deps) {
             // 道具商品
             if (item.id === 'healPotion' || item.id === 'timePotion') {
                 // 治疗药水和时间药水：存入背包，游戏中使用
-                if (!playerData.items) {
-                    playerData.items = {
+                if (!pd.items) {
+                    pd.items = {
                         healPotion: { quantity: 0 },
                         timePotion: { quantity: 0 },
                         expPotionSmall: { quantity: 0 },
@@ -131,14 +131,14 @@ function createShopSystem(deps) {
                         expPotionLarge: { quantity: 0 }
                     };
                 }
-                if (!playerData.items[item.id]) {
-                    playerData.items[item.id] = { quantity: 0 };
+                if (!pd.items[item.id]) {
+                    pd.items[item.id] = { quantity: 0 };
                 }
-                playerData.items[item.id].quantity++;
+                pd.items[item.id].quantity++;
                 showToast({ title: '已存入背包！', icon: 'success', duration: 1500 });
             } else if (item.effect.exp) {
                 // 灵悟卷：立即使用
-                var currentCharId = playerData.currentCharacterId;
+                var currentCharId = pd.currentCharacterId;
                 if (currentCharId) {
                     addCharExp(currentCharId, item.effect.exp);
                     showToast({ title: '获得' + item.effect.exp + '感悟！', icon: 'none', duration: 1500 });
@@ -146,7 +146,7 @@ function createShopSystem(deps) {
                     showToast({ title: '请先选择角色！', icon: 'none', duration: 1500 });
                     // 退款
                     if (item.currency === 'gold') {
-                        playerData.gold += item.price;
+                        pd.gold += item.price;
                     }
                     return false;
                 }
@@ -160,25 +160,25 @@ function createShopSystem(deps) {
             showGachaResultsFn(results);
         } else if (ShopItems.pets && ShopItems.pets.indexOf(item) !== -1) {
             // 宠物商品 — 商店库存制，买完下架
-            if (!playerData.pets) {
-                playerData.pets = { owned: [], equipped: null };
+            if (!pd.pets) {
+                pd.pets = { owned: [], equipped: null };
             }
-            if (!playerData.pets.owned) {
-                playerData.pets.owned = [];
+            if (!pd.pets.owned) {
+                pd.pets.owned = [];
             }
             var Pets = getPets();
             var pet = Pets[item.id];
             if (pet) {
-                playerData.pets.owned.push({
+                pd.pets.owned.push({
                     id: item.id,
                     uid: 'pet_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
                     level: 1,
                     exp: 0
                 });
                 // 标记该宠物已从商店购买（下架）
-                if (!playerData.purchasedShopPets) playerData.purchasedShopPets = [];
-                if (playerData.purchasedShopPets.indexOf(item.id) === -1) {
-                    playerData.purchasedShopPets.push(item.id);
+                if (!pd.purchasedShopPets) pd.purchasedShopPets = [];
+                if (pd.purchasedShopPets.indexOf(item.id) === -1) {
+                    pd.purchasedShopPets.push(item.id);
                 }
                 showToast({ title: '获得宠物: ' + pet.emoji + pet.name, icon: 'none', duration: 2000 });
                 Logger.info('购买宠物:', pet.name);
@@ -193,7 +193,7 @@ function createShopSystem(deps) {
      * 使用道具
      */
     function useItem(itemId) {
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var gameItems = getGameItems();
 
         // 局内道具（治疗药水、时间药水）使用局内数量
@@ -207,7 +207,7 @@ function createShopSystem(deps) {
             if (itemId === 'healPotion') {
                 // 治疗药水：恢复50点HP
                 var healAmount = 50;
-                playerData.playerHp = Math.min(playerData.playerHp + healAmount, playerData.maxPlayerHp);
+                pd.playerHp = Math.min(pd.playerHp + healAmount, pd.maxPlayerHp);
                 gameItems.healPotion--;
                 // 任务：使用道具
                 updateTaskProgress('use_item', 1);
@@ -230,7 +230,7 @@ function createShopSystem(deps) {
         }
 
         // 灵悟卷：使用背包数量
-        if (!playerData.items || !playerData.items[itemId] || playerData.items[itemId].quantity <= 0) {
+        if (!pd.items || !pd.items[itemId] || pd.items[itemId].quantity <= 0) {
             addMessage('没有该道具', '#ff6b6b');
             return false;
         }
@@ -243,10 +243,10 @@ function createShopSystem(deps) {
                 'expPotionLarge': 150
             };
             var expAmount = expMap[itemId];
-            var currentCharId = playerData.currentCharacterId;
+            var currentCharId = pd.currentCharacterId;
             if (currentCharId) {
                 addCharExp(currentCharId, expAmount);
-                playerData.items[itemId].quantity--;
+                pd.items[itemId].quantity--;
                 saveData();
                 addMessage('获得' + expAmount + '感悟!', '#ffcc00');
                 Logger.info('使用灵悟卷，获得感悟:', expAmount);
@@ -259,7 +259,7 @@ function createShopSystem(deps) {
 
         // 星辉宝箱：随机获得唤灵券
         if (itemId === 'starChest') {
-            if (!playerData.items.starChest || playerData.items.starChest.quantity <= 0) {
+            if (!pd.items.starChest || pd.items.starChest.quantity <= 0) {
                 addMessage('没有星辉宝箱', '#ff6b6b');
                 return false;
             }
@@ -289,7 +289,7 @@ function createShopSystem(deps) {
             }
 
             // 执行抽卡
-            playerData.items.starChest.quantity--;
+            pd.items.starChest.quantity--;
             var results = performGachaFn(selectedReward.count, selectedReward.pool);
 
             // 显示结果

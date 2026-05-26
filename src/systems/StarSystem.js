@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 /**
  * 星星系统（Star System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -65,7 +66,7 @@ function createStarSystem(deps) {
     var getScreenScale = deps.getScreenScale;
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
     var DESIGN_HEIGHT = 812;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getGameState = deps.getGameState;
     var getGameConst = deps.getGameConst;
     var getSeasonSelection = deps.getSeasonSelection;
@@ -73,6 +74,19 @@ function createStarSystem(deps) {
     var setStars = deps.setStars;
     var pushStar = deps.pushStar;
     var getStarThief = deps.getStarThief;
+
+    // PauseCoordinator 注册 — 进入战斗时 subscribe，退出时 unsubscribe
+    var _owner = { _destroyed: false };
+    PauseCoordinator.instance.subscribe(_owner, 'StarSystem', {
+        onPause: function() {},
+        onResume: function(duration) {
+            var starsArr = getStars();
+            for (var i = 0; i < starsArr.length; i++) {
+                if (starsArr[i].disappearTime) starsArr[i].disappearTime += duration;
+                if (starsArr[i].createTime) starsArr[i].createTime += duration;
+            }
+        }
+    });
     var getMoveInterval = deps.getMoveInterval;
     var setMoveInterval = deps.setMoveInterval;
     var getCurrentStarInterval = deps.getCurrentStarInterval;
@@ -132,7 +146,7 @@ function createStarSystem(deps) {
     function addRandomStar() {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var state = getGameState();
         var GAME_STATE = getGameConst();
         var seasonSelection = getSeasonSelection();
@@ -140,9 +154,12 @@ function createStarSystem(deps) {
 
         var designOffsetY = getDesignOffsetY();
         var scale = getScreenScale();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var padding = 48 + 20;
-        var minY = designOffsetY + DESIGN_HEIGHT * 0.6 * scale;
-        var maxY = screenHeight - padding;
+        var centerY = (designOffsetY + designBottom) / 2 + Math.floor(100 * scale);
+        var spawnRadius = Math.floor(80 * scale);
+        var minY = centerY - spawnRadius;
+        var maxY = centerY + spawnRadius;
         var starSize = specVal('STAR.SIZE');
         var maxRenderSize = starSize * 1.2;
         var minDistance = maxRenderSize * specVal('STAR.OVERLAP_MULT');
@@ -162,7 +179,7 @@ function createStarSystem(deps) {
         // 决定星星类型
         var type = 'normal';
         var isSeasonMode = (state === GAME_STATE.SEASON_PLAYING);
-        var normalStarEnabled = playerData.normalStarEnabled !== false;
+        var normalStarEnabled = pd.normalStarEnabled !== false;
 
         if (isSeasonMode && seasonSelection.starTypes && seasonSelection.starTypes.length > 0) {
             var randomIndex = Math.floor(Math.random() * seasonSelection.starTypes.length);
@@ -171,7 +188,7 @@ function createStarSystem(deps) {
                 type = selectedType;
             }
         } else {
-            var equippedSpecialStars = (playerData.equippedStars || []).filter(function(s) { return s !== 'dodge'; });
+            var equippedSpecialStars = (pd.equippedStars || []).filter(function(s) { return s !== 'dodge'; });
 
             if (equippedSpecialStars.length > 0) {
                 if (!normalStarEnabled) {
@@ -252,6 +269,8 @@ function createStarSystem(deps) {
             disappearTime: Date.now() + specVal('STAR.LIFETIME_MS')
         };
 
+        Logger.info('[StarSystem] star spawn: y=' + y + ', centerY=' + centerY + ', screenHeight=' + screenHeight + ', scale=' + scale + ', designOffsetY=' + designOffsetY + ', designBottom=' + designBottom);
+
         pushStar(newStar);
     }
 
@@ -262,10 +281,13 @@ function createStarSystem(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var state = getGameState();
         var GAME_STATE = getGameConst();
         var seasonSelection = getSeasonSelection();
+
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         // 计算轨道宽度
         var laneWidth = screenWidth / FALLING_CONFIG.lanes;
@@ -296,14 +318,14 @@ function createStarSystem(deps) {
         var startY = -FALLING_CONFIG.starSize;
 
         // 计算起始位置的x（透视效果）
-        var startRatio = (startY - vanishY) / (screenHeight - vanishY);
+        var startRatio = (startY - vanishY) / (designBottom - vanishY);
         var startWidth = screenWidth * startRatio;
         var startX = screenWidth / 2 - startWidth / 2 + (lane + 0.5) / FALLING_CONFIG.lanes * startWidth;
 
         // 决定星星类型
         var type = 'normal';
         var isSeasonMode = (state === GAME_STATE.SEASON_PLAYING);
-        var normalStarEnabled = playerData.normalStarEnabled !== false;
+        var normalStarEnabled = pd.normalStarEnabled !== false;
 
         if (isSeasonMode && seasonSelection.starTypes && seasonSelection.starTypes.length > 0) {
             var randomIndex = Math.floor(Math.random() * seasonSelection.starTypes.length);
@@ -312,7 +334,7 @@ function createStarSystem(deps) {
                 type = selectedType;
             }
         } else {
-            var equippedSpecialStars = (playerData.equippedStars || []).filter(function(s) { return s !== 'dodge'; });
+            var equippedSpecialStars = (pd.equippedStars || []).filter(function(s) { return s !== 'dodge'; });
 
             if (equippedSpecialStars.length > 0) {
                 if (!normalStarEnabled) {
@@ -360,6 +382,8 @@ function createStarSystem(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var vanishY = -Math.floor(150 * scale);
         var vanishX = screenWidth / 2;
 
@@ -375,7 +399,7 @@ function createStarSystem(deps) {
                 stars[i].y += FALLING_CONFIG.fallSpeed;
 
                 // 计算当前y位置的透视比例
-                var ratio = (stars[i].y - vanishY) / (screenHeight - vanishY);
+                var ratio = (stars[i].y - vanishY) / (designBottom - vanishY);
 
                 // 更新缩放
                 stars[i].scale = Math.max(0.3, ratio);
@@ -385,8 +409,8 @@ function createStarSystem(deps) {
                 var newX = vanishX - currentWidth / 2 + (stars[i].lane + 0.5) / FALLING_CONFIG.lanes * currentWidth;
                 stars[i].x = newX;
 
-                // 如果超出屏幕底部，移除
-                if (stars[i].y > screenHeight + stars[i].size) {
+                // 如果超出设计区域底部，移除
+                if (stars[i].y > designBottom + stars[i].size) {
                     toRemove.push(i);
                 }
             }
@@ -512,6 +536,7 @@ function createStarSystem(deps) {
             if (star._charging) return true;    // 蓄力灵光由 ChargeSystem 管理生命周期
             if (star._dragging) return true;    // 拖拽灵光由 DragSystem 管理生命周期
             if (star._linking) return true;     // 联连灵光由 LinkChainSystem 管理生命周期
+            if (star._rhythm) return true;     // 节奏灵光由 RhythmSkillSystem 理生命周期
             var keep = star.disappearTime > currentTime && star.visible;
             if (!keep) changed = true;
             return keep;
@@ -531,16 +556,16 @@ function createStarSystem(deps) {
 
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var stars = getStars();
         var scale = getScreenScale();
 
         // 检查玩家是否解锁了闪避星星
-        var hasDodgeStar = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('dodge') !== -1;
+        var hasDodgeStar = pd.unlockedStarTypes && pd.unlockedStarTypes.indexOf('dodge') !== -1;
         if (!hasDodgeStar) return;
 
         // 检查是否装备了闪避星星
-        var equippedStars = playerData.equippedStars || [];
+        var equippedStars = pd.equippedStars || [];
         var isEquipped = equippedStars.indexOf('dodge') !== -1;
         if (!isEquipped) return;
 
@@ -562,9 +587,11 @@ function createStarSystem(deps) {
                 if (!occupied) { lane = tryLane; break; }
             }
             if (lane === -1) return;
+            var designOffsetY = getDesignOffsetY();
+            var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
             var vanishY = -Math.floor(150 * scale);
             var startY = -FALLING_CONFIG.starSize;
-            var startRatio = (startY - vanishY) / (screenHeight - vanishY);
+            var startRatio = (startY - vanishY) / (designBottom - vanishY);
             var startWidth = screenWidth * startRatio;
             var startX = screenWidth / 2 - startWidth / 2 + (lane + 0.5) / FALLING_CONFIG.lanes * startWidth;
 
@@ -588,9 +615,12 @@ function createStarSystem(deps) {
         // 随机模式：原逻辑
         var designOffsetY = getDesignOffsetY();
         var scale = getScreenScale();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var padding = 48 + 20;
-        var minY = designOffsetY + DESIGN_HEIGHT * 0.6 * scale;
-        var maxY = screenHeight - padding;
+        var centerY = (designOffsetY + designBottom) / 2 + Math.floor(100 * scale);
+        var spawnRadius = Math.floor(80 * scale);
+        var minY = centerY - spawnRadius;
+        var maxY = centerY + spawnRadius;
         var starSize = specVal('STAR.SIZE');
 
         // 尝试找到不重叠的位置

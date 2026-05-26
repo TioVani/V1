@@ -13,7 +13,7 @@ var STAR_FIELD_MAP = {
 };
 
 function createUpgradeStarStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getSeasonStarTypes = deps.getSeasonStarTypes;
     var type = 'star';
 

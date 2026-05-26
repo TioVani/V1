@@ -6,7 +6,7 @@
 import { UPGRADE_CONFIG } from '../../../config/UpgradeConfig.js';
 
 function createUpgradePetStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getPets = deps.getPets;
     var type = 'pet';
 

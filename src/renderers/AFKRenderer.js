@@ -8,18 +8,22 @@ function createAFKRenderer(deps) {
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
     var getAfkSystem = deps.getAfkSystem;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getCalculateAccumulatedAfkRewards = deps.getCalculateAccumulatedAfkRewards;
     var getClaimAfkRewards = deps.getClaimAfkRewards;
     var getFillRoundRect = deps.getFillRoundRect;
     var getGachaRoundRect = deps.getGachaRoundRect;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     function renderAfkPopup() {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
-        var playerData = getPlayerData();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var pd = getSaveData();
         var afkSystem = getAfkSystem();
         var calculateAccumulatedAfkRewards = getCalculateAccumulatedAfkRewards();
         var gachaRoundRect = getGachaRoundRect();
@@ -28,7 +32,7 @@ function createAFKRenderer(deps) {
         var popupWidth = screenWidth * 0.85;
         var popupHeight = screenHeight * 0.7;
         var popupX = (screenWidth - popupWidth) / 2;
-        var popupY = (screenHeight - popupHeight) / 2 - 20;
+        var popupY = (designOffsetY + designBottom - popupHeight) / 2 - Math.floor(20 * scale);
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, screenWidth, screenHeight);
@@ -64,7 +68,7 @@ function createAFKRenderer(deps) {
         if (rewards.elapsedHours > rewards.hours) {
             ctx.fillStyle = '#888888';
             ctx.font = Math.floor(14 * scale) + 'px sans-serif';
-            ctx.fillText('   (已达 ' + (playerData.afkData.maxOfflineHours || 8) + ' 小时上限)', popupX + 25, yOffset);
+            ctx.fillText('   (已达 ' + (pd.afkData.maxOfflineHours || 8) + ' 小时上限)', popupX + 25, yOffset);
             yOffset += lineHeight * 0.8;
         }
 
@@ -154,6 +158,8 @@ function createAFKRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var afkSystem = getAfkSystem();
         var fillRoundRect = getFillRoundRect();
         var gachaRoundRect = getGachaRoundRect();
@@ -167,7 +173,7 @@ function createAFKRenderer(deps) {
         var popupWidth = screenWidth * 0.85;
         var popupHeight = screenHeight * 0.7;
         var popupX = (screenWidth - popupWidth) / 2;
-        var popupY = (screenHeight - popupHeight) / 2 - 20;
+        var popupY = (designOffsetY + designBottom - popupHeight) / 2 - Math.floor(20 * scale);
 
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, screenWidth, screenHeight);
@@ -304,13 +310,14 @@ function createAFKRenderer(deps) {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var calculateAccumulatedAfkRewards = getCalculateAccumulatedAfkRewards();
         var gachaRoundRect = getGachaRoundRect();
         var rewards = calculateAccumulatedAfkRewards();
 
         var btnSize = Math.floor(50 * scale);
         var btnX = screenWidth - btnSize - 15;
-        var btnY = 80;
+        var btnY = designOffsetY + Math.floor(80 * scale);
 
         ctx.fillStyle = '#2a2a4e';
         ctx.strokeStyle = '#ffd700';
@@ -338,13 +345,15 @@ function createAFKRenderer(deps) {
         if (!afkSystem.popupVisible) return false;
 
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         var popupWidth = screenWidth * 0.85;
         var popupHeight = screenHeight * 0.7;
         var popupX = (screenWidth - popupWidth) / 2;
-        var popupY = (screenHeight - popupHeight) / 2 - 20;
+        var popupY = (designOffsetY + designBottom - popupHeight) / 2 - Math.floor(20 * scale);
 
         var closeBtnSize = Math.floor(30 * scale);
         var closeBtnX = popupX + popupWidth - closeBtnSize - 10;
@@ -371,10 +380,11 @@ function createAFKRenderer(deps) {
     function handleAfkButtonTouch(x, y) {
         var afkSystem = getAfkSystem();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenWidth = getScreenWidth();
         var btnSize = Math.floor(50 * scale);
         var btnX = screenWidth - btnSize - 15;
-        var btnY = 80;
+        var btnY = designOffsetY + Math.floor(80 * scale);
 
         if (x >= btnX && x <= btnX + btnSize && y >= btnY && y <= btnY + btnSize) {
             afkSystem.popupVisible = true;
@@ -388,13 +398,15 @@ function createAFKRenderer(deps) {
         if (!afkSystem.resultVisible) return false;
 
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         var popupWidth = screenWidth * 0.85;
         var popupHeight = screenHeight * 0.7;
         var popupX = (screenWidth - popupWidth) / 2;
-        var popupY = (screenHeight - popupHeight) / 2 - 20;
+        var popupY = (designOffsetY + designBottom - popupHeight) / 2 - Math.floor(20 * scale);
 
         var closeBtnSize = Math.floor(30 * scale);
         var closeBtnX = popupX + popupWidth - closeBtnSize - 10;

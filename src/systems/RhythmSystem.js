@@ -20,10 +20,12 @@ var PERFECT_WINDOW_MS = 100;       // Perfect 窗口（中心±50ms）
 var GREAT_WINDOW_MS = 300;         // Great 窗口（中心±150ms）
 
 function createRhythmSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
+    var isTutorialComplete = deps.isTutorialComplete;
 
     function isUnlocked() {
-        var pd = getPlayerData();
+        if (isTutorialComplete && isTutorialComplete()) return true;
+        var pd = getSaveData();
         if (!pd || !pd.currentCharacterId) return false;
         var charExp = pd.characterExperience;
         if (!charExp || !charExp[pd.currentCharacterId]) return false;
@@ -80,6 +82,7 @@ function createRhythmSystem(deps) {
         var now = Date.now();
         for (var i = 0; i < stars.length; i++) {
             var s = stars[i];
+            if (s._rhythm) continue;   // 节奏灵光由 RhythmSkillSystem 渲染
             var birthTime = s.createTime || s.spawnTime;
             if (!birthTime) continue;
 
@@ -124,4 +127,4 @@ function createRhythmSystem(deps) {
     };
 }
 
-export { createRhythmSystem };
+export { createRhythmSystem, RHYTHM_SHRINK_MS, PERFECT_WINDOW_MS, GREAT_WINDOW_MS };

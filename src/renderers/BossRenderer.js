@@ -9,7 +9,7 @@ function createBossRenderer(deps) {
     var uiCore = deps.uiCore;
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getBossStarSystem = deps.getBossStarSystem;
     var getEquipments = deps.getEquipments;
     var getEquipmentRarity = deps.getEquipmentRarity;
@@ -22,12 +22,16 @@ function createBossRenderer(deps) {
     var GAME_STATE = deps.GAME_STATE;
     var getBossSelectIsDragging = deps.getBossSelectIsDragging || function() { return false; };
     var setBossSelectScrollY = deps.setBossSelectScrollY || function() {};
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     function renderBossBattleResult() {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
         var Equipments = getEquipments();
         var Materials = getMaterials();
@@ -49,7 +53,7 @@ function createBossRenderer(deps) {
         var panelWidth = Math.floor(320 * scale);
         var panelHeight = Math.floor(450 * scale);
         var panelX = (screenWidth - panelWidth) / 2;
-        var panelY = (screenHeight - panelHeight) / 2;
+        var panelY = (designOffsetY + designBottom - Math.floor(450 * scale)) / 2;
 
         ctx.fillStyle = 'rgba(30, 30, 50, 0.95)';
         fillRoundRect(ctx, panelX, panelY, panelWidth, panelHeight, Math.floor(15 * scale));
@@ -153,6 +157,8 @@ function createBossRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var fillRoundRect = getFillRoundRect();
         var BossBattleMode = getBossBattleMode();
         var bossSelectScrollY = BossBattleMode.bossSelectScrollY || 0;
@@ -167,11 +173,11 @@ function createBossRenderer(deps) {
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(28 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('⚔️ 守护灵净化 ⚔️', screenWidth / 2, Math.floor(50 * scale));
+        ctx.fillText('⚔️ 守护灵净化 ⚔️', screenWidth / 2, designOffsetY + Math.floor(50 * scale));
 
         // 计算列表区域
-        var listTop = Math.floor(85 * scale);
-        var listBottom = screenHeight - Math.floor(70 * scale);
+        var listTop = designOffsetY + Math.floor(85 * scale);
+        var listBottom = designBottom - Math.floor(70 * scale);
         var listHeight = listBottom - listTop;
         var itemHeight = Math.floor(100 * scale);
         var itemGap = Math.floor(10 * scale);
@@ -253,10 +259,13 @@ function createBossRenderer(deps) {
 
     function handleBossBattleResultTouch(x, y) {
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var panelWidth = Math.floor(320 * scale);
         var panelHeight = Math.floor(450 * scale);
         var panelX = (getScreenWidth() - panelWidth) / 2;
-        var panelY = (getScreenHeight() - panelHeight) / 2;
+        var panelY = (designOffsetY + designBottom - Math.floor(450 * scale)) / 2;
 
         var btnWidth = Math.floor(140 * scale);
         var btnHeight = Math.floor(45 * scale);
@@ -265,7 +274,7 @@ function createBossRenderer(deps) {
         if (isBackButtonClicked(x, y)) {
             var bbm = getBossBattleMode();
             bbm.cleanup();
-            transitionTo(GAME_STATE.MENU);
+            transitionTo(GAME_STATE.WORLDMAP);
             return true;
         }
 
@@ -287,15 +296,18 @@ function createBossRenderer(deps) {
         }
 
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
         if (isBackButtonClicked(x, y)) {
             setBossSelectScrollY(0);
-            transitionTo(GAME_STATE.MENU);
+            transitionTo(GAME_STATE.WORLDMAP);
             return true;
         }
 
         var bbm = getBossBattleMode();
-        var startY = Math.floor(85 * scale) - bbm.bossSelectScrollY;
+        var startY = designOffsetY + Math.floor(85 * scale) - bbm.bossSelectScrollY;
         var itemHeight = Math.floor(100 * scale);
         var itemWidth = getScreenWidth() - Math.floor(40 * scale);
         var itemX = Math.floor(20 * scale);

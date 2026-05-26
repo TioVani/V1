@@ -61,12 +61,12 @@ export const FAITH_CONFIG = {
 // ==================== 信仰系统工厂函数 ====================
 
 export function createFaithSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
 
     // 获取角色信仰数据
     function getCharacterFaithData(charId) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.faithData) {
             pd.faithData = {
                 resources: { devoutMark: 0, divineEssence: 0, originCrystal: 0, weeklyDevoutMark: 0, lastWeeklyReset: 0 },
@@ -91,7 +91,7 @@ export function createFaithSystem(deps) {
 
     // 获取角色最终信仰加成属性
     function getFaithAttributeBonus(charId, attribute) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var faithData = getCharacterFaithData(charId);
         var level = faithData.level;
 
@@ -165,7 +165,7 @@ export function createFaithSystem(deps) {
 
     // 使用信仰资源
     function useFaithResource(charId, resourceType, amount) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.faithData || !pd.faithData.resources) {
             return false;
         }
@@ -194,7 +194,7 @@ export function createFaithSystem(deps) {
 
     // 获得信仰资源
     function gainFaithResource(resourceType, amount) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.faithData) {
             pd.faithData = {
                 resources: { devoutMark: 0, divineEssence: 0, originCrystal: 0, weeklyDevoutMark: 0, lastWeeklyReset: 0 },
@@ -231,7 +231,7 @@ export function createFaithSystem(deps) {
 
     // 解锁专精
     function unlockSpecialization(charId, path) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var faithData = getCharacterFaithData(charId);
 
         if (faithData.level < 50) {
@@ -258,7 +258,7 @@ export function createFaithSystem(deps) {
 
     // 解锁破格技能
     function unlockBreakthroughSkill(charId, skillId) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var faithData = getCharacterFaithData(charId);
 
         if (faithData.level < 100) {
@@ -289,7 +289,7 @@ export function createFaithSystem(deps) {
 
     // 执行传承
     function performInheritance(charId) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var faithData = getCharacterFaithData(charId);
 
         if (faithData.level < 500) {

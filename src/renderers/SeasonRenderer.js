@@ -25,8 +25,10 @@ function createSeasonRenderer(deps) {
     var getMAX_CHARACTER_LEVEL = deps.getMAX_CHARACTER_LEVEL;
     var getCharacterStatsAtLevel = deps.getCharacterStatsAtLevel;
     var initSeasonContent = deps.initSeasonContent;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getLog = deps.getLog || function() {};
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     // shorthand for uiCore methods
     var drawText = uiCore.drawText;
@@ -41,6 +43,8 @@ function createSeasonRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
         var fillRoundRect = getFillRoundRect();
 
@@ -68,23 +72,23 @@ function createSeasonRenderer(deps) {
             // 安全检查：确保 seasonContent 有效
             if (!seasonContent || !seasonContent.character) {
                 console.error('renderSeasonMenu: seasonContent 无效');
-                drawText('赛季数据加载中...', screenWidth / 2, screenHeight / 2, Math.floor(20 * scale), '#ffffff');
+                drawText('赛季数据加载中...', screenWidth / 2, (designOffsetY + designBottom) / 2, Math.floor(20 * scale), '#ffffff');
                 drawBackButton();
                 return;
             }
 
             // 标题
-            drawText('🏆 赛季竞技场 🏆', screenWidth / 2, Math.floor(50 * scale), Math.floor(32 * scale), '#E74C3C');
+            drawText('🏆 赛季竞技场 🏆', screenWidth / 2, designOffsetY + Math.floor(50 * scale), Math.floor(32 * scale), '#E74C3C');
 
             // 赛季信息
             ctx.fillStyle = '#aaaaaa';
             ctx.font = Math.floor(14 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('第 ' + (seasonContent.weekId || 'N/A') + ' 赛季', screenWidth / 2, Math.floor(85 * scale));
-            ctx.fillText('刷新时间: ' + (seasonContent.monday || 'N/A'), screenWidth / 2, Math.floor(105 * scale));
+            ctx.fillText('第 ' + (seasonContent.weekId || 'N/A') + ' 赛季', screenWidth / 2, designOffsetY + Math.floor(85 * scale));
+            ctx.fillText('刷新时间: ' + (seasonContent.monday || 'N/A'), screenWidth / 2, designOffsetY + Math.floor(105 * scale));
 
             // 规则说明
-            var ruleY = Math.floor(140 * scale);
+            var ruleY = designOffsetY + Math.floor(140 * scale);
             ctx.fillStyle = '#ffd700';
             ctx.font = 'bold ' + Math.floor(16 * scale) + 'px sans-serif';
             ctx.fillText('📋 赛季规则', screenWidth / 2, ruleY);
@@ -153,10 +157,10 @@ function createSeasonRenderer(deps) {
             var btnHeight = Math.floor(45 * scale);
 
             // 开始赛季按钮
-            drawButton('⚔️ 开始赛季', screenWidth / 2, screenHeight * 0.75, btnWidth, btnHeight, '#E74C3C');
+            drawButton('⚔️ 开始赛季', screenWidth / 2, designBottom - Math.floor(203 * scale), btnWidth, btnHeight, '#E74C3C');
 
             // 赛季排行榜按钮
-            drawButton('📊 赛季排行', screenWidth / 2, screenHeight * 0.84, btnWidth, btnHeight, '#9b59b6');
+            drawButton('📊 赛季排行', screenWidth / 2, designBottom - Math.floor(134 * scale), btnWidth, btnHeight, '#9b59b6');
 
             // 返回按钮
             drawBackButton();
@@ -164,7 +168,7 @@ function createSeasonRenderer(deps) {
             console.error('renderSeasonMenu 异常:', e);
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, screenWidth, screenHeight);
-            drawText('赛季加载失败', screenWidth / 2, screenHeight / 2, Math.floor(24 * scale), '#ff6b6b');
+            drawText('赛季加载失败', screenWidth / 2, (designOffsetY + designBottom) / 2, Math.floor(24 * scale), '#ff6b6b');
             drawBackButton();
         }
     }
@@ -177,6 +181,8 @@ function createSeasonRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
         var Characters = getCharacters();
@@ -200,15 +206,15 @@ function createSeasonRenderer(deps) {
             }
 
             if (!seasonContent || !seasonContent.character) {
-                drawText('赛季数据加载失败', screenWidth / 2, screenHeight / 2, Math.floor(20 * scale), '#ff6b6b');
+                drawText('赛季数据加载失败', screenWidth / 2, (designOffsetY + designBottom) / 2, Math.floor(20 * scale), '#ff6b6b');
                 drawBackButton();
                 return;
             }
 
             // 标题
-            drawText('🔮 选择你的配置', screenWidth / 2, Math.floor(40 * scale), Math.floor(24 * scale), '#ffd700');
+            drawText('🔮 选择你的配置', screenWidth / 2, designOffsetY + Math.floor(40 * scale), Math.floor(24 * scale), '#ffd700');
 
-            var currentY = Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;
+            var currentY = designOffsetY + Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;
 
             // ===== 角色选择 =====
             ctx.fillStyle = '#87CEEB';
@@ -425,7 +431,7 @@ function createSeasonRenderer(deps) {
             }
 
             // 底部按钮
-            var btnY = screenHeight - Math.floor(70 * scale);
+            var btnY = designBottom - Math.floor(70 * scale);
             var btnWidth = Math.floor(100 * scale);
             var btnHeight = Math.floor(40 * scale);
 
@@ -443,7 +449,7 @@ function createSeasonRenderer(deps) {
             console.error('renderSeasonSelect 异常:', e);
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, screenWidth, screenHeight);
-            drawText('赛季选择加载失败', screenWidth / 2, screenHeight / 2, Math.floor(24 * scale), '#ff6b6b');
+            drawText('赛季选择加载失败', screenWidth / 2, (designOffsetY + designBottom) / 2, Math.floor(24 * scale), '#ff6b6b');
             drawBackButton();
         }
     }
@@ -456,6 +462,7 @@ function createSeasonRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var fillRoundRect = getFillRoundRect();
         var seasonContent = getSeasonContent();
         var seasonBestScore = getSeasonBestScore();
@@ -466,16 +473,16 @@ function createSeasonRenderer(deps) {
         ctx.fillRect(0, 0, screenWidth, screenHeight);
 
         // 标题
-        drawText('🏆 赛季排行榜 🏆', screenWidth / 2, Math.floor(40 * scale), Math.floor(28 * scale), '#E74C3C');
+        drawText('🏆 赛季排行榜 🏆', screenWidth / 2, designOffsetY + Math.floor(40 * scale), Math.floor(28 * scale), '#E74C3C');
         ctx.fillStyle = '#aaaaaa';
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
         if (seasonContent && seasonContent.weekId) {
-            ctx.fillText('第 ' + seasonContent.weekId + ' 赛季', screenWidth / 2, Math.floor(70 * scale));
+            ctx.fillText('第 ' + seasonContent.weekId + ' 赛季', screenWidth / 2, designOffsetY + Math.floor(70 * scale));
         }
 
         // 排行榜列表
-        var listStartY = Math.floor(100 * scale);
+        var listStartY = designOffsetY + Math.floor(100 * scale);
         var itemHeight = Math.floor(50 * scale);
 
         // 列表背景
@@ -601,12 +608,12 @@ function createSeasonRenderer(deps) {
         var _log = getLog();
         _log('[赛季记忆] restoreSeasonSelection called');
         var seasonContent = getSeasonContent();
-        var playerData = getPlayerData();
-        if (!seasonContent || !playerData || !playerData.seasonData || !playerData.seasonData.selection) {
+        var pd = getSaveData();
+        if (!seasonContent || !pd || !pd.seasonData || !pd.seasonData.selection) {
             _log('[赛季记忆] 条件不满足，跳过恢复');
             return;
         }
-        var saved = playerData.seasonData.selection;
+        var saved = pd.seasonData.selection;
         if (!saved || (!saved.character && (!saved.skills || saved.skills.length === 0) && !saved.pet && (!saved.starTypes || saved.starTypes.length === 0))) {
             _log('[赛季记忆] saved为空，跳过恢复');
             return;
@@ -640,14 +647,16 @@ function createSeasonRenderer(deps) {
 
     function clampSeasonSelectScroll() {
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var uiScrollState = getUiScrollState();
         var roleHeight = Math.floor(100 * scale);
         var skillsHeight = Math.floor(190 * scale);
         var petsHeight = Math.floor(190 * scale);
         var starsHeight = Math.floor(275 * scale);
         var totalHeight = roleHeight + skillsHeight + petsHeight + starsHeight;
-        var startY = Math.floor(80 * scale);
+        var startY = designOffsetY + Math.floor(80 * scale);
         var bottomBtnHeight = Math.floor(80 * scale);
         var visibleHeight = screenHeight - startY - bottomBtnHeight;
         var maxScroll = Math.max(0, totalHeight - visibleHeight + Math.floor(50 * scale));

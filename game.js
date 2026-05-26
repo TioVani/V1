@@ -94,6 +94,7 @@ var devBattleSystem = null;            // 开发者战斗调参工具
 // ==================== 外部模块加载（从 dist/game-modules.js） ====================
 var _gameModules = require('./dist/game-modules.js');
 var $P = _gameModules.BrowserAPI;
+var PauseCoordinator = _gameModules.PauseCoordinator;
 var createStarThiefSystem = _gameModules.createStarThiefSystem;
 var createCaptureSystem = _gameModules.createCaptureSystem;
 var CAPTURE_STAR_TYPE = _gameModules.CAPTURE_STAR_TYPE || {};
@@ -166,6 +167,8 @@ var SEASON_STAR_TYPES = _gameModules.SEASON_STAR_TYPES;
 var createSeasonSystem = _gameModules.createSeasonSystem;
 var createMonthlyCardSystem = _gameModules.createMonthlyCardSystem;
 var createStorageSystem = _gameModules.createStorageSystem;
+var createGameDataStore = _gameModules.createGameDataStore;
+var createMigrationPipeline = _gameModules.createMigrationPipeline;
 var playerEffects = _gameModules.playerEffects;
 var combatState = _gameModules.combatState;
 var uiScrollState = _gameModules.uiScrollState;
@@ -312,9 +315,6 @@ var drawScorePopupAnimations = null;
 var createScreenShake = null;
 var updateScreenShake = null;
 var getScreenShakeOffset = null;
-// 动画暂停控制
-var pauseAnimations = null;
-var resumeAnimations = null;
 // 提示系统
 var tipSystem = null;
 var tipShowTipOnce = null;
@@ -607,14 +607,17 @@ var gameLifecycleSystem = null;
 var startGame = null;
 var endGame = null;
 var onTutorialFail = null;
-var pauseGame = null;
-var resumeGame = null;
 var restartGame = null;
 var startSeasonGame = null;
 var endSeasonGame = null;
 // 玩家数据加载系统函数桥接
 var playerDataSystem = null;
 var loadPlayerData = null;
+// GameDataStore 统一数据存储
+var dataStore = null;
+var saveData = null;
+var runtimeData = null;
+var migrationPipeline = null;
 // 配置数据桥接（从 game-modules.js 导入）
 var EquipmentTypes = _gameModules.EquipmentTypes;
 var EquipmentRarity = _gameModules.EquipmentRarity;
@@ -695,14 +698,14 @@ function getCombatFeatures() {
 
 function applyPoisonStarEffect(dmg) {
     if (godMode) return; // 无敌模式免疫毒灵
-    if (playerData.playerShield > 0) {
-        var absorb = Math.min(playerData.playerShield, dmg);
-        playerData.playerShield -= absorb;
+    if (runtimeData.playerShield > 0) {
+        var absorb = Math.min(runtimeData.playerShield, dmg);
+        runtimeData.playerShield -= absorb;
         dmg -= absorb;
     }
-    var oldHp = playerData.playerHp;
-    playerData.playerHp = Math.max(0, playerData.playerHp - dmg);
-    _log('[HP] poison_star | -' + dmg + ' | ' + oldHp + ' → ' + playerData.playerHp);
+    var oldHp = saveData.playerHp;
+    saveData.playerHp = Math.max(0, saveData.playerHp - dmg);
+    _log('[HP] poison_star | -' + dmg + ' | ' + oldHp + ' → ' + saveData.playerHp);
     playerEffects.poisoned = true;
     playerEffects.poisonEndTime = Date.now() + _COMBAT_SPEC.STATUS.POISON_DURATION_MS;
     playerEffects.poisonDamage = _COMBAT_SPEC.STATUS.POISON_TICK_DAMAGE;
@@ -793,8 +796,9 @@ const Assets = {
     bossImage: null,        // Boss战图标
     beautyFrames: [],      // 灵光发光序列帧（16帧）
     characterImages: {      // 角色图片
-        starter: null,      // 青铜小鼎
-        warrior: null       // 器灵战士
+        starter: null,      // 玉蝉仙
+        starterPortrait: null, // 玉蝉仙立绘
+        warrior: null       // 鼎魂
     }
 };
 
@@ -835,63 +839,10 @@ let adItems = {
 };
 const MAX_AD_ITEMS = 2;  // 每种道具看广告次数上限
 
-// 玩家数据
-let playerData = {
-    id: 'player_001',
-    name: '玩家',
-    gold: 0,                  // 灵币（打怪获得）
-    starSource: 9999,            // 器灵石（稀有货币）
-    starStones: 0,
-    ownedCharacters: [],
-    currentCharacterId: null,
-    showCharacterDetails: false,  // 是否显示角色详细信息
-    characterExperience: {},  // 角色独立经验系统：{ 'char_001': { level: 1, exp: 0, maxExp: 100 }, 'char_002': { level: 1, exp: 0, maxExp: 100 } }
-    materials: {
-        iceCrystal: { quantity: 0, usedCount: 0 },
-        fireSource: { quantity: 0, usedCount: 0 },
-        critCrystal: { quantity: 0, usedCount: 0 },
-        critFireSource: { quantity: 0, usedCount: 0 },
-        timeCrystal: { quantity: 0, usedCount: 0 },
-        devourerResidue: { quantity: 0, usedCount: 0 }
-    },           // 背包中的材料
-    items: {
-        healPotion: { quantity: 0 },      // 治疗药水
-        timePotion: { quantity: 0 },      // 时间药水
-        expPotionSmall: { quantity: 0 },  // 经验药水(小)
-        expPotionMedium: { quantity: 0 }, // 经验药水(中)
-        expPotionLarge: { quantity: 0 },  // 经验药水(大)
-        starChest: { quantity: 0 }        // 灵韵宝箱
-    },           // 背包中的道具
-    usedMaterials: {},       // 已使用的材料（永久加成）
-    unlockedStarTypes: [],
-    iceStarLevel: 0,         // 冰灵等级（最高10级）
-    maxIceStarLevel: 10,     // 冰灵最高等级
-    fireStarLevel: 0,        // 火灵等级（最高10级）
-    maxFireStarLevel: 10,    // 火灵最高等级
-    totalMonstersKilled: 0,  // 累积击杀怪物数
-    bossKillCount: 0,        // 当前Boss战累积击杀数
-    firstBossKilled: false,  // 是否已击杀过第一个Boss（首次必掉暴击冰晶）
-    extraCritRate: 0,        // 暴击冰晶提供的额外暴击率
-    extraCritDamage: 0,      // 爆伤火源提供的额外暴击伤害
-    playerHp: 100,           // 玩家血量
-    maxPlayerHp: 100,        // 玩家最大血量
-    godMode: false,          // 无敌模式（调试用）
-    playerShield: 0,         // 玩家护盾（优先扣护盾再扣血量）
-    playerRage: 0,           // 玩家怒气值（倒霉灵韵触发，满3点触发随机效果）
-    // 月卡系统
-    monthlyCards: {
-        small: {
-            days: 0,             // 剩余天数
-            lastClaimDate: null, // 上次领取日期 (YYYY-MM-DD)
-            adsWatched: 0        // 今日已看广告数（用于获取月卡）
-        },
-        large: {
-            days: 0,
-            lastClaimDate: null,
-            adsWatched: 0
-        }
-    }
-};
+// 玩家数据（由 GameDataStore 统一管理，saveData 是对 dataStore.save 的 Proxy 引用）
+// 注意：playerData 已废弃，全部使用 saveData / runtimeData 替代
+var saveData = null;
+var runtimeData = null;
 
 // 游戏状态
 const GameState = {
@@ -904,8 +855,9 @@ const GameState = {
 
 // 数据存储和加载
 
-// 防抖保存：延迟保存，避免频繁 I/O 导致卡顿
-// ========== loadPlayerData 暂留 game.js（依赖全局 playerData 默认结构） ==========
+// 数据存储已迁移至 GameDataStore（统一入口），详见 V1/GameDataStore落地方案.md
+// saveData = dataStore.save（Proxy 自动标脏），runtimeData = dataStore.runtime（不持久化）
+// flush 由 renderLoop 自动调用 tryFlush()（2000ms 防抖冷却）
 
 
 // 游戏模式设置
@@ -959,6 +911,7 @@ const monster = new Proxy({}, {
 // 屏幕尺寸
 let screenWidth = 0;
 let screenHeight = 0;
+let _screenNeedsUpdate = false;
 
 // 广告
 
@@ -972,12 +925,14 @@ function init() {
         // 获取Canvas
         canvas = $P.createCanvas();
         ctx = canvas.getContext('2d');
-        
+
         // 获取屏幕尺寸
         const systemInfo = $P.getSystemInfoSync();
         screenWidth = systemInfo.windowWidth;
         screenHeight = systemInfo.windowHeight;
         const dpr = systemInfo.pixelRatio || 1;
+
+        console.log('[ScreenInit] sw=' + screenWidth + ' sh=' + screenHeight + ' dpr=' + dpr + ' canvasCSS_w=' + canvas.clientWidth + ' canvasCSS_h=' + canvas.clientHeight + ' windowW=' + window.innerWidth + ' windowH=' + window.innerHeight + ' scale=' + (screenWidth / 375));
 
         // 高DPI适配：Canvas物理分辨率 = 逻辑尺寸 × DPR
         canvas.width = screenWidth * dpr;
@@ -985,42 +940,65 @@ function init() {
         ctx.scale(dpr, dpr);
 
         _log('屏幕尺寸:', screenWidth, 'x', screenHeight, 'DPR:', dpr, '物理:', canvas.width, 'x', canvas.height);
+
+        // 屏幕尺寸变更标记 — resize handler 仅标记，渲染帧开头统一处理
+        window.addEventListener('resize', function() {
+            _screenNeedsUpdate = true;
+        });
         
-        // 初始化存档系统（必须在 loadBestScore/loadPlayerData 之前）
+        // 初始化存档系统（精简版：只负责 bestScore + 云上传）
         storageSystem = createStorageSystem({
-            getPlayerData: function() { return playerData; },
-            setPlayerData: function(val) { playerData = val; },
             getScore: function() { return score; },
             getBestScore: function() { return bestScore; },
             setBestScore: function(val) { bestScore = val; },
-            getSeasonBestScore: function() { return seasonBestScore; },
-            showToast: function(opts) { $P.showToast(opts); }
+            getSeasonBestScore: function() { return seasonBestScore; }
         });
-        savePlayerData = function(immediate) { storageSystem.savePlayerData(immediate); };
         loadBestScore = function() { storageSystem.loadBestScore(); };
         saveBestScore = function() { storageSystem.saveBestScore(); };
-        clearGameData = function() { storageSystem.clearGameData(); };
         _log('存档系统模块初始化完成');
 
-        // 初始化玩家数据加载系统
-        playerDataSystem = _gameModules.createPlayerDataSystem({
+        // 初始化统一数据存储 GameDataStore
+        dataStore = createGameDataStore({
             getStorage: function(key) { return $P.getStorageSync(key); },
-            setPlayerData: function(data) { playerData = data; },
-            savePlayerData: function() { savePlayerData(); },
-            setTimeCrystalUnlocked: function(val) { combatState.timeCrystalUnlocked = val; }
+            setStorage: function(key, val) { $P.setStorageSync(key, val); },
+            removeStorage: function(key) { $P.removeStorageSync(key); }
         });
-        loadPlayerData = function() { playerDataSystem.loadPlayerData(); };
-        _log('玩家数据加载系统模块初始化完成');
+        migrationPipeline = createMigrationPipeline();
+
+        // 注册 load 后恢复全局状态（必须在 load() 之前注册）
+        dataStore.onLoad(function() {
+            var pd = dataStore.save;
+            var rt = dataStore.runtime;
+            if (rt.tutorialCompleted || pd.tutorialCompleted) {
+                _tutorial.completed = true;
+                rt.tutorialCompleted = true;
+            }
+            combatState.timeCrystalUnlocked = pd.timeCrystalUnlocked;
+            starMode = pd.starMode || 'random';
+            if (starSystem) starSystem.setStarMode(starMode);
+        });
+
+        dataStore.load();
+        saveData = dataStore.save;
+        runtimeData = dataStore.runtime;
+
+        // 注册 flush 后上传排行榜
+        dataStore.onFlush(function(snapshot) {
+            storageSystem.uploadLeaderboardData(snapshot);
+        });
+
+        _log('统一数据存储模块初始化完成');
 
         // 初始化调试系统模块
         debugSystem = _gameModules.createDebugSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCharacters: function() { return Characters; },
             getEquipments: function() { return _gameModules.Equipments; },
             getSkills: function() { return _gameModules.Skills; },
             getPets: function() { return _gameModules.Pets; },
             getSeasonStarTypes: function() { return _gameModules.SEASON_STAR_TYPES; },
-            savePlayerData: function() { savePlayerData(); },
+            savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(title, icon, duration) { $P.showToast({ title: title, icon: icon, duration: duration }); },
             setBestScore: function(val) { bestScore = val; },
             getUpgradeEngine: function() { return upgradeEngine; },
@@ -1036,7 +1014,7 @@ function init() {
             },
             toggleGodMode: function() {
                 godMode = !godMode;
-                playerData.godMode = godMode;
+                runtimeData.godMode = godMode;
                 $P.showToast({ title: godMode ? '无敌模式 ON' : '无敌模式 OFF', icon: 'none', duration: 1500 });
             }
         });
@@ -1067,21 +1045,10 @@ function init() {
 
         // 加载最高分
         loadBestScore();
-        
-        // 加载玩家数据
-        loadPlayerData();
 
-        // 恢复教学完成状态
-        if (playerData.tutorialCompleted) _tutorial.completed = true;
+        // 首次上传排行榜数据（后续由 onFlush 自动上传）
+        storageSystem.uploadLeaderboardData(saveData);
 
-        // 上传排行榜数据到云存储
-        storageSystem.uploadLeaderboardData();
-
-        // 更新灵韵模式（从玩家数据加载）
-        if (playerData.starMode) {
-            starMode = playerData.starMode;
-        }
-        if (starSystem) starSystem.setStarMode(starMode);
         _log('灵韵模式:', starMode);
         
         // ==================== 资源管理器 ====================
@@ -1115,6 +1082,9 @@ function init() {
         Assets.shopIcon = assetManager.get('shopIcon');
         Assets.towerIcon = assetManager.get('towerIcon');
         Assets.bossImage = assetManager.get('bossImage');
+        Assets.chestImage = assetManager.get('chestImage');
+        Assets.idleIcon = assetManager.get('idleIcon');
+        Assets.char_worldMapPlayer = assetManager.get('char_worldMapPlayer');
         Assets.worldMapBg01 = assetManager.get('worldMapBg01');
         Assets.worldMapBg02 = assetManager.get('worldMapBg02');
         Assets.worldMapBg03 = assetManager.get('worldMapBg03');
@@ -1132,6 +1102,7 @@ function init() {
         Assets.worldMapBg15 = assetManager.get('worldMapBg15');
         Assets.worldMapBg16 = assetManager.get('worldMapBg16');
         Assets.characterImages.starter = assetManager.get('char_starter');
+        Assets.characterImages.starterPortrait = assetManager.get('char_starterPortrait');
         Assets.characterImages.warrior = assetManager.get('char_warrior');
         Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
         Assets.beautyFrames = assetManager.getFrames('beauty');
@@ -1144,10 +1115,11 @@ function init() {
             pushStar: function(star) { stars.push(star); },
             removeStarAt: function(i) { stars.splice(i, 1); },
             getMonsters: function() { return monsters; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getEquipments: function() { return Equipments; },
             addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             updateStarSpawn: function() { updateStarSpawnInterval(); },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             stopDodgeStarTimer: function() { stopDodgeStarTimer(); },
@@ -1161,19 +1133,22 @@ function init() {
 
         // 初始化收服系统模块
         captureSystem = createCaptureSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getMonsters: function() { return monsters; },
             addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             getScreenWidth: function() { return screenWidth; },
-            getScreenHeight: function() { return screenHeight; }
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
+            getDesignOffsetY: getDesignOffsetY
         });
-        _log('收服系统模块初始化完成');
 
         // 初始化任务系统模块
         taskSystem = createTaskSystem({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
             showToast: function(opts) { $P.showToast(opts); }
         });
@@ -1189,8 +1164,9 @@ function init() {
 
         // 初始化信仰系统模块
         faithSystem = createFaithSystem({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); }
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ }
         });
         getCharacterFaithData = function(charId) { return faithSystem.getCharacterFaithData(charId); };
         getFaithAttributeBonus = function(charId, attribute) { return faithSystem.getFaithAttributeBonus(charId, attribute); };
@@ -1211,8 +1187,9 @@ function init() {
             releaseTowerEngineFn: function() { normalBattleAdapter.releaseEngine(); },
             updateStarSpawnInterval: function() { updateStarSpawnInterval(); },
             getCombatState: function() { return combatState; },
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
             getCharFullStats: function(charId) { return getCharacterFullStats(charId); },
             getScreenScale: getScreenScale,
@@ -1260,9 +1237,9 @@ function init() {
                 getScale: getScreenScale
             },
             player: {
-                getData: function() { return playerData; },
+                getData: function() { return saveData; },
                 getCharFullStats: function(id) { return getCharacterFullStats(id); },
-                save: function() { savePlayerData(); }
+                save: function() { /* no-op: auto-flush */ }
             },
             animation: {
                 createStarBurst: function(x, y, t) { createStarBurstAnimation(x, y, t); },
@@ -1291,7 +1268,8 @@ function init() {
             skills: {
                 getConfig: function() { return Skills; },
                 getTypes: function() { return SkillTypes; }
-            }
+            },
+            getDesignOffsetY: getDesignOffsetY
         });
         towerSystem._setBattleEngine(battleEngine);
         _log('爬塔系统模块初始化完成');
@@ -1313,11 +1291,12 @@ function init() {
             },
             onToggle: function(isVisible) {
                 if (isVisible) {
-                    if (state === GAME_STATE.PLAYING && pauseGame) pauseGame();
-                    else if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) bossBattleSystem.togglePause();
+                    previousState = state;
+                    PauseCoordinator.instance.pause();
+                    stateMachine.transitionTo(GAME_STATE.PAUSED);
                 } else {
-                    if (state === GAME_STATE.PAUSED && resumeGame) resumeGame();
-                    else if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem && bossBattleSystem.getIsPaused && bossBattleSystem.getIsPaused()) bossBattleSystem.togglePause();
+                    PauseCoordinator.instance.resume();
+                    stateMachine.transitionTo(previousState);
                 }
             },
             onSpecChanged: function(overrides) {
@@ -1328,20 +1307,22 @@ function init() {
                 if (newInterval && newInterval !== comboState.currentStarInterval) {
                     comboState.currentStarInterval = newInterval;
                 }
-            }
+            },
+            getDesignOffsetY: getDesignOffsetY
         });
 
         // 初始化挂机系统模块
         afkSystem = createAFKSystem({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
             getEquipments: function() { return Equipments; },
             getScreenScale: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getBestScore: function() { return bestScore; },
-            getTowerHighestFloor: function() { return playerData.infiniteTower ? playerData.infiniteTower.highestFloor : 0; },
+            getTowerHighestFloor: function() { return saveData.infiniteTower ? saveData.infiniteTower.highestFloor : 0; },
             showToast: function(opts) { $P.showToast(opts); }
         });
         calculateAccumulatedAfkRewards = function() { return afkSystem.calculateAccumulatedAfkRewards(); };
@@ -1350,8 +1331,9 @@ function init() {
 
         // 初始化抽卡系统模块
         gachaSystem = createGachaSystem({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             getSkills: function() { return Skills; },
             getCharacters: function() { return Characters; },
             getPets: function() { return Pets; },
@@ -1360,7 +1342,8 @@ function init() {
             getGameState: function() { return state; },
             getScreenScale: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
-            getScreenHeight: function() { return screenHeight; }
+            getScreenHeight: function() { return screenHeight; },
+            getDesignOffsetY: getDesignOffsetY
         });
         performGacha = function(count, poolType) { return gachaSystem.performGacha(count, poolType); };
         showGachaResults = function(results) { gachaSystem.showGachaResults(results); };
@@ -1375,13 +1358,14 @@ function init() {
 
         // 初始化角色经验系统模块
         characterSystem = createCharacterSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCharacters: function() { return Characters; },
             getCharacterKey: getCharacterKey,
             getEquipments: function() { return Equipments; },
             getSkills: function() { return Skills; },
             getPets: function() { return Pets; },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
             getGameState: function() { return state; },
             getSeasonSelection: function() { return seasonSelection; }
@@ -1399,13 +1383,14 @@ function init() {
 
         // 初始化掉落系统模块
         dropSystem = createDropSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getScore: function() { return score; },
             getEquipments: function() { return Equipments; },
             getSkills: function() { return Skills; },
             getPets: function() { return Pets; },
             getStarChestDropRate: function() { return STAR_CHEST_DROP_RATE; },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); }
         });
         dropMaterial = function() { dropSystem.dropMaterial(); };
@@ -1416,7 +1401,8 @@ function init() {
 
         // 初始化材料使用系统模块
         materialSystem = createMaterialSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getMaterials: function() { return Materials; },
             getGameState: function() { return state; },
             getGameConst: function() { return GAME_STATE; },
@@ -1429,7 +1415,7 @@ function init() {
             getCharacterStatsAtLevel: function(charKey, level) { return getCharacterStatsAtLevel(charKey, level); },
             getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
             updateTaskProgress: function(type, val) { updateTaskProgress(type, val); },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); }
         });
         calculateStarScore = function(starType) { return materialSystem.calculateStarScore(starType); };
@@ -1450,7 +1436,8 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
             getDesignOffsetY: getDesignOffsetY,
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getMonster: function() { return monster; },
             getComboCount: function() { return comboState.count; },
             getAssets: function() { return Assets; },
@@ -1517,8 +1504,6 @@ function init() {
         createScreenShake = function(intensity) { animationSystem.createScreenShake(intensity); };
         updateScreenShake = function() { animationSystem.updateScreenShake(); };
         getScreenShakeOffset = function() { return animationSystem.getScreenShakeOffset(); };
-        pauseAnimations = function() { animationSystem.pauseAnimations(); };
-        resumeAnimations = function() { animationSystem.resumeAnimations(); };
         getStarColor = function(st) { return animationSystem.getStarColor(st); };
         getStarGlowColor = function(st) { return animationSystem.getStarGlowColor(st); };
         easeOutQuad = function(t) { return animationSystem.easeOutQuad(t); };
@@ -1532,11 +1517,13 @@ function init() {
 
         // 初始化提示系统
         tipSystem = createTipSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCtx: function() { return ctx; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
-            getScreenScale: getScreenScale
+            getScreenScale: getScreenScale,
+            getDesignOffsetY: getDesignOffsetY
         });
         tipShowTipOnce = function(tipId, text) { tipSystem.showTipOnce(tipId, text); };
         tipUpdateTip = function() { tipSystem.updateTip(); };
@@ -1565,7 +1552,8 @@ function init() {
 
         // 初始化宠物系统
         petSystem = createPetSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getPets: function() { return Pets; },
             getActiveMonsters: function() { return getActiveMonsters(); },
             getGameState: function() { return state; },
@@ -1591,7 +1579,8 @@ function init() {
 
         // 初始化技能系统
         skillSystem = createSkillSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getSkills: function() { return Skills; },
             getSkillTypes: function() { return SkillTypes; },
             getActiveMonsters: function() { return getActiveMonsters(); },
@@ -1639,7 +1628,8 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
             getDesignOffsetY: getDesignOffsetY,
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getGameState: function() { return state; },
             getGameConst: function() { return GAME_STATE; },
             getSeasonSelection: function() { return seasonSelection; },
@@ -1676,11 +1666,12 @@ function init() {
 
         // 初始化商店系统
         shopSystem = createShopSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getActiveBuffs: function() { return activeBuffs; },
             setActiveBuffs: function(val) { activeBuffs = val; },
             getGameItems: function() { return gameItems; },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             addCharExp: function(charId, exp) { addCharacterExperience(charId, exp); },
             addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
             performGacha: function(count, poolType) { return performGacha(count, poolType); },
@@ -1705,7 +1696,8 @@ function init() {
             setMonsters: function(val) { monsters = val; },
             getScore: function() { return score; },
             getBestScore: function() { return bestScore; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getGameState: function() { return state; },
             getGameConst: function() { return GAME_STATE; },
             getScreenWidth: function() { return screenWidth; },
@@ -1728,14 +1720,14 @@ function init() {
             setMonsterAttackInterval: function(val) { monsterAttackInterval = val; },
             monsterAttackPlayer: function() { monsterAttackPlayer(); },
             initCharacterExp: function(charId) { initCharacterExperience(charId); },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
             showTipOnce: function(tipId, text) { if (tipShowTipOnce) tipShowTipOnce(tipId, text); },
             getSeasonScore: function() { return seasonScore; },
             getNormalBattleAdapter: function() { return normalBattleAdapter; },
-            getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || playerData); },
-            getPlayerAtkScaling: function(pd) { return getPlayerAtkScaling(pd || playerData); },
-            getAwakeStage: function(pd) { return getAwakeStage(pd || playerData); },
+            getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
+            getPlayerAtkScaling: function(pd) { return getPlayerAtkScaling(pd || saveData); },
+            getAwakeStage: function(pd) { return getAwakeStage(pd || saveData); },
             getAwakeConfig: function() { return AWAKE_CONFIG; }
         });
         getMonsterInstance = function(monsterId, level) { return monsterSpawnSystem.getMonsterInstance(monsterId, level); };
@@ -1758,7 +1750,8 @@ function init() {
             getScreenScale: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
-            getCtx: function() { return ctx; }
+            getCtx: function() { return ctx; },
+            getDesignOffsetY: getDesignOffsetY
         });
 
         // 初始化Boss灵韵机制
@@ -1770,7 +1763,8 @@ function init() {
             getStars: function() { return stars; },
             setStars: function(val) { stars = val; },
             pushStar: function(star) { stars.push(star); },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
             checkGameOver: function() { checkGameOver(); },
             vibrateShort: function(opts) { $P.vibrateShort(opts); }
@@ -1787,13 +1781,15 @@ function init() {
             getCtx: function() { return ctx; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getStarThief: function() { return starThief; },
             getSEASON_STAR_TYPES: function() { return SEASON_STAR_TYPES; },
             BACK_BTN_WIDTH: BACK_BTN_WIDTH,
             BACK_BTN_HEIGHT: BACK_BTN_HEIGHT,
-            BACK_BTN_COLOR: BACK_BTN_COLOR
+            BACK_BTN_COLOR: BACK_BTN_COLOR,
+            getDesignOffsetY: getDesignOffsetY
         });
         monsterDrawRenderer = createMonsterDrawRenderer({
             getCtx: function() { return ctx; },
@@ -1826,11 +1822,13 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getAfkSystem: function() { return afkSystem; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCalculateAccumulatedAfkRewards: function() { return calculateAccumulatedAfkRewards; },
             getClaimAfkRewards: function() { return claimAfkRewards; },
             getFillRoundRect: function() { return fillRoundRect; },
-            getGachaRoundRect: function() { return gachaRoundRect; }
+            getGachaRoundRect: function() { return gachaRoundRect; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderAfkPopup = function() { afkRenderer.renderAfkPopup(); };
         renderAfkResultPopup = function() { afkRenderer.renderAfkResultPopup(); };
@@ -1848,7 +1846,8 @@ function init() {
             uiCore: uiCoreRenderer,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getBestScore: function() { return bestScore; },
             getScore: function() { return score; },
             getStarMode: function() { return starMode; },
@@ -1908,8 +1907,10 @@ function init() {
             getMAX_CHARACTER_LEVEL: function() { return MAX_CHARACTER_LEVEL; },
             getCharacterStatsAtLevel: function(cid, lv) { return getCharacterStatsAtLevel(cid, lv); },
             initSeasonContent: function() { initSeasonContent(); },
-            getPlayerData: function() { return playerData; },
-            getLog: function() { return _log; }
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            getLog: function() { return _log; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderSeasonMenu = function() { seasonRenderer.renderSeasonMenu(); };
         renderSeasonSelect = function() { seasonRenderer.renderSeasonSelect(); };
@@ -1925,7 +1926,8 @@ function init() {
             getTasksWithProgress: function(tab) { return getTasksWithProgress(tab); },
             getTasksTab: function() { return tasksTab; },
             getTasksScrollY: function() { return tasksScrollY; },
-            setTasksScrollY: function(val) { tasksScrollY = val; }
+            setTasksScrollY: function(val) { tasksScrollY = val; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderTasks = function() { taskRenderer.renderTasks(); };
 
@@ -1936,7 +1938,8 @@ function init() {
             getScreenScale: function() { return getScreenScale(); },
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
-            getGodMode: function() { return godMode; }
+            getGodMode: function() { return godMode; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderDebugPanel = function() { debugRenderer.renderDebugPanel(); };
 
@@ -1949,14 +1952,16 @@ function init() {
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getUiScrollState: function() { return uiScrollState; },
             ShopItems: ShopItems,
             Pets: Pets,
             GACHA_POOLS: GACHA_POOLS,
             getGachaSystem: function() { return gachaSystem; },
             getMonthlyCardSystem: function() { return monthlyCardSystem; },
-            getCombatState: function() { return combatState; }
+            getCombatState: function() { return combatState; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderShop = function() { shopRenderer.renderShop(); };
         renderShopMaterialsTab = function() { shopRenderer.renderShopMaterialsTab(); };
@@ -1976,7 +1981,8 @@ function init() {
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
             getGachaRoundRect: function() { return gachaRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getUiScrollState: function() { return uiScrollState; },
             Materials: Materials,
             Characters: Characters,
@@ -1995,9 +2001,10 @@ function init() {
             calculateTotalAttack: function() { return calculateTotalAttack(); },
             getFaithSystem: function() { return faithSystem; },
             getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
-            savePlayerData: function() { savePlayerData(); },
+            savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
-            getMaxActiveSkills: function() { return MAX_ACTIVE_SKILLS; }
+            getMaxActiveSkills: function() { return MAX_ACTIVE_SKILLS; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderBackpack = function() { backpackRenderer.renderBackpack(); };
         renderMaterialsTab = function() { backpackRenderer.renderMaterialsTab(); };
@@ -2008,23 +2015,28 @@ function init() {
 
         // ===== 融合系统实例化 =====
         fusionRegistry = createFusionRegistry({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); }
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ }
         });
         var fusionCharStrategy = createFusionCharacterStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCharacters: function() { return Characters; }
         });
         var fusionPetStrategy = createFusionPetStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getPets: function() { return Pets; }
         });
         var fusionSkillStrategy = createFusionSkillStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getSkills: function() { return Skills; }
         });
         var fusionStarStrategy = createFusionStarStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getStarTypes: function() {
                 var map = {};
                 for (var i = 0; i < SEASON_STAR_TYPES.length; i++) {
@@ -2035,12 +2047,14 @@ function init() {
             getSeasonStarTypes: function() { return SEASON_STAR_TYPES; }
         });
         var fusionEquipStrategy = createFusionEquipmentStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getEquipments: function() { return Equipments; }
         });
         fusionEngine = createFusionEngine({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
             getRegistry: function() { return fusionRegistry; },
             strategies: {
@@ -2054,7 +2068,7 @@ function init() {
 
         // 跨会话恢复：把持久化的融合产物重新注册到配置表
         (function restoreFusionProducts() {
-            var fr = playerData.fusionResults;
+            var fr = saveData.fusionResults;
             if (!fr) return;
             var keys = Object.keys(fr);
             for (var i = 0; i < keys.length; i++) {
@@ -2115,40 +2129,46 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getFusionEngine: function() { return fusionEngine; },
             getFusionRegistry: function() { return fusionRegistry; },
             uiCore: uiCoreRenderer,
             getFillRoundRect: function() { return fillRoundRect; },
             getAssets: function() { return Assets; },
-            showToast: function(opts) { $P.showToast(opts); }
+            showToast: function(opts) { $P.showToast(opts); },
+            getDesignOffsetY: getDesignOffsetY
         });
-
-        // ==================== 升级系统 ====================
         var upgradeCharStrategy = createUpgradeCharacterStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCharacters: function() { return Characters; }
         });
         var upgradeEquipStrategy = createUpgradeEquipmentStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getEquipments: function() { return Equipments; }
         });
         var upgradeSkillStrategy = createUpgradeSkillStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getSkills: function() { return Skills; }
         });
         var upgradePetStrategy = createUpgradePetStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getPets: function() { return Pets; }
         });
         var upgradeStarStrategy = createUpgradeStarStrategy({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getSeasonStarTypes: function() { return SEASON_STAR_TYPES; }
         });
 
         upgradeEngine = createUpgradeEngine({
-            getPlayerData: function() { return playerData; },
-            saveData: function() { savePlayerData(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
             strategies: {
                 character: upgradeCharStrategy,
@@ -2164,13 +2184,14 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getUpgradeEngine: function() { return upgradeEngine; },
             uiCore: uiCoreRenderer,
             getFillRoundRect: function() { return fillRoundRect; },
-            getAssets: function() { return Assets; }
+            getAssets: function() { return Assets; },
+            getDesignOffsetY: getDesignOffsetY
         });
-
         renderSkillsTab = function() { backpackRenderer.renderSkillsTab(); };
         renderPetsTab = function() { backpackRenderer.renderPetsTab(); };
         renderFaithTab = function() { backpackRenderer.renderFaithTab(); };
@@ -2184,10 +2205,12 @@ function init() {
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getGachaRoundRect: function() { return gachaRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getGachaSystem: function() { return gachaSystem; },
             getStarSystem: function() { return starSystem; },
-            getGachaAnimationConfig: function() { return GACHA_ANIMATION_CONFIG; }
+            getGachaAnimationConfig: function() { return GACHA_ANIMATION_CONFIG; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderGachaAnimation = function() { gachaRenderer.renderGachaAnimation(); };
         renderGachaStarfield = function() { gachaRenderer.renderGachaStarfield(); };
@@ -2205,7 +2228,8 @@ function init() {
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
             getGachaRoundRect: function() { return gachaRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getSTAGES: function() { return STAGES; },
             getCHAPTERS: function() { return CHAPTERS; },
             getUiScrollState: function() { return uiScrollState; },
@@ -2216,7 +2240,8 @@ function init() {
             getIsStageUnlocked: function(id) { return isStageUnlocked(id); },
             getDifficultyColor: function(d) { return getDifficultyColor(d); },
             getStageModeSystem: function() { return stageModeSystem; },
-            getMaterials: function() { return Materials; }
+            getMaterials: function() { return Materials; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderStageSelect = function() { stageRenderer.renderStageSelect(); };
         renderStageResult = function() { stageRenderer.renderStageResult(); };
@@ -2231,7 +2256,8 @@ function init() {
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
             getGachaRoundRect: function() { return gachaRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getUiScrollState: function() { return uiScrollState; },
             Characters: Characters,
             getCharacterKey: getCharacterKey,
@@ -2256,9 +2282,10 @@ function init() {
             setShowPortraitLarge: function(val) { showPortraitLarge = val; },
             getGameConst: function() { return GAME_STATE; },
             transitionTo: function(s) { stateMachine.transitionTo(s); },
-            savePlayerData: function() { savePlayerData(); },
+            savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
-            log: function() { _log.apply(null, arguments); }
+            log: function() { _log.apply(null, arguments); },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderSquad = function() { squadRenderer.renderSquad(); };
         renderPortraitLarge = function() { squadRenderer.renderPortraitLarge(); };
@@ -2279,7 +2306,8 @@ function init() {
             GAME_STATE: GAME_STATE,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getBossBattleSystem: function() { return bossBattleSystem; },
             getBossStarSystem: function() { return bossStarSystem; },
             getEquipments: function() { return Equipments; },
@@ -2289,7 +2317,8 @@ function init() {
             getMaterials: function() { return Materials; },
             getSkills: function() { return Skills; },
             getBossSelectIsDragging: function() { return bossSelectIsDragging; },
-            setBossSelectScrollY: function(v) { bossSelectScrollY = v; }
+            setBossSelectScrollY: function(v) { bossSelectScrollY = v; },
+            getDesignOffsetY: getDesignOffsetY
         });
         renderBossBattleResult = function() { bossRenderer.renderBossBattleResult(); };
         renderBossSelect = function() { bossRenderer.renderBossSelect(); };
@@ -2308,7 +2337,8 @@ function init() {
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getTowerSystem: function() { return towerSystem; },
             getCombatState: function() { return combatState; },
             getComboState: function() { return comboState; },
@@ -2316,7 +2346,7 @@ function init() {
             getGameState: function() { return GAME_STATE; },
             getCombatFeatures: function() { return getCombatFeatures(); },
             getCurrentCharacterConfig: function() {
-                var cid = playerData.currentCharacterId || 'char_001';
+                var cid = saveData.currentCharacterId || 'char_001';
                 return Characters[getCharacterKey(cid)];
             },
             getUpdateCritAnimations: function() { return updateCritAnimations; },
@@ -2360,7 +2390,8 @@ function init() {
             getGachaRoundRect: function() { return gachaRoundRect; },
             getState: function() { return state; },
             getGameState: function() { return GAME_STATE; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getScore: function() { return score; },
             getTimeLeft: function() { return timeLeft; },
             getBestScore: function() { return bestScore; },
@@ -2431,7 +2462,7 @@ function init() {
             getMonster: function() { return monster; },
             getStars: function() { return stars; },
             getSeasonScore: function() { return seasonScore; },
-            getPlayerHp: function() { return playerData.playerHp; },
+            getPlayerHp: function() { return saveData.playerHp; },
             setStars: function(val) { stars = val; },
             setMonsters: function(val) { monsters = val; },
             setTimeLeft: function(val) { timeLeft = val; },
@@ -2446,7 +2477,7 @@ function init() {
             getAdItems: function() { return adItems; },
             tipShowTipOnce: function(key, text) { tipShowTipOnce(key, text); },
             getCharacterFullStats: function(id) { return getCharacterFullStats(id); },
-            calculateCritFn: function() { return normalBattleAdapter.calculateCrit(playerData); },
+            calculateCritFn: function() { return normalBattleAdapter.calculateCrit(saveData); },
             getActiveMonster: function() { return monster; },
             createMeteorAnimation: function(x, y, dmg, crit, type, el, mul, cb) { createMeteorAnimation(x, y, dmg, crit, type, el, mul, cb); },
             getSkillRemainingCooldown: function(id) { return getSkillRemainingCooldown(id); },
@@ -2489,10 +2520,11 @@ function init() {
 
         // 初始化赛季系统
         seasonSystem = createSeasonSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getCharacters: function() { return Characters; },
             spawnDodgeStar: function() { spawnDodgeStar(); },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             getSeasonContent: function() { return seasonContent; },
             setSeasonContent: function(val) { seasonContent = val; },
             getSeasonSelection: function() { return seasonSelection; },
@@ -2518,12 +2550,14 @@ function init() {
 
         // 初始化月卡系统
         monthlyCardSystem = createMonthlyCardSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getScreenWidth: function() { return screenWidth; },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
             getRewardedVideoAd: function() { return adSystem ? adSystem.getRewardedVideoAd() : null; },
-            isAdLoaded: function() { return adSystem ? adSystem.isAdLoaded() : false; }
+            isAdLoaded: function() { return adSystem ? adSystem.isAdLoaded() : false; },
+            getDesignOffsetY: getDesignOffsetY
         });
         isMonthlyCardClaimedToday = function(cardType) { return monthlyCardSystem.isMonthlyCardClaimedToday(cardType); };
         getTodayString = function() { return monthlyCardSystem.getTodayString(); };
@@ -2555,13 +2589,14 @@ function init() {
         stageModeSystem = _gameModules.createStageModeSystem({
             getSTAGES: function() { return STAGES; },
             getMonsterTypes: function() { return MonsterTypes; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
             addCharacterExperience: function(charId, exp) { addCharacterExperience(charId, exp); },
-            saveData: function() { savePlayerData(); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
@@ -2607,13 +2642,15 @@ function init() {
 
         // Boss战系统（BattleEngine 适配器）
         bossBattleSystem = _gameModules.createBossBattleAdapter({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return dataStore.combined; },
+            getRuntimeData: function() { return runtimeData; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
-            saveData: function() { savePlayerData(); },
-            saveDataImmediate: function() { savePlayerData(true); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
+            saveDataImmediate: function() { dataStore.flush(); },
+            flushData: function() { dataStore.flush(); },
             saveBestScore: function() { saveBestScore(); },
             setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
             getGameState: function() { return state; },
@@ -2740,8 +2777,10 @@ function init() {
 
         // D2-D5 战斗维度系统
         rhythmSystem = _gameModules.createRhythmSystem({
-            getPlayerData: function() { return playerData; },
-            addMessage: function(msg, color) { addGameMessage(msg, color); }
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            addMessage: function(msg, color) { addGameMessage(msg, color); },
+            isTutorialComplete: function() { return runtimeData.tutorialCompleted; }
         });
         _log('D5 节拍判定系统初始化完成');
 
@@ -2749,7 +2788,9 @@ function init() {
         _log('饱和度(体力条)系统初始化完成');
 
         chargeSystem = _gameModules.createChargeSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            isTutorialComplete: function() { return runtimeData.tutorialCompleted; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
@@ -2762,12 +2803,14 @@ function init() {
             saturationState: saturationState,
             drawStar: function(starObj, x, y, size, sc) { if (drawStar) drawStar(starObj, x, y, size, sc); },
             addScore: function(pts) { score += pts; },
-            addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); }
+            addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); },
+            getDesignOffsetY: getDesignOffsetY
         });
-        _log('D2 长按蓄力系统初始化完成');
 
         dragSystem = _gameModules.createDragSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            isTutorialComplete: function() { return runtimeData.tutorialCompleted; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
@@ -2779,12 +2822,15 @@ function init() {
             getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
             attackMonster: function(dmg, crit, type, target) { attackMonster(dmg, crit, type, target); },
             addScore: function(pts) { score += pts; },
-            addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); }
+            addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); },
+            getDesignOffsetY: getDesignOffsetY
         });
         _log('D3 拖拽聚合系统初始化完成');
 
         linkChainSystem = _gameModules.createLinkChainSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            isTutorialComplete: function() { return runtimeData.tutorialCompleted; },
+            getRuntimeData: function() { return runtimeData; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
@@ -2798,13 +2844,15 @@ function init() {
             addScore: function(pts) { score += pts; },
             saturationState: saturationState,
             getBeautyFrames: function() { return Assets.beautyFrames || []; },
-            rhythmSkillSystem: null  // 后注入
+            rhythmSkillSystem: null,  // 后注入
+            getDesignOffsetY: getDesignOffsetY
         });
         _log('D4 灵光联连系统初始化完成');
 
         // D4-节奏技系统（在 linkChainSystem 之后创建，通过回调通信）
         rhythmSkillSystem = _gameModules.createRhythmSkillSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
@@ -2835,7 +2883,8 @@ function init() {
         normalBattleAdapter = _gameModules.createNormalBattleAdapter({
             getGameState: function() { return state; },
             getGameConst: function() { return GAME_STATE; },
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return dataStore.combined; },
+            getRuntimeData: function() { return runtimeData; },
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
@@ -2948,7 +2997,7 @@ function init() {
             createGoldDropAnimation: function(x, y, amt) { createGoldDropAnimation(x, y, amt); },
             createMonster: function(id, x, y, opts) { return createMonster(id, x, y, opts); },
             calculateMonsterPositions: function(count, y) { return calculateMonsterPositions(count, y); },
-            savePlayerData: function() { savePlayerData(); },
+            savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             spawnPoisonPuddles: function(mx, my, skill) { spawnPoisonPuddles(mx, my, skill); },
             monsterAttackPlayer: function() { monsterAttackPlayer(); },
             getPassiveSkillBonuses: function() { return getPassiveSkillBonuses(); },
@@ -2976,15 +3025,16 @@ function init() {
             endGame: function() { endGame(); },
             getIsTutorialBattle: function() { return _tutorial.active; },
             // 觉醒系统
-            getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || playerData); },
-            getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || playerData); },
-            getDropTier: function(pd) { return getDropTier(pd || playerData); },
+            getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
+            getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || saveData); },
+            getDropTier: function(pd) { return getDropTier(pd || saveData); },
             getAwakeConfig: function() { return AWAKE_CONFIG; },
             onEngineReady: function(engine) {
                 if (starSystem && starSystem.onSpecChanged) {
                     engine.subscribe(starSystem.onSpecChanged);
                 }
-            }
+            },
+            getDesignOffsetY: getDesignOffsetY
         });
         _log('普通战斗适配器模块初始化完成');
 
@@ -2999,7 +3049,8 @@ function init() {
 
         // 游戏生命周期系统
         gameLifecycleSystem = _gameModules.createGameLifecycleSystem({
-            getPlayerData: function() { return playerData; },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
             setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
@@ -3009,8 +3060,9 @@ function init() {
             setTimeLeft: function(val) { timeLeft = val; },
             getNormalGameTime: function() { return NORMAL_GAME_TIME; },
             getBestScore: function() { return bestScore; },
-            saveData: function() { savePlayerData(); },
-            saveDataImmediate: function() { savePlayerData(true); },
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
+            saveDataImmediate: function() { dataStore.flush(); },
+            flushData: function() { dataStore.flush(); },
             saveBestScore: function() { saveBestScore(); },
             getNormalBattleAdapter: function() { return normalBattleAdapter; },
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
@@ -3119,7 +3171,7 @@ function init() {
                 _tutorial.ending = true;
                 _tutorial.active = false;
                 godMode = false;
-                playerData.godMode = false;
+                runtimeData.godMode = false;
 
                 if (audioSystem) { audioSystem.endBattle(); audioSystem.exitBattle(); }
                 if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
@@ -3147,8 +3199,18 @@ function init() {
                         _tutorial.retryCount = 0;
                         _tutorial.entityId = null;
                         _tutorial.completed = true;
-                        playerData.tutorialCompleted = true;
-                        savePlayerData();
+                        runtimeData.tutorialCompleted = true;
+                        saveData.tutorialCompleted = true;
+                        // 确保初始角色在 ownedCharacters 中（否则菜单栏不会渲染）
+                        if (!saveData.ownedCharacters || saveData.ownedCharacters.length === 0) {
+                            saveData.ownedCharacters = ['char_001'];
+                        } else if (saveData.ownedCharacters.indexOf('char_001') === -1) {
+                            saveData.ownedCharacters.push('char_001');
+                        }
+                        if (!saveData.currentCharacterId) {
+                            saveData.currentCharacterId = 'char_001';
+                        }
+                        dataStore.flush();
                         state = GAME_STATE.WORLDMAP;
                     }
                 };
@@ -3183,8 +3245,7 @@ function init() {
                 _tutorial.active = false;
                 _tutorial.ending = false;
                 godMode = false;
-                playerData.godMode = false;
-                if (audioSystem) { audioSystem.endBattle(); audioSystem.exitBattle(); }
+runtimeData.godMode = false;
                 worldMapSystem.restoreReturnPosition();
                 worldMapSystem.saveProgress();
                 _tutorial.entityId = null;
@@ -3197,8 +3258,6 @@ function init() {
             tipShowTipOnce('tutorial_retry', '再试一次！点击灵光攻击邪灵');
             _tutorial.ending = false;
         };
-        pauseGame = function() { gameLifecycleSystem.pauseGame(); };
-        resumeGame = function() { gameLifecycleSystem.resumeGame(); };
         restartGame = function() {
             if (rhythmSystem) rhythmSystem.reset();
             if (chargeSystem) chargeSystem.reset();
@@ -3223,14 +3282,14 @@ function init() {
             getGameState: function() { return state; },
             setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
             GAME_STATE: GAME_STATE,
-            saveData: function() { savePlayerData(); }
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ }
         });
 
         // 注册 5 个战斗模式
         modeLifecycle.registerMode('normal', {
             enter: function(ctx) { if (ctx && ctx.startGame) gameLifecycleSystem.startGame(); },
-            pause: function() { gameLifecycleSystem.pauseGame(); },
-            resume: function(ctx) { gameLifecycleSystem.resumeGame(); },
+            pause: function() {},
+            resume: function(ctx) { gameLifecycleSystem.resumeNormalTimers(); },
             cleanup: function() {
                 if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
                 if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
@@ -3241,8 +3300,8 @@ function init() {
 
         modeLifecycle.registerMode('boss', {
             enter: function(ctx) {},
-            pause: function() { if (bossBattleSystem) bossBattleSystem.togglePause(); },
-            resume: function(ctx) { if (bossBattleSystem) bossBattleSystem.togglePause(); },
+            pause: function() {},
+            resume: function(ctx) {},
             cleanup: function() {
                 if (BossBattleMode) BossBattleMode.cleanup();
                 saveBestScore();
@@ -3251,22 +3310,22 @@ function init() {
 
         modeLifecycle.registerMode('tower', {
             enter: function(ctx) {},
-            pause: function() { if (towerSystem) towerSystem.pauseCombat(); },
-            resume: function(ctx) { if (towerSystem) towerSystem.resumeCombat(); },
+            pause: function() {},
+            resume: function(ctx) {},
             cleanup: function() { if (towerSystem) towerSystem.pauseTower(); }
         }, GAME_STATE.TOWER_COMBAT);
 
         modeLifecycle.registerMode('stage', {
             enter: function(ctx) {},
-            pause: function() { if (stageModeSystem) stageModeSystem.togglePause(); },
-            resume: function(ctx) { if (stageModeSystem) stageModeSystem.togglePause(); },
+            pause: function() {},
+            resume: function(ctx) { stageModeSystem.resumeTimers(); },
             cleanup: function() { if (stageModeSystem) stageModeSystem.end(false); }
         }, GAME_STATE.STAGE_PLAYING);
 
         modeLifecycle.registerMode('season', {
             enter: function(ctx) { if (ctx && ctx.start) gameLifecycleSystem.startSeasonGame(); },
-            pause: function() { gameLifecycleSystem.pauseGame(); },
-            resume: function(ctx) { gameLifecycleSystem.resumeGame(); },
+            pause: function() {},
+            resume: function(ctx) { gameLifecycleSystem.resumeNormalTimers(); },
             cleanup: function() { gameLifecycleSystem.endSeasonGame(); }
         }, GAME_STATE.SEASON_PLAYING);
 
@@ -3300,7 +3359,7 @@ function init() {
         // （见文件末尾，大世界探索系统初始化之后）
         $P.onHide(function() {
             _log('游戏隐藏 - 保存数据');
-            savePlayerData(true);
+            dataStore.flush();
         });
         
         $P.onShow(function() {
@@ -3309,9 +3368,9 @@ function init() {
         });
         
         // 初始化挂机时间（如果是新玩家）
-        if (!playerData.afkData.lastClaimTime) {
-            playerData.afkData.lastClaimTime = Date.now();
-            savePlayerData();
+        if (!saveData.afkData.lastClaimTime) {
+            saveData.afkData.lastClaimTime = Date.now();
+            dataStore.flush();
         }
         
         _log('游戏初始化完成');
@@ -3362,9 +3421,10 @@ function init() {
 
         worldMapSystem = _gameModules.createWorldMapSystem({
             showToast: function(opts) { $P.showToast(opts); },
-            savePlayerData: function(imm) { savePlayerData(imm); },
-            getPlayerData: function() { return playerData; },
-            loadPlayerData: function() { loadPlayerData(); },
+            flushData: function() { dataStore.flush(); },
+            getSaveData: function() { return saveData; },
+            getRuntimeData: function() { return runtimeData; },
+            loadPlayerData: function() { /* no-op: handled by dataStore.load() */ },
             onInteractResult: function(result) {
                 _log('实体交互结果:', result.type, result.entity ? result.entity.id : '');
                 if (result.type === 'tutorial') {
@@ -3375,7 +3435,7 @@ function init() {
                     _tutorial.retryCount = 0;
                     worldMapSystem.snapshotReturnPosition();
                     godMode = true;
-                    playerData.godMode = true;
+                    runtimeData.godMode = true;
 
                     if (audioSystem) audioSystem.enterBattle();
                     // 启动游戏（初始化引擎、UI等基础）
@@ -3403,9 +3463,11 @@ function init() {
                     worldMapSystem.snapshotReturnPosition();
                     if (result.entity.unlockMenuId) {
                         worldMapSystem.unlockMenu(result.entity.unlockMenuId);
+                        // 持久化塔解锁标记，让菜单按钮也解锁
+                        saveData.towerUnlocked = true;
                     }
                     worldMapSystem.saveProgress();
-                    if (playerData.infiniteTower && playerData.infiniteTower.isPaused) {
+                    if (saveData.infiniteTower && saveData.infiniteTower.isPaused) {
                         stateMachine.transitionTo(GAME_STATE.TOWER_RESUME);
                     } else {
                         towerSystem.init();
@@ -3416,9 +3478,47 @@ function init() {
                     _log('开启宝箱:', result.entity.id, '奖励:', JSON.stringify(result.reward));
                     if (result.reward) {
                         if (result.reward.currency) {
-                            playerData.starSource = (playerData.starSource || 0) + result.reward.currency;
+                            saveData.starSource = (saveData.starSource || 0) + result.reward.currency;
+                        }
+                        if (result.reward.spiritStones) {
+                            saveData.spiritStones = (saveData.spiritStones || 0) + result.reward.spiritStones;
+                        }
+                        if (result.reward.characterExp) {
+                            var currentCharId = saveData.currentCharacterId || 'char_001';
+                            if (!saveData.characterExperience) saveData.characterExperience = {};
+                            if (!saveData.characterExperience[currentCharId]) saveData.characterExperience[currentCharId] = { exp: 0, level: 1 };
+                            saveData.characterExperience[currentCharId].exp += result.reward.characterExp;
+                        }
+                        if (result.reward.equipmentRarityRange && result.reward.equipmentCount) {
+                            var allEquipKeys = Object.keys(_gameModules.Equipments);
+                            var pool = [];
+                            for (var ek = 0; ek < allEquipKeys.length; ek++) {
+                                var eq = _gameModules.Equipments[allEquipKeys[ek]];
+                                if (result.reward.equipmentRarityRange.indexOf(eq.rarity) >= 0) {
+                                    pool.push(eq.id);
+                                }
+                            }
+                            if (pool.length > 0) {
+                                if (!saveData.equipments) saveData.equipments = { owned: [] };
+                                for (var ec = 0; ec < result.reward.equipmentCount; ec++) {
+                                    var picked = pool[Math.floor(Math.random() * pool.length)];
+                                    saveData.equipments.owned.push({ id: picked });
+                                }
+                            }
+                        }
+                        if (result.reward.items) {
+                            for (var ri = 0; ri < result.reward.items.length; ri++) {
+                                if (!saveData.items) saveData.items = {};
+                                saveData.items[result.reward.items[ri]] = (saveData.items[result.reward.items[ri]] || 0) + 1;
+                            }
                         }
                     }
+                    // 显示奖励 toast
+                    var rewardMsg = '';
+                    if (result.reward.spiritStones) rewardMsg += '灵石+' + result.reward.spiritStones + ' ';
+                    if (result.reward.characterExp) rewardMsg += '经验+' + result.reward.characterExp + ' ';
+                    if (result.reward.currency) rewardMsg += '灵币+' + result.reward.currency + ' ';
+                    if (rewardMsg) $P.showToast({ title: rewardMsg, icon: 'success', duration: 2000 });
                     worldMapSystem.saveProgress();
                 }
                 if (result.type === 'portal') {
@@ -3464,7 +3564,8 @@ function init() {
             getScreenScale: function() { return getScreenScale(); },
             getWorldMapSystem: function() { return worldMapSystem; },
             getAssets: function() { return Assets; },
-            getJoystickState: function() { return { active: _joystickActive, startX: _joystickStartX, startY: _joystickStartY, dx: _joystickDX, dy: _joystickDY }; }
+            getJoystickState: function() { return { active: _joystickActive, startX: _joystickStartX, startY: _joystickStartY, dx: _joystickDX, dy: _joystickDY }; },
+            getDesignOffsetY: getDesignOffsetY
         });
 
         // 键盘事件
@@ -3502,17 +3603,18 @@ function init() {
         // 启动渲染循环（所有系统初始化完成后）
         function renderLoop() {
             render();
+            dataStore.tryFlush();
             _rafId = requestAnimationFrame(renderLoop);
         }
         _rafId = requestAnimationFrame(renderLoop);
 
         // 验证玩家数据
         _log('=== 数据验证 ===');
-        _log('ownedCharacters:', playerData.ownedCharacters);
-        _log('currentCharacterId:', playerData.currentCharacterId);
-        _log('unlockedStarTypes:', playerData.unlockedStarTypes);
-        _log('materials:', JSON.stringify(playerData.materials));
-        _log('characterExperience:', JSON.stringify(playerData.characterExperience));
+        _log('ownedCharacters:', saveData.ownedCharacters);
+        _log('currentCharacterId:', saveData.currentCharacterId);
+        _log('unlockedStarTypes:', saveData.unlockedStarTypes);
+        _log('materials:', JSON.stringify(saveData.materials));
+        _log('characterExperience:', JSON.stringify(saveData.characterExperience));
         _log('==================');
         
         // 初始化开放数据域（用于好友排行榜）
@@ -3551,6 +3653,7 @@ function handleTouchStart(res) {
     var x = touch.clientX;
     var y = touch.clientY;
     const scale = getScreenScale();
+    var designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * scale), screenHeight);
 
     // 点击音效
     if (audioSystem) audioSystem.playClick();
@@ -3595,7 +3698,7 @@ function handleTouchStart(res) {
         var _dbSz = Math.floor(32 * scale);
         var _dbOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
         var _dbX = screenWidth - Math.floor(50 * scale) + _dbOv.dx * scale;
-        var _dbY = Math.floor(15 * scale) + _dbOv.dy * scale;
+        var _dbY = getDesignOffsetY() + Math.floor(15 * scale) + _dbOv.dy * scale;
         if (x >= _dbX && x <= _dbX + _dbSz && y >= _dbY && y <= _dbY + _dbSz) {
             debugPanelOpen = true;
             _log('打开调试面板');
@@ -3634,11 +3737,11 @@ function handleTouchStart(res) {
             return;
         }
         // 菜单栏按钮检测（优先于地图操作，教学完成前不显示）
-        var _hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        var _hasUnlockedStarter = saveData.ownedCharacters && saveData.ownedCharacters.indexOf('char_001') !== -1;
         if (_hasUnlockedStarter && _tutorial.completed) {
             var _menuBtnSize = Math.floor(50 * scale);
             var _menuBtnX = Math.floor(15 * scale);
-            var _menuBtnY = screenHeight - Math.floor(65 * scale);
+            var _menuBtnY = designBottom - Math.floor(65 * scale);
             var _menuItemH = Math.floor(40 * scale);
             var _menuItemW = Math.floor(100 * scale);
             var _menuGap = Math.floor(8 * scale);
@@ -3651,16 +3754,16 @@ function handleTouchStart(res) {
                     { id: 'leaderboard', action: function() { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
                     { id: 'season', action: function() { try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
                     { id: 'boss', action: function() { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
-                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playTowerClick(); try { if (playerData.infiniteTower && playerData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
-                    { id: 'fusion', action: function() { state = GAME_STATE.FUSION; } },
-                    { id: 'upgrade', action: function() { state = GAME_STATE.UPGRADE; } }
+                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playTowerClick(); try { if (saveData.infiniteTower && saveData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
+                    // { id: 'fusion', action: function() { state = GAME_STATE.FUSION; } },
+                    // { id: 'upgrade', action: function() { state = GAME_STATE.UPGRADE; } }
                 ];
                 for (var _mi = 0; _mi < _menuItems.length; _mi++) {
                     var _itemY = _menuBtnY - (_mi + 1) * (_menuItemH + _menuGap);
                     var _itemX = _menuBtnX - Math.floor(30 * scale);
                     if (x >= _itemX && x <= _itemX + _menuItemW && y >= _itemY && y <= _itemY + _menuItemH) {
                         uiScrollState.menuExpanded = false;
-                        var _unlockCheck = isModeUnlocked(_menuItems[_mi].id, playerData, bestScore);
+                        var _unlockCheck = isModeUnlocked(_menuItems[_mi].id, saveData, bestScore);
                         if (!_unlockCheck.unlocked) { $P.showToast({ title: _unlockCheck.hint, icon: 'none', duration: 1500 }); return; }
                         _log('大地图点击菜单项:', _menuItems[_mi].id);
                         _menuItems[_mi].action();
@@ -3692,7 +3795,7 @@ function handleTouchStart(res) {
             var _setSz = Math.floor(32 * scale);
             var _sov = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
             var _setX = Math.floor(18 * scale) + _sov.dx * scale;
-            var _setY = Math.floor(15 * scale) + _sov.dy * scale;
+            var _setY = getDesignOffsetY() + Math.floor(15 * scale) + _sov.dy * scale;
             if (x >= _setX && x <= _setX + _setSz && y >= _setY && y <= _setY + _setSz) {
                 _log('大地图点击设置按钮');
                 stateMachine.transitionTo(GAME_STATE.SETTINGS);
@@ -3701,7 +3804,7 @@ function handleTouchStart(res) {
 
             // 任务按钮
             var _taskSz = Math.floor(40 * scale);
-            var _taskY = Math.floor(15 * scale) + _setSz + Math.floor(10 * scale);
+            var _taskY = getDesignOffsetY() + Math.floor(15 * scale) + _setSz + Math.floor(10 * scale);
             if (x >= Math.floor(15 * scale) && x <= Math.floor(15 * scale) + _taskSz && y >= _taskY && y <= _taskY + _taskSz) {
                 _log('大地图点击任务按钮');
                 stateMachine.transitionTo(GAME_STATE.TASKS);
@@ -3710,9 +3813,9 @@ function handleTouchStart(res) {
         }
 
         // 角色图标点击（进入编队系统，教学完成后可用）
-        if (_tutorial.completed && playerData.ownedCharacters && playerData.ownedCharacters.length > 0 && playerData.currentCharacterId) {
+        if (_tutorial.completed && saveData.ownedCharacters && saveData.ownedCharacters.length > 0 && saveData.currentCharacterId) {
             var _charBaseX = screenWidth - Math.floor(180 * scale);
-            var _charBaseY = screenHeight - Math.floor(92 * scale);
+            var _charBaseY = designBottom - Math.floor(92 * scale);
             var _charRightX = _charBaseX + Math.floor(90 * scale);
             var _charRightY = _charBaseY - Math.floor(2 * scale);
             var _charIconSz = Math.floor(50 * scale);
@@ -3795,19 +3898,16 @@ function handleTouchStart(res) {
     
     // ===== 调试按钮点击（菜单界面右上角）=====
     if (state === GAME_STATE.MENU) {
-        const hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
-        if (hasUnlockedStarter) {
-            const debugIconSize = Math.floor(32 * scale);
-            var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-            const debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
-            const debugIconY = Math.floor(15 * scale) + debugOv.dy * scale;
+        const debugIconSize = Math.floor(32 * scale);
+        var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
+        const debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
+        const debugIconY = getDesignOffsetY() + Math.floor(15 * scale) + debugOv.dy * scale;
 
-            if (x >= debugIconX && x <= debugIconX + debugIconSize &&
-                y >= debugIconY && y <= debugIconY + debugIconSize) {
-                debugPanelOpen = true;
-                _log('打开调试面板');
-                return;
-            }
+        if (x >= debugIconX && x <= debugIconX + debugIconSize &&
+            y >= debugIconY && y <= debugIconY + debugIconSize) {
+            debugPanelOpen = true;
+            _log('打开调试面板');
+            return;
         }
     }
 
@@ -3815,7 +3915,7 @@ function handleTouchStart(res) {
     if (devBattleSystem && (state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING)) {
         var devBtnSize = Math.floor(36 * scale);
         var devBtnX = Math.floor(12 * scale);
-        var devBtnY = screenHeight - Math.floor(56 * scale);
+        var devBtnY = designBottom - Math.floor(56 * scale);
         if (x >= devBtnX && x <= devBtnX + devBtnSize &&
             y >= devBtnY && y <= devBtnY + devBtnSize) {
             devBattleSystem.toggle();
@@ -3923,29 +4023,18 @@ function handleTouchStart(res) {
         // 检查是否点击暂停按钮（仅在游戏中，包括赛季模式、Boss、塔）
         if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT) {
             const pauseBtnSize = Math.floor(50 * scale);
-            if (x >= 15 && x <= 15 + pauseBtnSize && y >= 15 && y <= 15 + pauseBtnSize) {
+            if (x >= 15 && x <= 15 + pauseBtnSize && y >= getDesignOffsetY() + Math.floor(15 * scale) && y <= getDesignOffsetY() + Math.floor(15 * scale) + pauseBtnSize) {
                 _log('点击暂停按钮');
-                if (pauseAnimations) pauseAnimations();
-                if (state === GAME_STATE.STAGE_PLAYING) {
-                    stageModeSystem.togglePause();
-                } else if (state === GAME_STATE.BOSS_BATTLE) {
-                    bossBattleSystem.togglePause();
-                } else if (state === GAME_STATE.TOWER_COMBAT) {
-                    modeLifecycle.syncActiveMode();
-                    modeLifecycle.pauseActive();
-                    stateMachine.transitionTo(GAME_STATE.PAUSED);
-                } else {
-                    modeLifecycle.syncActiveMode();
-                    modeLifecycle.pauseActive();
-                    pauseGame();
-                }
+                previousState = state;
+                PauseCoordinator.instance.pause();
+                stateMachine.transitionTo(GAME_STATE.PAUSED);
                 return;
             }
             
             // 检查道具按钮点击（赛季模式禁用道具，Boss/塔无道具按钮）
             if (state !== GAME_STATE.SEASON_PLAYING && getCombatFeatures().itemButtons) {
             const itemBtnSize = Math.floor(45 * scale);
-            const itemBtnY = 75;
+            const itemBtnY = getDesignOffsetY() + Math.floor(75 * scale);
 
             // 治疗药水按钮
             if (x >= 15 && x <= 15 + itemBtnSize && y >= itemBtnY && y <= itemBtnY + itemBtnSize) {
@@ -3974,12 +4063,12 @@ function handleTouchStart(res) {
             } // 结束赛季模式道具按钮点击条件
             
             // 时间灵韵主动技能按钮点击检测（需要解锁且装备到编队）
-            const hasTimeStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('time') !== -1;
-            const hasTimeStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('time') !== -1;
+            const hasTimeStarUnlocked = saveData.unlockedStarTypes && saveData.unlockedStarTypes.indexOf('time') !== -1;
+            const hasTimeStarEquipped = saveData.equippedStars && saveData.equippedStars.indexOf('time') !== -1;
             const hasTimeStar = hasTimeStarUnlocked && hasTimeStarEquipped;
             if (hasTimeStar && monster.active && state !== GAME_STATE.SEASON_PLAYING) {
                 const skillBtnSize = Math.floor(45 * scale);
-                const skillBtnY = 75 + (Math.floor(45 * scale) + 5) * 2 + 5; // 在道具按钮下方
+                const skillBtnY = getDesignOffsetY() + Math.floor(75 * scale) + (Math.floor(45 * scale) + 5) * 2 + 5; // 在道具按钮下方
                 
                 if (x >= 15 && x <= 15 + skillBtnSize && y >= skillBtnY && y <= skillBtnY + skillBtnSize) {
                     // 计算可消耗的时间（总时间 - 30秒）
@@ -3991,11 +4080,11 @@ function handleTouchStart(res) {
                         
                         // ===== 暴击判定 =====
                         // 获取角色暴击率和暴击伤害
-                        var currentCharId = playerData.currentCharacterId;
+                        var currentCharId = saveData.currentCharacterId;
                         var charStats = currentCharId ? getCharacterFullStats(currentCharId) : null;
-                        var totalCritRate = (charStats ? charStats.critRate : 0) + (playerData.extraCritRate || 0) + (activeBuffs.critRateBonus || 0);
+                        var totalCritRate = (charStats ? charStats.critRate : 0) + (saveData.extraCritRate || 0) + (activeBuffs.critRateBonus || 0);
                         var baseCritDamage = charStats ? charStats.critDamage : 2.0;
-                        baseCritDamage += (playerData.extraCritDamage || 0);
+                        baseCritDamage += (saveData.extraCritDamage || 0);
                         
                         // 暴击判定
                         var isCritical = Math.random() * 100 < totalCritRate;
@@ -4038,12 +4127,12 @@ function handleTouchStart(res) {
             }
             
             // 贪婪技能按钮点击检测（需要解锁且装备到编队）
-            const hasGreedyStarUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf('greedy') !== -1;
-            const hasGreedyStarEquipped = playerData.equippedStars && playerData.equippedStars.indexOf('greedy') !== -1;
+            const hasGreedyStarUnlocked = saveData.unlockedStarTypes && saveData.unlockedStarTypes.indexOf('greedy') !== -1;
+            const hasGreedyStarEquipped = saveData.equippedStars && saveData.equippedStars.indexOf('greedy') !== -1;
             const hasGreedyStar = hasGreedyStarUnlocked && hasGreedyStarEquipped;
             if (hasGreedyStar && state !== GAME_STATE.SEASON_PLAYING) {
                 const greedyBtnSize = Math.floor(45 * scale);
-                const greedyBtnY = 75 + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时间灵韵技能按钮下方
+                const greedyBtnY = getDesignOffsetY() + Math.floor(75 * scale) + (Math.floor(45 * scale) + 5) * 3 + 5; // 在时间灵韵技能按钮下方
                 
                 if (x >= 15 && x <= 15 + greedyBtnSize && y >= greedyBtnY && y <= greedyBtnY + greedyBtnSize) {
                     // 尝试使用贪婪技能
@@ -4054,8 +4143,8 @@ function handleTouchStart(res) {
             
             // ==================== 技能栏点击检测 ====================
             // 非赛季模式下检测技能栏点击（圆形标签），Boss/塔通过 skillBar 特性控制
-            if (state !== GAME_STATE.SEASON_PLAYING && getCombatFeatures().skillBar && playerData.skills && playerData.skills.equipped) {
-                const equippedSkills = playerData.skills.equipped;
+            if (state !== GAME_STATE.SEASON_PLAYING && getCombatFeatures().skillBar && saveData.skills && saveData.skills.equipped) {
+                const equippedSkills = saveData.skills.equipped;
                 // 过滤出主动技能
                 const activeSkills = equippedSkills.filter(skillId => {
                     const skill = Skills[skillId];
@@ -4069,7 +4158,7 @@ function handleTouchStart(res) {
                     const startX = screenWidth - circleRadius - Math.floor(5 * scale);
                     // 从下方开始计算位置（向上排列）
                     const totalHeight = activeSkills.length * (circleRadius * 2) + (activeSkills.length - 1) * circleGap;
-                    const startY = screenHeight - totalHeight - Math.floor(100 * scale);
+                    const startY = designBottom - Math.floor(100 * scale) - totalHeight;
                     
                     // 检测每个圆形技能点击
                     for (let i = 0; i < activeSkills.length; i++) {
@@ -4097,7 +4186,7 @@ function handleTouchStart(res) {
                     var tSkGap = Math.floor(8 * scale);
                     var tSkStartX = screenWidth - tSkR - Math.floor(5 * scale);
                     var tSkTotalH = towerActSkills.length * (tSkR * 2) + (towerActSkills.length - 1) * tSkGap;
-                    var tSkStartY = screenHeight - tSkTotalH - Math.floor(100 * scale);
+                    var tSkStartY = designBottom - Math.floor(100 * scale) - tSkTotalH;
                     for (var tski = 0; tski < towerActSkills.length; tski++) {
                         var tSkCX = tSkStartX;
                         var tSkCY = tSkStartY + tski * (tSkR * 2 + tSkGap) + tSkR;
@@ -4110,7 +4199,7 @@ function handleTouchStart(res) {
                 }
             }
         }
-        if (state === GAME_STATE.PAUSED || (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem && bossBattleSystem.getIsPaused && bossBattleSystem.getIsPaused())) {
+        if (PauseCoordinator.instance.isPaused) {
             const btnWidth = Math.floor(200 * scale);
             const btnHeight = Math.floor(60 * scale);
 
@@ -4119,13 +4208,9 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单');
-                if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) {
-                    // Boss 暂停不走 ModeLifecycle，直接清理
-                    BossBattleMode.cleanup();
-                } else {
-                    var exitMode = modeLifecycle.getPreviousMode() || modeLifecycle.getActiveMode();
-                    modeLifecycle.cleanupMode(exitMode);
-                }
+                PauseCoordinator.instance.resume();
+                var exitMode = modeLifecycle.getPreviousMode() || modeLifecycle.getActiveMode();
+                modeLifecycle.cleanupMode(exitMode);
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
             }
@@ -4135,29 +4220,21 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击重新开始');
-                if (resumeAnimations) resumeAnimations();
-                if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) {
-                    // Boss 暂停直接重新开始 Boss
-                    bossBattleSystem.togglePause();
+                PauseCoordinator.instance.resume();
+                var rMode = modeLifecycle.getPreviousMode();
+                if (rMode === 'boss') {
                     BossBattleMode.cleanup();
                     BossBattleMode.init(BossBattleMode.bossLevel);
                     BossBattleMode.start();
+                } else if (rMode === 'stage') {
+                    stageModeSystem.end(false);
+                    startStage(StageMode.currentStage);
+                } else if (rMode === 'tower') {
+                    towerSystem.restartCurrentCombat();
+                } else if (rMode === 'season') {
+                    startSeasonGame();
                 } else {
-                    var rMode = modeLifecycle.getPreviousMode();
-                    if (rMode === 'boss') {
-                        BossBattleMode.cleanup();
-                        BossBattleMode.init(BossBattleMode.bossLevel);
-                        BossBattleMode.start();
-                    } else if (rMode === 'stage') {
-                        stageModeSystem.end(false);
-                        startStage(StageMode.currentStage);
-                    } else if (rMode === 'tower') {
-                        towerSystem.restartCurrentCombat();
-                    } else if (rMode === 'season') {
-                        startSeasonGame();
-                    } else {
-                        startGame();
-                    }
+                    startGame();
                 }
                 return;
             }
@@ -4167,22 +4244,8 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= resumeBtnY - btnHeight/2 && y <= resumeBtnY + btnHeight/2) {
                 _log('点击继续游戏');
-                if (resumeAnimations) resumeAnimations();
-                // Boss 暂停是自己管理的（不走 ModeLifecycle），恢复也直接走 togglePause
-                if (state === GAME_STATE.BOSS_BATTLE && bossBattleSystem) {
-                    bossBattleSystem.togglePause();
-                } else if (state === GAME_STATE.TOWER_COMBAT) {
-                    modeLifecycle.resumeActive();
-                    stateMachine.transitionTo(GAME_STATE.TOWER_COMBAT);
-                } else {
-                    modeLifecycle.resumeActive();
-                    var resumeMode = modeLifecycle.getActiveMode();
-                    if (resumeMode === 'stage') {
-                        // stage togglePause 自己管理状态
-                    } else {
-                        resumeGame();
-                    }
-                }
+                PauseCoordinator.instance.resume();
+                stateMachine.transitionTo(previousState);
                 return;
             }
     
@@ -4258,7 +4321,7 @@ function handleTouchStart(res) {
                         0,
                         1,
                         null,
-                        { x: screenWidth / 2, y: screenHeight - 50 * getScreenScale() }
+                        { x: screenWidth / 2, y: designBottom - Math.floor(50 * scale) }
                     );
                     applyPoisonStarEffect(pDmg);
                     poisonPuddleSystem.removePoisonStar(pi);
@@ -4271,7 +4334,7 @@ function handleTouchStart(res) {
         const btnHeight = Math.floor(40 * scale);
 
         // 检查是否已解锁青铜小鼎（达到50分）
-        const hasUnlockedStarter = playerData.ownedCharacters && playerData.ownedCharacters.indexOf('char_001') !== -1;
+        const hasUnlockedStarter = saveData.ownedCharacters && saveData.ownedCharacters.indexOf('char_001') !== -1;
 
         // 开始按钮位置
         var startBtnOv = uiConfig ? uiConfig.get('menu_start_btn') : { dx: 0, dy: 0 };
@@ -4303,7 +4366,7 @@ function handleTouchStart(res) {
             // 左下角展开菜单
             var menuBtnSize = Math.floor(50 * scale);
             var menuBtnX = Math.floor(15 * scale);
-            var menuBtnY = screenHeight - Math.floor(65 * scale);
+            var menuBtnY = designBottom - Math.floor(65 * scale);
             var menuItemHeight = Math.floor(40 * scale);
             var menuItemWidth = Math.floor(100 * scale);
             var menuGap = Math.floor(8 * scale);
@@ -4328,7 +4391,7 @@ function handleTouchStart(res) {
                         if (audioSystem) audioSystem.playTowerClick();
                         try {
                             // 检查是否有暂停的进度
-                            if (playerData.infiniteTower && playerData.infiniteTower.isPaused) {
+                            if (saveData.infiniteTower && saveData.infiniteTower.isPaused) {
                                 stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); // 显示选择界面
                             } else {
                                 towerSystem.init();
@@ -4339,8 +4402,8 @@ function handleTouchStart(res) {
                             $P.showToast({ title: '进入失败，请重试', icon: 'none' });
                         }
                     } },
-                    { id: 'fusion', action: () => { state = GAME_STATE.FUSION; } },
-                    { id: 'upgrade', action: () => { state = GAME_STATE.UPGRADE; } }
+                    // { id: 'fusion', action: () => { state = GAME_STATE.FUSION; } },
+                    // { id: 'upgrade', action: () => { state = GAME_STATE.UPGRADE; } }
                 ];
 
                 for (let mi = 0; mi < menuItems.length; mi++) {
@@ -4350,7 +4413,7 @@ function handleTouchStart(res) {
                     if (x >= itemX && x <= itemX + menuItemWidth &&
                         y >= itemY && y <= itemY + menuItemHeight) {
                         uiScrollState.menuExpanded = false;
-                        var unlockCheck = isModeUnlocked(menuItems[mi].id, playerData, bestScore);
+                        var unlockCheck = isModeUnlocked(menuItems[mi].id, saveData, bestScore);
                         if (!unlockCheck.unlocked) {
                             $P.showToast({ title: unlockCheck.hint, icon: 'none', duration: 1500 });
                             return;
@@ -4393,7 +4456,7 @@ function handleTouchStart(res) {
             const settingIconSize = Math.floor(32 * scale);
             var settingsOv = uiConfig ? uiConfig.get('menu_settings_icon') : { dx: 0, dy: 0 };
             var settingsTapX = Math.floor(18 * scale) + settingsOv.dx * scale;
-            var settingsTapY = Math.floor(15 * scale) + settingsOv.dy * scale;
+            var settingsTapY = getDesignOffsetY() + Math.floor(15 * scale) + settingsOv.dy * scale;
             if (x >= settingsTapX && x <= settingsTapX + settingIconSize &&
                 y >= settingsTapY && y <= settingsTapY + settingIconSize) {
                 _log('点击设置按钮');
@@ -4402,7 +4465,7 @@ function handleTouchStart(res) {
 
             // 任务按钮位置（设置图标下方）
             const taskIconSize = Math.floor(40 * scale);
-            const taskIconY = Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
+            const taskIconY = getDesignOffsetY() + Math.floor(15 * scale) + settingIconSize + Math.floor(10 * scale);
             if (x >= Math.floor(15 * scale) && x <= Math.floor(15 * scale) + taskIconSize &&
                 y >= taskIconY && y <= taskIconY + taskIconSize) {
                 _log('点击任务按钮');
@@ -4412,7 +4475,7 @@ function handleTouchStart(res) {
 
             // 角色图标点击（进入编队系统）
             var baseX = screenWidth - Math.floor(180 * scale);
-            var baseY = screenHeight - Math.floor(92 * scale);
+            var baseY = designBottom - Math.floor(92 * scale);
             var rightX = baseX + Math.floor(90 * scale);
             var rightY = baseY - Math.floor(2 * scale);
             var iconSize = Math.floor(50 * scale);
@@ -4439,7 +4502,7 @@ function handleTouchStart(res) {
         var tabHeight = Math.floor(30 * scale);
         var tabGap = Math.floor(5 * scale);
         var startX = (screenWidth - (tabWidth * 6 + tabGap * 5)) / 2;
-        var tabY = Math.floor(110 * scale);
+        var tabY = getDesignOffsetY() + Math.floor(110 * scale);
 
         // 材料标签按钮
         if (x >= startX && x <= startX + tabWidth &&
@@ -4508,7 +4571,7 @@ function handleTouchStart(res) {
         }
         
         // 商品购买处理
-        var startY = Math.floor(160 * scale);
+        var startY = getDesignOffsetY() + Math.floor(160 * scale);
         var itemHeight = Math.floor(80 * scale);
         var padding = Math.floor(10 * scale);
         var btnW = Math.floor(80 * scale);
@@ -4527,7 +4590,7 @@ function handleTouchStart(res) {
             itemHeight = Math.floor(100 * scale);
             padding = Math.floor(15 * scale);
         } else if (uiScrollState.shopTab === 'pets') {
-            var _purchasedPets = (playerData && playerData.purchasedShopPets) || [];
+            var _purchasedPets = (saveData && saveData.purchasedShopPets) || [];
             items = ShopItems.pets.filter(function(p) { return _purchasedPets.indexOf(p.id) === -1; });
             startY += Math.floor(20 * scale);
             itemHeight = Math.floor(85 * scale);
@@ -4585,7 +4648,7 @@ function handleTouchStart(res) {
         const tabWidth = Math.floor(100 * scale);
         const tabHeight = Math.floor(40 * scale);
         const tabGap = Math.floor(10 * scale);
-        const tabY = Math.floor(80 * scale);
+        const tabY = getDesignOffsetY() + Math.floor(80 * scale);
         const totalTabWidth = tabWidth * 3 + tabGap * 2;
         const tabStartX = (screenWidth - totalTabWidth) / 2;
 
@@ -4633,7 +4696,7 @@ function handleTouchStart(res) {
         
         const settingBtnWidth = Math.floor(140 * scale);
         const settingBtnHeight = Math.floor(40 * scale);
-        const settingStartY = Math.floor(160 * scale);
+        const settingStartY = getDesignOffsetY() + Math.floor(160 * scale);
         const randomBtnY = settingStartY + Math.floor(40 * scale);
         const btnGap = Math.floor(20 * scale);
 
@@ -4643,9 +4706,9 @@ function handleTouchStart(res) {
             y >= randomBtnY - settingBtnHeight/2 && y <= randomBtnY + settingBtnHeight/2) {
             _log('选择随机模式');
             starMode = STAR_MODE.RANDOM;
-            playerData.starMode = starMode;
+            saveData.starMode = starMode;
             if (starSystem) starSystem.setStarMode(starMode);
-            savePlayerData();
+            dataStore.flush();
             // 任务：切换游戏模式
             updateTaskProgress('switch_mode', 1);
             updateTaskStats('modeSwitched', 1);
@@ -4663,9 +4726,9 @@ function handleTouchStart(res) {
             y >= randomBtnY - settingBtnHeight/2 && y <= randomBtnY + settingBtnHeight/2) {
             _log('选择下落模式');
             starMode = STAR_MODE.FALLING;
-            playerData.starMode = starMode;
+            saveData.starMode = starMode;
             if (starSystem) starSystem.setStarMode(starMode);
-            savePlayerData();
+            dataStore.flush();
             // 任务：切换游戏模式
             updateTaskProgress('switch_mode', 1);
             updateTaskStats('modeSwitched', 1);
@@ -4680,7 +4743,8 @@ function handleTouchStart(res) {
     } else if (state === GAME_STATE.TASKS) {
         // 任务界面触摸处理
         const scale = getScreenScale();
-        const tabY = Math.floor(100 * scale);
+        var designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * scale), screenHeight);
+        const tabY = getDesignOffsetY() + Math.floor(100 * scale);
         const tabWidth = Math.floor(100 * scale);
         const tabHeight = Math.floor(36 * scale);
         const tabGap = Math.floor(10 * scale);
@@ -4716,12 +4780,12 @@ function handleTouchStart(res) {
 
         // 任务列表点击处理
         const tasks = getTasksWithProgress(tasksTab);
-        const listStartY = Math.floor(150 * scale);
+        const listStartY = getDesignOffsetY() + Math.floor(150 * scale);
         const itemHeight = tasksTab === 'guide' ? Math.floor(95 * scale) : Math.floor(85 * scale);
 
         tasks.forEach((task, index) => {
             const itemY = listStartY + index * itemHeight - tasksScrollY;
-            if (itemY + itemHeight > screenHeight - Math.floor(80 * scale) || itemY < listStartY) return;
+            if (itemY + itemHeight > designBottom - Math.floor(80 * scale) || itemY < listStartY) return;
 
             // 引导任务：未解锁的不可点击
             const isLocked = tasksTab === 'guide' && !task.unlocked;
@@ -4763,7 +4827,7 @@ function handleTouchStart(res) {
         // 章节切换
         var leftBtnX = Math.floor(30 * scale);
         var rightBtnX = screenWidth - Math.floor(70 * scale);
-        var btnY = Math.floor(85 * scale);
+        var btnY = getDesignOffsetY() + Math.floor(85 * scale);
         var navBtnSize = Math.floor(40 * scale);
         
         if (selectedChapter > 1 && x >= leftBtnX && x <= leftBtnX + navBtnSize && y >= btnY && y <= btnY + Math.floor(40 * scale)) {
@@ -4779,7 +4843,7 @@ function handleTouchStart(res) {
         
         // 关卡点击
         var chapter = CHAPTERS[selectedChapter];
-        var startY = Math.floor(150 * scale);
+        var startY = getDesignOffsetY() + Math.floor(150 * scale);
         var stageHeight = Math.floor(120 * scale);
         var padding = Math.floor(15 * scale);
         
@@ -4801,10 +4865,11 @@ function handleTouchStart(res) {
     } else if (state === GAME_STATE.STAGE_RESULT) {
         // ===== 闯关结算界面点击处理 =====
         const scale = getScreenScale();
+        var designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * scale), screenHeight);
         var btnWidth = Math.floor(120 * scale);
         var btnHeight = Math.floor(45 * scale);
-        var btnY = screenHeight - Math.floor(100 * scale);
-        
+        var btnY = designBottom - Math.floor(100 * scale);
+
         // 重试按钮（居中）
         if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
             y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
@@ -4891,7 +4956,8 @@ function handleTouchStart(res) {
         }
         
         const scale = getScreenScale();
-        
+        var designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * scale), screenHeight);
+
         // ===== 返回按钮检测（最高优先级）=====
         if (isBackButtonClicked(x, y)) {
             _log('点击返回按钮');
@@ -4900,7 +4966,7 @@ function handleTouchStart(res) {
         }
         
         // ===== 底部按钮检测（第二优先级）=====
-        const btnY = screenHeight - Math.floor(70 * scale);
+        const btnY = designBottom - Math.floor(70 * scale);
         const btnWidth = Math.floor(100 * scale);
         const btnHeight = Math.floor(40 * scale);
         
@@ -4911,9 +4977,9 @@ function handleTouchStart(res) {
             _log('点击重置按钮');
             seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
             // 同步清除持久化记忆
-            if (playerData && playerData.seasonData) {
-                playerData.seasonData.selection = { character: null, skills: [], pet: null, starTypes: [] };
-                savePlayerData(true);
+            if (saveData && saveData.seasonData) {
+                saveData.seasonData.selection = { character: null, skills: [], pet: null, starTypes: [] };
+                dataStore.flush();
             }
             return;
         }
@@ -4929,7 +4995,7 @@ function handleTouchStart(res) {
         }
         
         // ===== 内容区域点击检测 =====
-        let currentY = Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;  // 添加滚动偏移，与渲染函数一致
+        let currentY = getDesignOffsetY() + Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;  // 添加滚动偏移，与渲染函数一致
         
         // 角色选择
         currentY += Math.floor(25 * scale);
@@ -5088,7 +5154,7 @@ function handleTouchStart(res) {
 
 
 // 开始游戏
-// ========== startGame, startSeasonGame, endSeasonGame, pauseGame, resumeGame, restartGame, endGame ==========
+// ========== startGame, startSeasonGame, endSeasonGame, restartGame, endGame ==========
 
 // 显示激励视频广告
 
@@ -5105,7 +5171,7 @@ var DESIGN_HEIGHT = 812;
 
 // 获取屏幕缩放比例（保留 — init() 中多系统初始化依赖）
 function getScreenScale() {
-    return Math.max(0.7, Math.min(1.0, screenWidth / DESIGN_WIDTH));
+    return Math.max(0.7, screenWidth / DESIGN_WIDTH);
 }
 
 // 设计区域垂直偏移：高屏居中，矮屏贴底
@@ -5127,7 +5193,7 @@ function initOpenDataContext() {
         // 设置 sharedCanvas 尺寸（只能在主域设置）
         if (leaderboardSharedCanvas) {
             var scale = getScreenScale();
-            var listStartY = Math.floor(140 * scale);
+            var listStartY = getDesignOffsetY() + Math.floor(140 * scale);
             leaderboardSharedCanvas.width = screenWidth;
             leaderboardSharedCanvas.height = screenHeight - listStartY;
         }
@@ -5140,7 +5206,7 @@ function initOpenDataContext() {
 function sendLeaderboardMessage(type, tab) {
     if (!openDataContext) return;
     var scale = getScreenScale();
-    var listStartY = Math.floor(140 * scale);
+    var listStartY = getDesignOffsetY() + Math.floor(140 * scale);
     var listH = screenHeight - listStartY;
     openDataContext.postMessage({
         type: type,
@@ -5167,6 +5233,24 @@ function sendLeaderboardMessage(type, tab) {
 
 // 主渲染循环
 function render() {
+    // 检测屏幕尺寸变更（浏览器缩放/窗口resize），在渲染帧开头统一处理
+    if (_screenNeedsUpdate) {
+        _screenNeedsUpdate = false;
+        var info = $P.getSystemInfoSync();
+        var newW = info.windowWidth;
+        var newH = info.windowHeight;
+        var newDpr = info.pixelRatio || 1;
+        if (newW !== screenWidth || newH !== screenHeight) {
+            screenWidth = newW;
+            screenHeight = newH;
+            canvas.width = screenWidth * newDpr;
+            canvas.height = screenHeight * newDpr;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.scale(newDpr, newDpr);
+            _log('屏幕变更:', screenWidth, 'x', screenHeight, 'DPR:', newDpr);
+        }
+    }
+
     // 计算帧间隔
     var now = Date.now();
     if (!render._lastFrameTime) render._lastFrameTime = now;
@@ -5336,7 +5420,7 @@ function render() {
         if (_renderer) _renderer();
         
         // 主界面显示挂机按钮（Boss首杀后解锁）
-        if (state === GAME_STATE.MENU && playerData.firstBossKilled) {
+        if (state === GAME_STATE.MENU && saveData.firstBossKilled) {
             renderAfkButton();
         }
         
@@ -5407,9 +5491,10 @@ function render() {
         if (devBattleSystem && (state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING)) {
             if (!devBattleSystem.isVisible()) {
                 var dbtnScale = getScreenScale();
+                var dbDesignBottom = Math.min(getDesignOffsetY() + Math.floor(812 * dbtnScale), screenHeight);
                 var dbtnSize = Math.floor(36 * dbtnScale);
                 var dbtnX = Math.floor(12 * dbtnScale);
-                var dbtnY = screenHeight - Math.floor(56 * dbtnScale);
+                var dbtnY = dbDesignBottom - Math.floor(56 * dbtnScale);
                 ctx.save();
                 ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
                 ctx.fillRect(dbtnX, dbtnY, dbtnSize, dbtnSize);
@@ -5540,25 +5625,25 @@ function handleTouchMove(res) {
             
             // 实时限制滚动范围，避免弹簧回弹
             var scale = getScreenScale();
-            var startY = Math.floor(100 * scale);
+            var startY = getDesignOffsetY() + Math.floor(100 * scale);
             var clipOffset = Math.floor(30 * scale); // contentTop(20) + contentBottom(10)
             var visibleHeight = screenHeight - startY - clipOffset;
             var maxScroll = 0;
 
             if (uiScrollState.backpackTab === 'characters') {
-                var ownedCharacters = playerData.ownedCharacters || [];
+                var ownedCharacters = saveData.ownedCharacters || [];
                 var uniqueCharIds = [...new Set(ownedCharacters)];
                 var charItemHeight = Math.floor(100 * scale);
                 var charPadding = Math.floor(15 * scale);
                 var totalHeight = uniqueCharIds.length * (charItemHeight + charPadding);
                 maxScroll = Math.max(0, totalHeight - visibleHeight);
             } else if (uiScrollState.backpackTab === 'materials') {
-                var materialIds = Object.keys(playerData.materials);
+                var materialIds = Object.keys(saveData.materials);
                 var matItemHeight = Math.floor(80 * scale);
                 var matPadding = Math.floor(10 * scale);
                 var visibleCount = 0;
                 for (let j = 0; j < materialIds.length; j++) {
-                    if (playerData.materials[materialIds[j]].quantity > 0) visibleCount++;
+                    if (saveData.materials[materialIds[j]].quantity > 0) visibleCount++;
                 }
                 var totalHeight = visibleCount * (matItemHeight + matPadding);
                 maxScroll = Math.max(0, totalHeight - visibleHeight);
@@ -5567,10 +5652,10 @@ function handleTouchMove(res) {
                 var starPadding = Math.floor(10 * scale);
                 // 计算已解锁灵韵数量（与渲染函数一致）
                 var starCount = 1; // 灵韵始终解锁
-                if (playerData.unlockedStarTypes) {
-                    for (let s = 0; s < playerData.unlockedStarTypes.length; s++) {
+                if (saveData.unlockedStarTypes) {
+                    for (let s = 0; s < saveData.unlockedStarTypes.length; s++) {
                         // 排除 normal，因为已经计算了
-                        if (playerData.unlockedStarTypes[s] !== 'normal') {
+                        if (saveData.unlockedStarTypes[s] !== 'normal') {
                             starCount++;
                         }
                     }
@@ -5583,14 +5668,14 @@ function handleTouchMove(res) {
                 var itemsConfigArr = ['starChest', 'healPotion', 'timePotion', 'expPotionSmall', 'expPotionMedium', 'expPotionLarge'];
                 var itemCount = 0;
                 for (let k = 0; k < itemsConfigArr.length; k++) {
-                    if (playerData.items && playerData.items[itemsConfigArr[k]] && playerData.items[itemsConfigArr[k]].quantity > 0) {
+                    if (saveData.items && saveData.items[itemsConfigArr[k]] && saveData.items[itemsConfigArr[k]].quantity > 0) {
                         itemCount++;
                     }
                 }
                 var totalHeight = itemCount * (itemsItemHeight + itemsPadding);
                 maxScroll = Math.max(0, totalHeight - visibleHeight);
             } else if (uiScrollState.backpackTab === 'equipments') {
-                var ownedEquipments = playerData.equipments ? playerData.equipments.owned : [];
+                var ownedEquipments = saveData.equipments ? saveData.equipments.owned : [];
                 var equipItemHeight = Math.floor(85 * scale);
                 var equipPadding = Math.floor(10 * scale);
                 // 只计算有效装备数量（排除Equipments中找不到的）
@@ -5602,13 +5687,13 @@ function handleTouchMove(res) {
                 var totalHeight = validEquipCount * (equipItemHeight + equipPadding);
                 maxScroll = Math.max(0, totalHeight - visibleHeight);
             } else if (uiScrollState.backpackTab === 'skills') {
-                var ownedSkills = playerData.skills ? playerData.skills.owned : [];
+                var ownedSkills = saveData.skills ? saveData.skills.owned : [];
                 var skillItemHeight = Math.floor(85 * scale);
                 var skillPadding = Math.floor(10 * scale);
                 var totalHeight = ownedSkills.length * (skillItemHeight + skillPadding);
                 maxScroll = Math.max(0, totalHeight - visibleHeight);
             } else if (uiScrollState.backpackTab === 'pets') {
-                var ownedPets = playerData.pets ? playerData.pets.owned : [];
+                var ownedPets = saveData.pets ? saveData.pets.owned : [];
                 var petItemHeight = Math.floor(85 * scale);
                 var petPadding = Math.floor(10 * scale);
                 var totalHeight = ownedPets.length * (petItemHeight + petPadding);
@@ -5803,7 +5888,7 @@ function handleTouchEnd(res) {
         }
 
         // 挂机界面触摸处理（最高优先级，Boss首杀后解锁）
-        if (playerData.firstBossKilled && afkSystem.popupVisible && handleAfkPopupTouch(x, y)) {
+        if (saveData.firstBossKilled && afkSystem.popupVisible && handleAfkPopupTouch(x, y)) {
             return;
         }
 
@@ -5822,12 +5907,12 @@ function handleTouchEnd(res) {
         }
 
         // 挂机奖励结果弹窗触摸处理
-        if (playerData.firstBossKilled && afkSystem.resultVisible && handleAfkResultTouch(x, y)) {
+        if (saveData.firstBossKilled && afkSystem.resultVisible && handleAfkResultTouch(x, y)) {
             return;
         }
 
         // 主界面挂机按钮触摸
-        if (state === GAME_STATE.MENU && playerData.firstBossKilled && handleAfkButtonTouch(x, y)) {
+        if (state === GAME_STATE.MENU && saveData.firstBossKilled && handleAfkButtonTouch(x, y)) {
             return;
         }
 
@@ -5913,7 +5998,7 @@ function handleTouchEnd(res) {
             var tabHeight = Math.floor(45 * scale);
             var tabGap = Math.floor(5 * scale);
             var tabX = screenWidth - tabWidth;
-            var startTabY = Math.floor(100 * scale);
+            var startTabY = getDesignOffsetY() + Math.floor(100 * scale);
             var tabLabels = ['materials', 'characters', 'stars', 'items', 'equipments', 'skills', 'pets', 'faith'];
             var tabNames = ['材料', '角色', '灵韵', '道具', '装备', '技能', '宠物', '信仰'];
             
@@ -5943,7 +6028,7 @@ function handleTouchEnd(res) {
         // 材料使用按钮点击检测
         if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'materials' && endTouch) {
             var scale = getScreenScale();
-            var startY = Math.floor(100 * scale);
+            var startY = getDesignOffsetY() + Math.floor(100 * scale);
             var contentTop = startY + Math.floor(20 * scale);
             var materialItemHeight = Math.floor(80 * scale);
             var padding = Math.floor(10 * scale);
@@ -5953,13 +6038,13 @@ function handleTouchEnd(res) {
             var useBtnH = Math.floor(25 * scale);
             var useBtnX = screenWidth - tabAreaWidth - useBtnW - Math.floor(50 * scale);
             
-            var materialIds = Object.keys(playerData.materials);
+            var materialIds = Object.keys(saveData.materials);
             var displayIndex = 0;
             
             for (let i = 0; i < materialIds.length; i++) {
                 var materialId = materialIds[i];
                 var material = Materials[materialId];
-                var materialData = playerData.materials[materialId];
+                var materialData = saveData.materials[materialId];
                 
                 // 与渲染函数一致的过滤条件
                 if (!material || !material.name || !material.emoji) {
@@ -5985,7 +6070,7 @@ function handleTouchEnd(res) {
         // 道具点击检测（灵韵宝箱等）
         if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'items' && endTouch) {
             var scale = getScreenScale();
-            var startY = Math.floor(100 * scale);
+            var startY = getDesignOffsetY() + Math.floor(100 * scale);
             var contentTop = startY + Math.floor(20 * scale);
             var itemHeight = Math.floor(80 * scale);
             var padding = Math.floor(10 * scale);
@@ -6002,7 +6087,7 @@ function handleTouchEnd(res) {
             var displayIndex = 0;
             for (let i = 0; i < itemsConfig.length; i++) {
                 var itemConfig = itemsConfig[i];
-                var itemData = playerData.items ? playerData.items[itemConfig.id] : null;
+                var itemData = saveData.items ? saveData.items[itemConfig.id] : null;
                 
                 if (!itemData || itemData.quantity <= 0) continue;
                 
@@ -6025,7 +6110,7 @@ function handleTouchEnd(res) {
         // 灵韵升级按钮点击检测
         if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'stars' && endTouch) {
             var scale = getScreenScale();
-            var startY = Math.floor(100 * scale);
+            var startY = getDesignOffsetY() + Math.floor(100 * scale);
             var contentTop = startY + Math.floor(20 * scale);
             var starItemHeight = Math.floor(80 * scale);
             var padding = Math.floor(10 * scale);
@@ -6045,7 +6130,7 @@ function handleTouchEnd(res) {
                 var starId = allStarTypes[j].id;
                 if (starId === 'normal') {
                     unlockedStars.push(allStarTypes[j]);
-                } else if (playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf(starId) !== -1) {
+                } else if (saveData.unlockedStarTypes && saveData.unlockedStarTypes.indexOf(starId) !== -1) {
                     unlockedStars.push(allStarTypes[j]);
                 }
             }
@@ -6057,8 +6142,8 @@ function handleTouchEnd(res) {
                 
                 if (!isIceStar && !isFireStar) continue;
                 
-                var starLevel = isIceStar ? (playerData.iceStarLevel || 0) : (playerData.fireStarLevel || 0);
-                var maxLevel = isIceStar ? (playerData.maxIceStarLevel || 10) : (playerData.maxFireStarLevel || 10);
+                var starLevel = isIceStar ? (saveData.iceStarLevel || 0) : (saveData.fireStarLevel || 0);
+                var maxLevel = isIceStar ? (saveData.maxIceStarLevel || 10) : (saveData.maxFireStarLevel || 10);
                 
                 if (starLevel >= maxLevel) continue; // 已满级，没有升级按钮
                 
@@ -6081,13 +6166,13 @@ function handleTouchEnd(res) {
         // 角色点击检测（仅在非拖拽状态下，且触摸开始时就在背包）
         if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'characters' && endTouch) {
             var scale = getScreenScale();
-            var startY = Math.floor(100 * scale);
+            var startY = getDesignOffsetY() + Math.floor(100 * scale);
             var contentTop = startY + Math.floor(20 * scale);
             var characterItemHeight = Math.floor(100 * scale);
             var padding = Math.floor(15 * scale);
 
-            if (playerData.ownedCharacters && playerData.ownedCharacters.length > 0) {
-                var clickCharIds = [...new Set(playerData.ownedCharacters)];
+            if (saveData.ownedCharacters && saveData.ownedCharacters.length > 0) {
+                var clickCharIds = [...new Set(saveData.ownedCharacters)];
                 for (let i = 0; i < clickCharIds.length; i++) {
                     var currentCharId = clickCharIds[i];
                     var itemY = contentTop + i * (characterItemHeight + padding) - uiScrollState.backpackScrollY;
@@ -6096,8 +6181,8 @@ function handleTouchEnd(res) {
                     if (endY >= itemY && endY <= itemY + characterItemHeight) {
                         // 切换到该角色
                         _log('切换角色到:', currentCharId);
-                        playerData.currentCharacterId = currentCharId;
-                        savePlayerData();
+                        saveData.currentCharacterId = currentCharId;
+                        dataStore.flush();
 
                         // 显示提示
                         var mappedCharId = getCharacterKey(currentCharId);
@@ -6134,10 +6219,10 @@ function handleTouchEnd(res) {
         // 信仰标签页点击检测
         if (!wasDragging && wasInBackpackAtStart && uiScrollState.backpackTab === 'faith' && endTouch) {
             var scale = getScreenScale();
-            var btnY = Math.floor(100 * scale) + Math.floor(130 * scale) + Math.floor(130 * scale);
+            var btnY = getDesignOffsetY() + Math.floor(100 * scale) + Math.floor(130 * scale) + Math.floor(130 * scale);
             var contentWidth = screenWidth - Math.floor(60 * scale);
             
-            var currentCharId = playerData.currentCharacterId;
+            var currentCharId = saveData.currentCharacterId;
             if (!currentCharId) {
                 $P.showToast({ title: '请先选择角色', icon: 'none', duration: 1500 });
                 return;
@@ -6236,7 +6321,7 @@ function handleTouchEnd(res) {
         
         // 限制滚动范围
         var scale = getScreenScale();
-        var startY = Math.floor(100 * scale);
+        var startY = getDesignOffsetY() + Math.floor(100 * scale);
         var itemHeight = Math.floor(85 * scale);
         var padding = Math.floor(10 * scale);
         var clipOffset = Math.floor(30 * scale);
@@ -6245,19 +6330,19 @@ function handleTouchEnd(res) {
 
         // 计算最大滚动量
         if (uiScrollState.backpackTab === 'characters') {
-            var ownedCharacters = playerData.ownedCharacters || [];
+            var ownedCharacters = saveData.ownedCharacters || [];
             var uniqueCharIds = [...new Set(ownedCharacters)];
             var charItemHeight = Math.floor(100 * scale);
             var charPadding = Math.floor(15 * scale);
             var totalHeight = uniqueCharIds.length * (charItemHeight + charPadding);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (uiScrollState.backpackTab === 'materials') {
-            var materialIds = Object.keys(playerData.materials);
+            var materialIds = Object.keys(saveData.materials);
             var matItemHeight = Math.floor(80 * scale);
             var matPadding = Math.floor(10 * scale);
             var visibleCount = 0;
             for (let j = 0; j < materialIds.length; j++) {
-                if (playerData.materials[materialIds[j]].quantity > 0) visibleCount++;
+                if (saveData.materials[materialIds[j]].quantity > 0) visibleCount++;
             }
             var totalHeight = visibleCount * (matItemHeight + matPadding);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
@@ -6265,9 +6350,9 @@ function handleTouchEnd(res) {
             var starItemHeight = Math.floor(80 * scale);
             var starPadding = Math.floor(10 * scale);
             var starCount = 1;
-            if (playerData.unlockedStarTypes) {
-                for (let s = 0; s < playerData.unlockedStarTypes.length; s++) {
-                    if (playerData.unlockedStarTypes[s] !== 'normal') {
+            if (saveData.unlockedStarTypes) {
+                for (let s = 0; s < saveData.unlockedStarTypes.length; s++) {
+                    if (saveData.unlockedStarTypes[s] !== 'normal') {
                         starCount++;
                     }
                 }
@@ -6280,22 +6365,22 @@ function handleTouchEnd(res) {
             var itemsConfig = ['starChest', 'healPotion', 'timePotion', 'expPotionSmall', 'expPotionMedium', 'expPotionLarge'];
             var itemCount = 0;
             for (let k = 0; k < itemsConfig.length; k++) {
-                if (playerData.items && playerData.items[itemsConfig[k]] && playerData.items[itemsConfig[k]].quantity > 0) {
+                if (saveData.items && saveData.items[itemsConfig[k]] && saveData.items[itemsConfig[k]].quantity > 0) {
                     itemCount++;
                 }
             }
             var totalHeight = itemCount * (itemsItemHeight + itemsPadding);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (uiScrollState.backpackTab === 'equipments') {
-            var ownedEquipments = playerData.equipments ? playerData.equipments.owned : [];
+            var ownedEquipments = saveData.equipments ? saveData.equipments.owned : [];
             var totalHeight = ownedEquipments.length * (itemHeight + padding);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (uiScrollState.backpackTab === 'skills') {
-            var ownedSkills = playerData.skills ? playerData.skills.owned : [];
+            var ownedSkills = saveData.skills ? saveData.skills.owned : [];
             var totalHeight = ownedSkills.length * (itemHeight + padding);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (uiScrollState.backpackTab === 'pets') {
-            var ownedPets = playerData.pets ? playerData.pets.owned : [];
+            var ownedPets = saveData.pets ? saveData.pets.owned : [];
             var totalHeight = ownedPets.length * (itemHeight + padding);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (uiScrollState.backpackTab === 'faith') {
@@ -6314,7 +6399,7 @@ function handleTouchEnd(res) {
         
         var scale = getScreenScale();
         var tasks = getTasksWithProgress(tasksTab);
-        var listStartY = Math.floor(150 * scale);
+        var listStartY = getDesignOffsetY() + Math.floor(150 * scale);
         var itemHeight = tasksTab === 'guide' ? Math.floor(95 * scale) : Math.floor(85 * scale);
         var totalHeight = tasks.length * itemHeight;
         var visibleHeight = screenHeight - listStartY - Math.floor(80 * scale);
@@ -6329,7 +6414,7 @@ function handleTouchEnd(res) {
         uiScrollState.shopLastTouchY = 0;
         
         var scale = getScreenScale();
-        var startY = Math.floor(160 * scale);
+        var startY = getDesignOffsetY() + Math.floor(160 * scale);
         var itemHeight = Math.floor(80 * scale);
         var padding = Math.floor(10 * scale);
         var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
@@ -6353,7 +6438,7 @@ function handleTouchEnd(res) {
         uiScrollState.leaderboardLastTouchY = 0;
         
         var scale = getScreenScale();
-        var startY = Math.floor(120 * scale);
+        var startY = getDesignOffsetY() + Math.floor(120 * scale);
         var itemHeight = Math.floor(50 * scale);
         var visibleHeight = screenHeight - startY - Math.floor(80 * scale);
         var totalHeight = 10 * itemHeight;  // 10条记录
@@ -6373,7 +6458,7 @@ function handleTouchEnd(res) {
         uiScrollState.stageSelectLastTouchY = 0;
         
         var scale = getScreenScale();
-        var startY = Math.floor(100 * scale);
+        var startY = getDesignOffsetY() + Math.floor(100 * scale);
         var itemHeight = Math.floor(80 * scale);
         var visibleHeight = screenHeight - startY - Math.floor(100 * scale);
         var totalHeight = 9 * itemHeight;  // 9个关卡
@@ -6465,8 +6550,9 @@ if (typeof module !== 'undefined' && module.exports) {
         getTimeLeft: function() { return timeLeft; },
         getStars: function() { return stars; },
         getMonsters: function() { return monsters; },
-        getPlayerData: function() { return playerData; },
-        getPlayerHp: function() { return playerData.playerHp; },
+        getSaveData: function() { return saveData; },
+        getRuntimeData: function() { return runtimeData; },
+        getPlayerHp: function() { return saveData.playerHp; },
         getBestScore: function() { return bestScore; },
         getMonstersKilled: function() { return monstersKilled; },
         getPauseStartTime: function() { return pauseStartTime; },
@@ -6480,8 +6566,6 @@ if (typeof module !== 'undefined' && module.exports) {
         // 控制
         startGame: function() { if (startGame) startGame(); },
         endGame: function() { if (endGame) endGame(); },
-        pauseGame: function() { if (pauseGame) pauseGame(); },
-        resumeGame: function() { if (resumeGame) resumeGame(); },
         startSeasonGame: function() { if (startSeasonGame) startSeasonGame(); },
         initSeasonContent: function() { if (initSeasonContent) initSeasonContent(); },
         setSeasonSelection: function(val) { seasonSelection = val; },

@@ -9,6 +9,7 @@ function createPoisonPuddleSystem(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getCtx = deps.getCtx;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     var poisonPuddles = [];
     var poisonStars = [];
@@ -17,6 +18,9 @@ function createPoisonPuddleSystem(deps) {
         var scale = getScreenScale();
         var screenW = getScreenWidth();
         var screenH = getScreenHeight();
+        var designOffsetY = getDesignOffsetY();
+        var DESIGN_HEIGHT = 812;
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenH);
         var count = skill.puddleCount || 3;
         var radius = (skill.puddleRadius || 65) * scale;
         var duration = 8000;
@@ -26,9 +30,9 @@ function createPoisonPuddleSystem(deps) {
             var px, py, overlap, attempts = 0;
             do {
                 px = monsterX + (Math.random() - 0.5) * 200 * scale;
-                py = screenH * 0.55 + Math.random() * screenH * 0.25;
+                py = designOffsetY + Math.floor(447 * scale) + Math.random() * Math.floor(203 * scale);
                 px = Math.max(radius + 10, Math.min(screenW - radius - 10, px));
-                py = Math.max(radius + 10, Math.min(screenH - radius - 10, py));
+                py = Math.max(designOffsetY + radius + Math.floor(10 * scale), Math.min(designBottom - radius - Math.floor(10 * scale), py));
                 overlap = false;
                 for (let oi = 0; oi < poisonPuddles.length; oi++) {
                     var odx = px - poisonPuddles[oi].x;

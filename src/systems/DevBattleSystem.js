@@ -19,6 +19,7 @@ function createDevBattleSystem(deps) {
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
     var getBattleEngine = deps.getBattleEngine;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
     var onToggle = deps.onToggle || null;
     var onSpecChanged = deps.onSpecChanged || null;
 
@@ -177,7 +178,7 @@ function createDevBattleSystem(deps) {
 
         // 面板
         var panelX = Math.floor(10 * scale);
-        var panelY = Math.floor(10 * scale);
+        var panelY = getDesignOffsetY() + Math.floor(10 * scale);
         var panelW = sw - Math.floor(20 * scale);
         var panelH = sh - Math.floor(20 * scale);
 
@@ -508,7 +509,7 @@ function createDevBattleSystem(deps) {
         var sh = getScreenHeight();
         var scale = getScreenScale();
         var panelX = Math.floor(10 * scale);
-        var panelY = Math.floor(10 * scale);
+        var panelY = getDesignOffsetY() + Math.floor(10 * scale);
         var panelW = sw - Math.floor(20 * scale);
         var panelH = sh - Math.floor(20 * scale);
 

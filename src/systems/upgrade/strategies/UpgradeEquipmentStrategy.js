@@ -6,7 +6,7 @@
 import { UPGRADE_CONFIG } from '../../../config/UpgradeConfig.js';
 
 function createUpgradeEquipmentStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getEquipments = deps.getEquipments;
     var type = 'equipment';
 

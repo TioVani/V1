@@ -4,7 +4,8 @@ import { SATURATION_COSTS } from './SaturationState.js';
  * D4 灵光联连系统（Link Chain System）
  * 闭包工厂 + 依赖注入模式
  *
- * 生命周期: idle → revealing → waiting → swiping → judging → cooldown → idle
+ * 生命周期: idle → ready → revealing → waiting → swiping → judging → idle
+ *          idle → ready → rhythm_ready → idle (双阶段充能)
  * - 逐个揭示灵光（每颗300ms发光+链线延伸）
  * - 揭示完毕等500ms → 超时则闪烁200ms失效
  * - 玩家滑动匹配灵光（≥2颗有效）
@@ -23,7 +24,10 @@ var READY_HIT_RADIUS = 40;      // 触发灵光触摸判定半径
 var WAIT_TIMEOUT_MS = 2000;
 var IDLE_TIMEOUT_MS = 500;
 var FLASH_DURATION_MS = 1000;
-var COOLDOWN_MS = 8000;
+var LINK_THRESHOLD = 100;
+var RHYTHM_THRESHOLD = 200;
+var LINK_COST = 100;
+var RHYTHM_COST = 200;
 var MIN_LINKED_STARS = 3;
 var MAX_LINKED_STARS = 7;
 var MIN_MATCHED = 3;
@@ -35,7 +39,8 @@ var IDLE_THRESHOLD = 5;
 var CHAIN_MULTIPLIERS = { 3: 3.0, 4: 4.5, 5: 6.0, 6: 8.0, 7: 12.0 };
 
 function createLinkChainSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
+    var isTutorialComplete = deps.isTutorialComplete;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
@@ -49,10 +54,12 @@ function createLinkChainSystem(deps) {
     var addScore = deps.addScore || function () { };
     var saturationState = deps.saturationState;
     var getBeautyFrames = deps.getBeautyFrames || function () { return []; };
+    var rhythmSkillSystem = deps.rhythmSkillSystem || null;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // 内部状态
     var state = {
-        phase: 'idle',               // idle|ready|revealing|waiting|swiping|judging|cooldown
+        phase: 'idle',               // idle|ready|revealing|waiting|swiping|judging
         charge: 0,
         linkedStars: [],
         matchedIndices: [],
@@ -70,7 +77,6 @@ function createLinkChainSystem(deps) {
         idleSinceTime: 0,
         lastSwipeX: 0, lastSwipeY: 0,
         isSlowMotion: false,
-        isCooldown: false,
         lastLinkEndTime: 0,
         judgeStartTime: 0,
         judgeResult: null,           // 'success'|'fail'
@@ -81,32 +87,55 @@ function createLinkChainSystem(deps) {
     };
 
     function isUnlocked() {
-        var pd = getPlayerData();
+        if (isTutorialComplete && isTutorialComplete()) return true;
+        var pd = getSaveData();
         if (!pd || !pd.currentCharacterId) return false;
         var charExp = pd.characterExperience;
         if (!charExp || !charExp[pd.currentCharacterId]) return false;
         return charExp[pd.currentCharacterId].level >= D4_UNLOCK_LEVEL;
     }
 
-    function isActive() { return state.phase !== 'idle' && state.phase !== 'cooldown'; }
+    function isActive() { return state.phase !== 'idle' && state.phase !== 'rhythm_ready'; }
     function isReady() { return state.phase === 'ready'; }
+    function isRhythmReady() { return state.phase === 'rhythm_ready'; }
     function getTriggerX() { return state.triggerX; }
     function getTriggerY() { return state.triggerY; }
     function isSlowMotionActive() { return state.isSlowMotion; }
-    function isOnCooldown() { return state.isCooldown; }
     function getCharge() { return state.charge; }
     function getLinkedStars() { return state.linkedStars; }
     function getPhase() { return state.phase; }
+
+    // ── 消耗 ──
+
+    function consumeLink() {
+        state.charge = Math.max(0, state.charge - LINK_COST);
+    }
+
+    function consumeRhythm() {
+        state.charge = Math.max(0, state.charge - RHYTHM_COST);
+    }
 
     // ── 充能 ──
 
     function addCharge(amount) {
         if (!isUnlocked()) return;
-        if (state.phase !== 'idle') return;
+        // 充能封锁阶段：联连流程和节奏阶段
+        if (state.phase === 'revealing' || state.phase === 'waiting' ||
+            state.phase === 'swiping'   || state.phase === 'judging' ||
+            state.phase === 'rhythm_ready') return;
+        // 节奏灵光在场时也不充能
+        if (rhythmSkillSystem && rhythmSkillSystem.isActive()) return;
 
-        state.charge = Math.min(100, state.charge + amount);
-        if (state.charge >= 100) {
+        state.charge = Math.min(RHYTHM_THRESHOLD, state.charge + amount);
+
+        // idle → ready at 100
+        if (state.phase === 'idle' && state.charge >= LINK_THRESHOLD) {
             enterReady();
+            return;
+        }
+        // ready → rhythm_ready at 200（继续充能推进）
+        if (state.phase === 'ready' && state.charge >= RHYTHM_THRESHOLD) {
+            enterRhythmReady();
         }
     }
 
@@ -115,7 +144,6 @@ function createLinkChainSystem(deps) {
     function enterReady() {
         var stars = typeof getStars === 'function' ? getStars() : [];
         if (!stars || stars.length < MIN_LINKED_STARS) {
-            state.charge = 0;
             return;
         }
 
@@ -127,7 +155,6 @@ function createLinkChainSystem(deps) {
             }
         }
         if (available.length < MIN_LINKED_STARS) {
-            state.charge = 0;
             return;
         }
 
@@ -144,6 +171,30 @@ function createLinkChainSystem(deps) {
         state.triggerY = triggerStar.y;
         addMessage('联连就绪! 触摸发光灵光!', '#FFD700', true);
         vibrateShort({ type: 'medium' });
+    }
+
+    // ── 进入 rhythm_ready 阶段：清理触发灵光，激活节奏灵光 ──
+
+    function enterRhythmReady() {
+        // 清理触发灵光（恢复原状态）
+        if (state.triggerStar) {
+            state.triggerStar._linking = false;
+            state.triggerStar.disappearTime = state.triggerStar._linkingOriginalDisappearTime || Date.now() + 5000;
+            state.triggerStar = null;
+        }
+        state.phase = 'rhythm_ready';
+        // 委托给 RhythmSkillSystem 创建节奏灵光
+        if (rhythmSkillSystem) rhythmSkillSystem.enter();
+        addMessage('充能满溢! 进入节奏阶段!', '#00FFFF', true);
+        Logger.info('[LinkChainSystem] enterRhythmReady: charge=', state.charge);
+    }
+
+    // ── 节奏技结算完成回调 ──
+
+    function onRhythmSkillComplete() {
+        consumeRhythm();
+        state.phase = 'idle';
+        Logger.info('[LinkChainSystem] onRhythmSkillComplete: -200, charge=', state.charge);
     }
 
     // ── 触摸触发灵光 → 开始联连 ──
@@ -168,7 +219,8 @@ function createLinkChainSystem(deps) {
     function beginLinkWindow() {
         var triggerStar = state.triggerStar;
         if (!triggerStar) {
-            state.charge = 0;
+            Logger.warn('[LinkChainSystem] beginLinkWindow: triggerStar is null, consuming link cost');
+            consumeLink();
             state.phase = 'idle';
             return;
         }
@@ -187,9 +239,10 @@ function createLinkChainSystem(deps) {
         var needExtra = MIN_LINKED_STARS - 1;
         if (available.length < needExtra) {
             // 不够灵光 → 取消，恢复触发灵光
+            Logger.warn('[LinkChainSystem] beginLinkWindow: not enough stars (need', needExtra, 'got', available.length, '), consuming link cost');
             triggerStar._linking = false;
             triggerStar.disappearTime = triggerStar._linkingOriginalDisappearTime || Date.now() + 5000;
-            state.charge = 0;
+            consumeLink();
             state.phase = 'idle';
             return;
         }
@@ -238,7 +291,7 @@ function createLinkChainSystem(deps) {
         state.revealSubStartTime = Date.now();
         state.revealStartTime = Date.now();
         state.revealCompleteTime = 0;
-        state.charge = 100;
+        consumeLink();
         state.idleSinceTime = 0;
 
         addMessage('联连窗口激活!', '#FFD700', true);
@@ -265,6 +318,7 @@ function createLinkChainSystem(deps) {
         if (state.matchedIndices.length >= state.linkedStars.length) return;
 
         var scale = getScreenScale ? getScreenScale() : 1;
+        var designOffsetY = getDesignOffsetY();
         var hitRadius = LINK_HIT_RADIUS * scale;
 
         // 找下一个目标灵光
@@ -292,7 +346,7 @@ function createLinkChainSystem(deps) {
                         startX: ls.x,
                         startY: ls.y,
                         targetX: ltarget.x || (getScreenWidth ? getScreenWidth() / 2 : 188),
-                        targetY: ltarget.y || (getScreenHeight ? getScreenHeight() / 3 : 222),
+                        targetY: ltarget.y || (designOffsetY + Math.floor(271 * scale)),
                         startTime: Date.now(),
                         duration: 300
                     });
@@ -357,7 +411,7 @@ function createLinkChainSystem(deps) {
             var isEnhanced = matchedCount > 3;
 
             var monsters = getActiveMonsters();
-            var pd = getPlayerData();
+            var pd = getSaveData();
             var baseAtk = pd.totalAttack || 50;
             var totalDamage = 0;
 
@@ -419,25 +473,18 @@ function createLinkChainSystem(deps) {
             }
         }
 
-        // 重置状态 → cooldown
+        // 重置状态
         state.linkedStars = [];
         state.matchedIndices = [];
         state.swipeTargetIndex = 1;
         state.revealIndex = 0;
-        state.charge = 0;
         state.isSlowMotion = false;
         state.judgeResult = null;
         state.idleSinceTime = 0;
         state.linkMeteors = [];
         state.cumulativeLinkDamage = 0;
-        state.phase = 'cooldown';
+        state.phase = 'idle';
         state.lastLinkEndTime = Date.now();
-        state.isCooldown = true;
-
-        setTimeout(function () {
-            state.isCooldown = false;
-            if (state.phase === 'cooldown') state.phase = 'idle';
-        }, COOLDOWN_MS);
 
         // 异步回调
         if (state.resultCallback) {
@@ -470,16 +517,21 @@ function createLinkChainSystem(deps) {
         // ready: 触发灵光等待玩家触摸（2000ms超时）
         if (state.phase === 'ready') {
             if (Date.now() - state.readyStartTime >= READY_TIMEOUT_MS) {
-                // 超时 → 恢复触发灵光，进度归零
+                // 超时 → 恢复触发灵光，charge 保持不动，继续充能向200推进
                 if (state.triggerStar) {
                     state.triggerStar._linking = false;
                     state.triggerStar.disappearTime = state.triggerStar._linkingOriginalDisappearTime || Date.now() + 5000;
                 }
                 state.triggerStar = null;
                 state.phase = 'idle';
-                state.charge = 0;
-                addMessage('联连超时...', '#ff4444');
+                addMessage('联连超时，继续充能...', '#ffaa00');
             }
+            return;
+        }
+
+        // rhythm_ready: 委托给 rhythmSkillSystem 处理缩圈超时
+        if (state.phase === 'rhythm_ready') {
+            if (rhythmSkillSystem) rhythmSkillSystem.update(dt);
             return;
         }
 
@@ -547,41 +599,73 @@ function createLinkChainSystem(deps) {
     // ── 渲染 ──
 
     function render(ctx, screenW, screenH, scale) {
-        // 充能条：金色线条，放在血条上方（始终可见）
-        if (isUnlocked() && (state.phase === 'idle' || state.phase === 'cooldown')) {
-            var hpBarY = screenH - Math.floor(50 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
+        // 充能条：双阶段渲染，idle/ready/rhythm_ready 都显示
+        var showBar = isUnlocked() && (state.phase === 'idle' ||
+            state.phase === 'ready' || state.phase === 'rhythm_ready');
+        if (showBar) {
+            var hpBarY = designBottom - Math.floor(50 * scale);
             var barW = Math.floor(200 * scale);
-            var barH = Math.floor(2.5 * scale) - Math.floor(1.5 * scale);
+            var barH = Math.floor(Math.max(1, 1 * scale));  // 1px细线
             var barX = screenW / 2 - barW / 2;
             var barY = hpBarY - barH - Math.floor(2 * scale);
 
-            // 背景线
+            // 背景
             ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fillRect(barX, barY, barW, barH);
 
-            // 金色填充
-            var fillW = barW * state.charge / 100;
-            if (fillW > 0) {
-                ctx.fillStyle = '#FFD700';
-                ctx.fillRect(barX, barY, fillW, barH);
+            var charge = state.charge;
 
-                // 发光效果
-                ctx.shadowBlur = 6 * scale;
-                ctx.shadowColor = '#FFD700';
-                ctx.fillRect(barX, barY, fillW, barH);
-                ctx.shadowBlur = 0;
-                ctx.shadowColor = 'transparent';
+            if (charge > 0) {
+                if (charge <= LINK_THRESHOLD) {
+                    // 0→100：金色填充
+                    var goldFillW = barW * charge / RHYTHM_THRESHOLD;
+                    ctx.fillStyle = '#FFD700';
+                    ctx.shadowBlur = 4 * scale;
+                    ctx.shadowColor = '#FFD700';
+                    ctx.fillRect(barX, barY, goldFillW, barH);
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
 
-                // 充能≥80%脉动
-                if (state.charge >= 80) {
-                    var pulseAlpha = 0.2 + 0.2 * Math.sin(Date.now() / 100);
-                    ctx.fillStyle = 'rgba(255, 215, 0, ' + pulseAlpha.toFixed(2) + ')';
-                    ctx.fillRect(barX - 2 * scale, barY - 2 * scale, fillW + 4 * scale, barH + 4 * scale);
+                    // ≥80%脉动（保留现有行为）
+                    if (charge >= 80) {
+                        var pulseAlpha = 0.2 + 0.2 * Math.sin(Date.now() / 100);
+                        ctx.fillStyle = 'rgba(255, 215, 0, ' + pulseAlpha.toFixed(2) + ')';
+                        ctx.fillRect(barX - 2 * scale, barY - 2 * scale, goldFillW + 4 * scale, barH + 4 * scale);
+                    }
+                } else {
+                    // 100→200：双色填充，前半金后半青
+                    var goldHalfW = barW * LINK_THRESHOLD / RHYTHM_THRESHOLD;
+                    ctx.fillStyle = '#FFD700';
+                    ctx.shadowBlur = 4 * scale;
+                    ctx.shadowColor = '#FFD700';
+                    ctx.fillRect(barX, barY, goldHalfW, barH);
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
+
+                    var cyanW = barW * (charge - LINK_THRESHOLD) / RHYTHM_THRESHOLD;
+                    ctx.fillStyle = '#00FFFF';
+                    ctx.shadowBlur = 6 * scale;
+                    ctx.shadowColor = '#00FFFF';
+                    ctx.fillRect(barX + goldHalfW, barY, cyanW, barH);
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
+                }
+
+                // 200 阶段：青色强发光+脉动
+                if (charge >= RHYTHM_THRESHOLD) {
+                    var cyanPulse = 0.3 + 0.3 * Math.abs(Math.sin(Date.now() / 80));
+                    ctx.fillStyle = 'rgba(0, 255, 255, ' + cyanPulse.toFixed(2) + ')';
+                    ctx.fillRect(barX - 3 * scale, barY - 3 * scale, barW + 6 * scale, barH + 6 * scale);
                 }
             }
         }
 
-        if (state.phase === 'idle' || state.phase === 'cooldown') return;
+        // 节奏阶段：不渲染联连相关内容（节奏灵光由 RhythmSkillSystem 渲染）
+        if (state.phase === 'rhythm_ready') return;
+
+        if (state.phase === 'idle') return;
 
         // ready 阶段：触发灵光（跳动 + GC发光，在灵光原位）
         if (state.phase === 'ready') {
@@ -895,7 +979,6 @@ function createLinkChainSystem(deps) {
         state.revealCompleteTime = 0;
         state.isSlowMotion = false;
         state.swipeActive = false;
-        state.isCooldown = false;
         state.lastLinkEndTime = 0;
         state.judgeStartTime = 0;
         state.judgeResult = null;
@@ -903,6 +986,7 @@ function createLinkChainSystem(deps) {
         state.resultCallback = null;
         state.linkMeteors = [];
         state.cumulativeLinkDamage = 0;
+        if (rhythmSkillSystem) rhythmSkillSystem.reset();
     }
 
     return {
@@ -910,6 +994,10 @@ function createLinkChainSystem(deps) {
         addCharge: addCharge,
         getCharge: getCharge,
         enterReady: enterReady,
+        isRhythmReady: isRhythmReady,
+        enterRhythmReady: enterRhythmReady,
+        onRhythmSkillComplete: onRhythmSkillComplete,
+        _injectRhythmSkillSystem: function(sys) { rhythmSkillSystem = sys; },
         handleTriggerTouch: handleTriggerTouch,
         beginLinkWindow: beginLinkWindow,
         beginSwipeTracking: beginSwipeTracking,
@@ -920,15 +1008,13 @@ function createLinkChainSystem(deps) {
         isReady: isReady,
         isSwipeActive: function() { return state.swipeActive; },
         isSlowMotionActive: isSlowMotionActive,
-        isOnCooldown: isOnCooldown,
         getLinkedStars: getLinkedStars,
         getPhase: getPhase,
         getTimeScale: getTimeScale,
         update: update,
         render: render,
         setResultCallback: setResultCallback,
-        reset: reset,
-        _injectRhythmSkillSystem: function() {}
+        reset: reset
     };
 }
 

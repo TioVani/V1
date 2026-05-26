@@ -50,28 +50,19 @@
         }
     </script>
 
-    <!-- Canvas 预初始化：必须在 game.js init() 之前设置好尺寸 -->
+    <!-- Canvas 预初始化：CSS 宽度比例缩放，高度填满全屏。物理像素由 game.js init() 管理 -->
     <script>
         function resizeCanvas() {
             var canvas = document.getElementById('game-canvas');
             var container = document.getElementById('game-container');
             var maxW = container.clientWidth;
             var maxH = container.clientHeight;
-            var baseW = 375;
-            var scale = Math.min(maxW / baseW, maxH / 667);
-            scale = Math.max(0.7, Math.min(1.5, scale));
-            canvas.style.width = Math.floor(baseW * scale) + 'px';
+            var DW = 375;
+            var DH = 812;
+            var scale = Math.min(maxW / DW, maxH / DH);
+            scale = Math.max(0.7, Math.min(2.5, scale));
+            canvas.style.width = Math.floor(DW * scale) + 'px';
             canvas.style.height = Math.floor(maxH) + 'px';
-            canvas.width = Math.floor(baseW * scale) * (window.devicePixelRatio || 1);
-            canvas.height = Math.floor(maxH) * (window.devicePixelRatio || 1);
-            var ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.setTransform(
-                    (window.devicePixelRatio || 1), 0,
-                    0, (window.devicePixelRatio || 1),
-                    0, 0
-                );
-            }
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);

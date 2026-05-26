@@ -6,7 +6,7 @@
 import { UPGRADE_CONFIG } from '../../../config/UpgradeConfig.js';
 
 function createUpgradeSkillStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getSkills = deps.getSkills;
     var type = 'skill';
 

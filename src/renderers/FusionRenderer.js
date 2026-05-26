@@ -8,13 +8,15 @@ function createFusionRenderer(deps) {
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getFusionEngine = deps.getFusionEngine;
     var getFusionRegistry = deps.getFusionRegistry;
     var uiCore = deps.uiCore;
     var getFillRoundRect = deps.getFillRoundRect;
     var getAssets = deps.getAssets;
     var showToast = deps.showToast;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     var selectedType = 'character';
     var selectedMaterials = [];
@@ -37,7 +39,9 @@ function createFusionRenderer(deps) {
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var scale = getScreenScale();
-        var playerData = getPlayerData();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
+        var pd = getSaveData();
         var Assets = getAssets();
         var fillRoundRect = getFillRoundRect();
         var drawText = uiCore.drawText;
@@ -56,28 +60,28 @@ function createFusionRenderer(deps) {
         }
 
         // 标题
-        drawText('🔮 融合', sw / 2, 40, Math.floor(32 * scale), '#ffd700');
+        drawText('🔮 融合', sw / 2, designOffsetY + Math.floor(40 * scale), Math.floor(32 * scale), '#ffd700');
 
         if (showCodex) {
-            renderCodexView(ctx, sw, sh, scale, fillRoundRect, drawText);
+            renderCodexView(ctx, sw, sh, scale, designOffsetY, fillRoundRect, drawText);
         } else {
-            renderTypeTabs(ctx, sw, scale, fillRoundRect);
-            renderMaterialSlots(ctx, sw, sh, scale, fillRoundRect, drawText, playerData);
-            renderActionArea(ctx, sw, sh, scale, fillRoundRect, drawText, drawButton, playerData);
+            renderTypeTabs(ctx, sw, scale, designOffsetY, fillRoundRect);
+            renderMaterialSlots(ctx, sw, sh, scale, designOffsetY, fillRoundRect, drawText, pd);
+            renderActionArea(ctx, sw, sh, scale, designOffsetY, fillRoundRect, drawText, drawButton, pd);
         }
 
         drawBackButton();
     }
 
     // ==================== 类型标签 ====================
-    function renderTypeTabs(ctx, sw, scale, fillRoundRect) {
+    function renderTypeTabs(ctx, sw, scale, designOffsetY, fillRoundRect) {
         var types = ['character', 'pet', 'skill', 'star', 'equipment'];
         var tabW = Math.floor(52 * scale);
         var tabH = Math.floor(30 * scale);
         var gap = Math.floor(6 * scale);
         var totalW = types.length * tabW + (types.length - 1) * gap;
         var startX = (sw - totalW) / 2;
-        var tabY = Math.floor(75 * scale);
+        var tabY = designOffsetY + Math.floor(75 * scale);
 
         for (var i = 0; i < types.length; i++) {
             var tc = TYPE_CONFIG[types[i]];
@@ -96,12 +100,12 @@ function createFusionRenderer(deps) {
     }
 
     // ==================== 材料槽 ====================
-    function renderMaterialSlots(ctx, sw, sh, scale, fillRoundRect, drawText, playerData) {
+    function renderMaterialSlots(ctx, sw, sh, scale, designOffsetY, fillRoundRect, drawText, pd) {
         var slotSize = Math.floor(65 * scale);
         var gap = Math.floor(15 * scale);
         var totalW = FUSION_MATERIAL_COUNT * slotSize + (FUSION_MATERIAL_COUNT - 1) * gap;
         var startX = (sw - totalW) / 2;
-        var slotY = Math.floor(130 * scale);
+        var slotY = designOffsetY + Math.floor(130 * scale);
 
         drawText('选择材料（' + selectedMaterials.length + '/' + FUSION_MATERIAL_COUNT + '）',
             sw / 2, slotY - Math.floor(12 * scale), Math.floor(14 * scale), '#aaa');
@@ -197,10 +201,10 @@ function createFusionRenderer(deps) {
     }
 
     // ==================== 操作区 ====================
-    function renderActionArea(ctx, sw, sh, scale, fillRoundRect, drawText, drawButton, playerData) {
+    function renderActionArea(ctx, sw, sh, scale, designOffsetY, fillRoundRect, drawText, drawButton, pd) {
         var engine = getFusionEngine();
         var registry = getFusionRegistry();
-        var btnY = sh - Math.floor(100 * scale);
+        var btnY = designBottom - Math.floor(100 * scale);
         var btnW = Math.floor(140 * scale);
         var btnH = Math.floor(45 * scale);
         var btnX = sw / 2 - btnW / 2;
@@ -233,7 +237,7 @@ function createFusionRenderer(deps) {
 
         // 图鉴按钮（右下角，融合按钮上方）
         var codexBtnX = sw - Math.floor(80 * scale);
-        var codexBtnY = sh - Math.floor(155 * scale);
+        var codexBtnY = designBottom - Math.floor(155 * scale);
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
         fillRoundRect(ctx, codexBtnX, codexBtnY, Math.floor(60 * scale), Math.floor(30 * scale), 6);
         ctx.fillStyle = '#aaa';
@@ -243,12 +247,12 @@ function createFusionRenderer(deps) {
     }
 
     // ==================== 图鉴视图 ====================
-    function renderCodexView(ctx, sw, sh, scale, fillRoundRect, drawText) {
+    function renderCodexView(ctx, sw, sh, scale, designOffsetY, fillRoundRect, drawText) {
         var registry = getFusionRegistry();
-        drawText('📖 融合图鉴', sw / 2, 80, Math.floor(22 * scale), '#ffd700');
+        drawText('📖 融合图鉴', sw / 2, designOffsetY + Math.floor(80 * scale), Math.floor(22 * scale), '#ffd700');
 
         var types = ['character', 'pet', 'skill', 'star', 'equipment'];
-        var y = Math.floor(120 * scale);
+        var y = designOffsetY + Math.floor(120 * scale);
         for (var i = 0; i < types.length; i++) {
             var tc = TYPE_CONFIG[types[i]];
             var count = registry.getCodexCount(types[i]);
@@ -263,12 +267,12 @@ function createFusionRenderer(deps) {
 
         // 返回
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        fillRoundRect(ctx, sw / 2 - Math.floor(50 * scale), sh - Math.floor(100 * scale), Math.floor(100 * scale), Math.floor(35 * scale), 6);
+        fillRoundRect(ctx, sw / 2 - Math.floor(50 * scale), designBottom - Math.floor(100 * scale), Math.floor(100 * scale), Math.floor(35 * scale), 6);
         ctx.fillStyle = '#fff';
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('返回', sw / 2, sh - Math.floor(83 * scale));
+        ctx.fillText('返回', sw / 2, designBottom - Math.floor(83 * scale));
     }
 
     // ==================== 触摸处理 ====================
@@ -276,15 +280,17 @@ function createFusionRenderer(deps) {
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
 
         // 返回按钮
-        if (x < Math.floor(60 * scale) && y > sh - Math.floor(60 * scale)) {
+        if (x < Math.floor(60 * scale) && y > designBottom - Math.floor(60 * scale)) {
             return 'back';
         }
 
         if (showCodex) {
             var backX = sw / 2 - Math.floor(50 * scale);
-            var backY = sh - Math.floor(100 * scale);
+            var backY = designBottom - Math.floor(100 * scale);
             if (x >= backX && x <= backX + Math.floor(100 * scale) && y >= backY && y <= backY + Math.floor(35 * scale)) {
                 showCodex = false;
                 return 'handled';
@@ -299,7 +305,7 @@ function createFusionRenderer(deps) {
         var gap = Math.floor(6 * scale);
         var totalW = types.length * tabW + (types.length - 1) * gap;
         var startX = (sw - totalW) / 2;
-        var tabY = Math.floor(75 * scale);
+        var tabY = designOffsetY + Math.floor(75 * scale);
 
         for (var i = 0; i < types.length; i++) {
             var tx = startX + i * (tabW + gap);
@@ -315,7 +321,7 @@ function createFusionRenderer(deps) {
 
         // 图鉴按钮（右下角）
         var codexBtnX = sw - Math.floor(80 * scale);
-        var codexBtnY = sh - Math.floor(155 * scale);
+        var codexBtnY = designBottom - Math.floor(155 * scale);
         if (x >= codexBtnX && x <= codexBtnX + Math.floor(60 * scale) && y >= codexBtnY && y <= codexBtnY + Math.floor(30 * scale)) {
             showCodex = true;
             return 'handled';
@@ -326,7 +332,7 @@ function createFusionRenderer(deps) {
         var slotGap = Math.floor(15 * scale);
         var slotTotalW = FUSION_MATERIAL_COUNT * slotSize + (FUSION_MATERIAL_COUNT - 1) * slotGap;
         var slotStartX = (sw - slotTotalW) / 2;
-        var slotY = Math.floor(130 * scale);
+        var slotY = designOffsetY + Math.floor(130 * scale);
 
         for (var si = 0; si < FUSION_MATERIAL_COUNT; si++) {
             var sx = slotStartX + si * (slotSize + slotGap);
@@ -341,10 +347,10 @@ function createFusionRenderer(deps) {
         var available = _filterCompatible(engine.getAvailableMaterials(selectedType));
         var itemH = Math.floor(40 * scale);
         var padding = Math.floor(5 * scale);
-        var listStartY = Math.floor(130 * scale) + Math.floor(65 * scale) + Math.floor(15 * scale);
+        var listStartY = designOffsetY + Math.floor(130 * scale) + Math.floor(65 * scale) + Math.floor(15 * scale);
         var listX = Math.floor(20 * scale);
         var listW = sw - Math.floor(40 * scale);
-        var listBottom = sh - Math.floor(120 * scale);
+        var listBottom = designBottom - Math.floor(120 * scale);
 
         for (var j = 0; j < available.length; j++) {
             var iy = listStartY + j * (itemH + padding) - scrollY;
@@ -381,7 +387,7 @@ function createFusionRenderer(deps) {
         var btnW = Math.floor(140 * scale);
         var btnH = Math.floor(45 * scale);
         var btnX = sw / 2 - btnW / 2;
-        var btnY = sh - Math.floor(100 * scale);
+        var btnY = designBottom - Math.floor(100 * scale);
 
         if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
             if (selectedMaterials.length >= FUSION_MATERIAL_COUNT) {

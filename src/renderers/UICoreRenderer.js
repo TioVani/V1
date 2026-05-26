@@ -14,11 +14,13 @@ function createUICoreRenderer(deps) {
     var BACK_BTN_WIDTH = deps.BACK_BTN_WIDTH;
     var BACK_BTN_HEIGHT = deps.BACK_BTN_HEIGHT;
     var BACK_BTN_COLOR = deps.BACK_BTN_COLOR;
+    var DESIGN_HEIGHT = 812;
 
-    function getScreenScale() {
+    var getScreenScale = deps.getScreenScale || function() {
         var baseWidth = 375;
-        return Math.max(0.7, Math.min(1.0, getScreenWidth() / baseWidth));
-    }
+        return Math.max(0.7, getScreenWidth() / baseWidth);
+    };
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     function drawText(text, x, y, size, color) {
         var ctx = getCtx();
@@ -49,10 +51,12 @@ function createUICoreRenderer(deps) {
         var ctx = getCtx();
         var Assets = getAssets();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var btnSize = Math.floor(50 * scale);
         var btnX = Math.floor(15 * scale);
-        var btnY = screenHeight - Math.floor(65 * scale);
+        var btnY = designBottom - Math.floor(65 * scale);
 
         if (Assets.backIcon && Assets.backIcon.complete) {
             var imgRatio = Assets.backIcon.width / Assets.backIcon.height;
@@ -65,11 +69,13 @@ function createUICoreRenderer(deps) {
 
     function isBackButtonClicked(x, y) {
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
         var btnSize = Math.floor(50 * scale);
         var btnX = Math.floor(15 * scale);
-        var btnY = screenHeight - Math.floor(65 * scale);
+        var btnY = designBottom - Math.floor(65 * scale);
         var btnW;
         if (Assets.backIcon && Assets.backIcon.complete) {
             btnW = Math.floor(btnSize * (Assets.backIcon.width / Assets.backIcon.height));
@@ -93,7 +99,7 @@ function createUICoreRenderer(deps) {
             var bfIndex = Math.floor(Date.now() / 60) % beautyFrames.length;
             var bfImg = beautyFrames[bfIndex];
             if (bfImg && bfImg.complete) {
-                var bfSize = (size || 28) * (scale || 1) * 1.5;
+                var bfSize = (size || 28) * (scale || 1) * 1.5 * 1.5;
                 ctx.globalCompositeOperation = 'lighter';
                 ctx.drawImage(bfImg, x - bfSize / 2, y - bfSize / 2, bfSize, bfSize);
                 ctx.globalCompositeOperation = 'source-over';
@@ -128,7 +134,9 @@ function createUICoreRenderer(deps) {
             } else if (bigType === 'ice' && bigAssets.iceStarImage && bigAssets.iceStarImage.complete) {
                 ctx.drawImage(bigAssets.iceStarImage, x - bigSize / 2, y - bigSize / 2, bigSize, bigSize);
             } else if (bigAssets.normalStarImage && bigAssets.normalStarImage.complete) {
+                ctx.globalCompositeOperation = 'lighter';
                 ctx.drawImage(bigAssets.normalStarImage, x - bigSize / 2, y - bigSize / 2, bigSize, bigSize);
+                ctx.globalCompositeOperation = 'source-over';
             } else {
                 var bigEmoji = (bigType === 'ice') ? '💧' : (bigType === 'fire') ? '🔥' : '⭐';
                 ctx.font = bigSize + 'px sans-serif';
@@ -199,7 +207,10 @@ function createUICoreRenderer(deps) {
         } else if (starObj.type === 'ice' && Assets.iceStarImage && Assets.iceStarImage.complete) {
             ctx.drawImage(Assets.iceStarImage, x - scaledSize / 2, y - scaledSize / 2, scaledSize, scaledSize);
         } else if (starObj.type === 'normal' && Assets.normalStarImage && Assets.normalStarImage.complete) {
-            ctx.drawImage(Assets.normalStarImage, x - scaledSize / 2, y - scaledSize / 2, scaledSize, scaledSize);
+            ctx.globalCompositeOperation = 'lighter';
+            var nSize = scaledSize * 1.3;
+            ctx.drawImage(Assets.normalStarImage, x - nSize / 2, y - nSize / 2, nSize, nSize);
+            ctx.globalCompositeOperation = 'source-over';
         } else {
             ctx.font = scaledSize + 'px sans-serif';
             ctx.textAlign = 'center';

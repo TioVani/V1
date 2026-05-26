@@ -7,7 +7,7 @@ import Logger from '../../utils/Logger.js';
 import { FUSION_CONFIG } from '../../config/FusionConfig.js';
 
 function createFusionEngine(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
     var showToast = deps.showToast;
     var getRegistry = deps.getRegistry;
@@ -24,10 +24,10 @@ function createFusionEngine(deps) {
             return { success: false, error: 'insufficient_materials' };
         }
 
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var registry = getRegistry();
 
-        var materials = strategy.resolveMaterials(materialIds, playerData);
+        var materials = strategy.resolveMaterials(materialIds, pd);
         if (!materials || materials.length < FUSION_CONFIG.materialCount) {
             showToast({ title: '无法找到指定材料', icon: 'none', duration: 1500 });
             return { success: false, error: 'materials_not_found' };
@@ -40,14 +40,14 @@ function createFusionEngine(deps) {
         }
 
         if (strategy.checkExtraCost) {
-            var costCheck = strategy.checkExtraCost(playerData, materials);
+            var costCheck = strategy.checkExtraCost(pd, materials);
             if (!costCheck.canAfford) {
                 showToast({ title: costCheck.error, icon: 'none', duration: 1500 });
                 return { success: false, error: costCheck.error };
             }
         }
 
-        var layer = strategy.determineLayer ? strategy.determineLayer(materials, playerData) : 'normal';
+        var layer = strategy.determineLayer ? strategy.determineLayer(materials, pd) : 'normal';
         var isPity = registry.checkPity(type);
         var baseRate = FUSION_CONFIG.successRate[layer] || FUSION_CONFIG.successRate.normal;
         var rateModifier = strategy.calculateRateModifier(materials);
@@ -66,9 +66,9 @@ function createFusionEngine(deps) {
             result.success = true;
             result.greatSuccess = isGreatSuccess;
             result.layer = layer;
-            strategy.consumeMaterials(materialIds, playerData);
-            if (strategy.consumeExtraCost) strategy.consumeExtraCost(playerData, materials);
-            if (strategy.saveResult) strategy.saveResult(result, playerData);
+            strategy.consumeMaterials(materialIds, pd);
+            if (strategy.consumeExtraCost) strategy.consumeExtraCost(pd, materials);
+            if (strategy.saveResult) strategy.saveResult(result, pd);
             var isNew = registry.record(type, result);
             result.isNewDiscovery = isNew;
             registry.resetPity(type);
@@ -80,7 +80,7 @@ function createFusionEngine(deps) {
                 icon: 'none', duration: 2000
             });
         } else {
-            strategy.consumeRandomMaterials(materialIds, playerData, FUSION_CONFIG.failureMaterialLoss);
+            strategy.consumeRandomMaterials(materialIds, pd, FUSION_CONFIG.failureMaterialLoss);
             registry.incrementPity(type);
             registry.addFailureHistory(type, materials.map(function(m) { return m.name; }));
             registry.incrementStat('totalAttempts');
@@ -95,18 +95,18 @@ function createFusionEngine(deps) {
     function getAvailableMaterials(type) {
         var strategy = strategies[type];
         if (!strategy) return [];
-        return strategy.getAvailableMaterials(getPlayerData());
+        return strategy.getAvailableMaterials(getSaveData());
     }
 
     function getSuccessRate(materialIds, type) {
         var strategy = strategies[type];
         if (!strategy) return 0;
-        var playerData = getPlayerData();
-        var materials = strategy.resolveMaterials(materialIds, playerData);
+        var pd = getSaveData();
+        var materials = strategy.resolveMaterials(materialIds, pd);
         if (!materials || materials.length < FUSION_CONFIG.materialCount) return 0;
         var validation = strategy.validate(materials);
         if (!validation.valid) return 0;
-        var layer = strategy.determineLayer ? strategy.determineLayer(materials, playerData) : 'normal';
+        var layer = strategy.determineLayer ? strategy.determineLayer(materials, pd) : 'normal';
         var baseRate = FUSION_CONFIG.successRate[layer] || FUSION_CONFIG.successRate.normal;
         var rateModifier = strategy.calculateRateModifier(materials);
         return Math.max(5, Math.min(100, baseRate + rateModifier));
@@ -115,8 +115,8 @@ function createFusionEngine(deps) {
     function validateSelection(materialIds, type) {
         var strategy = strategies[type];
         if (!strategy) return { valid: false, error: '未知融合类型' };
-        var playerData = getPlayerData();
-        var materials = strategy.resolveMaterials(materialIds, playerData);
+        var pd = getSaveData();
+        var materials = strategy.resolveMaterials(materialIds, pd);
         if (!materials || materials.length < FUSION_CONFIG.materialCount) {
             return { valid: false, error: '无法找到指定材料' };
         }

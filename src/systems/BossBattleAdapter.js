@@ -1,5 +1,6 @@
 import Logger from '../utils/Logger.js';
 import { createBattleEngine, BATTLE_CONSTANTS } from './BattleEngine.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 import { BOSS_COMBAT_OVERRIDES, BOSS_COMBAT_FEATURES } from '../config/CombatSpec.js';
 
 /**
@@ -12,7 +13,7 @@ import { BOSS_COMBAT_OVERRIDES, BOSS_COMBAT_FEATURES } from '../config/CombatSpe
 function createBossBattleAdapter(deps) {
 
     // ═══ 核心依赖 ═══
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
@@ -140,7 +141,7 @@ function createBossBattleAdapter(deps) {
                 getScale: getScreenScale
             },
             player: {
-                getData: getPlayerData,
+                getData: getSaveData,
                 getCharFullStats: getCharacterFullStats
             },
             animation: {
@@ -260,7 +261,7 @@ function createBossBattleAdapter(deps) {
         if (!poisonSplitSkill) return;
 
         hasPoisonSplit = true;
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var poisonDmg = poisonSplitSkill.damage || 20;
 
         if (pd.playerShield > 0) {
@@ -349,7 +350,7 @@ function createBossBattleAdapter(deps) {
         var deathPoisonSkill = findBossSkill('poison_split');
         if (!deathPoisonSkill) return;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var deathDmg = deathPoisonSkill.damage || 20;
         if (pd.playerShield > 0) {
             var sa = Math.min(pd.playerShield, deathDmg);
@@ -435,38 +436,38 @@ function createBossBattleAdapter(deps) {
         var rewards = { gold: 0, starSource: 0, materials: {}, equipment: null, skill: null };
         if (!success || !currentBoss) return rewards;
 
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var bossRewards = currentBoss.rewards;
 
         if (bossRewards.gold) {
             rewards.gold = bossRewards.gold[0] + Math.floor(Math.random() * (bossRewards.gold[1] - bossRewards.gold[0]));
-            playerData.gold += rewards.gold;
+            pd.gold += rewards.gold;
         }
         if (bossRewards.starSource) {
             rewards.starSource = bossRewards.starSource[0] + Math.floor(Math.random() * (bossRewards.starSource[1] - bossRewards.starSource[0]));
-            playerData.starSource = (playerData.starSource || 0) + rewards.starSource;
+            pd.starSource = (pd.starSource || 0) + rewards.starSource;
         }
         if (bossRewards.materials && Math.random() < bossRewards.materialChance) {
             var matId = bossRewards.materials[Math.floor(Math.random() * bossRewards.materials.length)];
-            if (!playerData.materials[matId]) playerData.materials[matId] = { quantity: 0, usedCount: 0 };
-            playerData.materials[matId].quantity += 1;
+            if (!pd.materials[matId]) pd.materials[matId] = { quantity: 0, usedCount: 0 };
+            pd.materials[matId].quantity += 1;
             rewards.materials[matId] = 1;
         }
         if (bossRewards.equipment && Math.random() < bossRewards.equipmentChance) {
             rewards.equipment = bossRewards.equipment[Math.floor(Math.random() * bossRewards.equipment.length)];
-            if (!playerData.equipments) playerData.equipments = {};
-            if (!playerData.equipments.owned) playerData.equipments.owned = [];
-            if (playerData.equipments.owned.indexOf(rewards.equipment) === -1) {
-                playerData.equipments.owned.push(rewards.equipment);
+            if (!pd.equipments) pd.equipments = {};
+            if (!pd.equipments.owned) pd.equipments.owned = [];
+            if (pd.equipments.owned.indexOf(rewards.equipment) === -1) {
+                pd.equipments.owned.push(rewards.equipment);
             }
         }
         if (bossRewards.skill && Math.random() < bossRewards.skillChance) {
             rewards.skill = bossRewards.skill;
-            if (!playerData.skills) playerData.skills = {};
-            if (!playerData.skills.owned) playerData.skills.owned = [];
-            var alreadyHasSkill = playerData.skills.owned.some(function(s) { return (typeof s === 'string' ? s : s.id) === rewards.skill; });
+            if (!pd.skills) pd.skills = {};
+            if (!pd.skills.owned) pd.skills.owned = [];
+            var alreadyHasSkill = pd.skills.owned.some(function(s) { return (typeof s === 'string' ? s : s.id) === rewards.skill; });
                 if (!alreadyHasSkill) {
-                    playerData.skills.owned.push({ uid: 'skill_' + Date.now() + '_' + Math.floor(Math.random() * 10000), id: rewards.skill, level: 1 });
+                    pd.skills.owned.push({ uid: 'skill_' + Date.now() + '_' + Math.floor(Math.random() * 10000), id: rewards.skill, level: 1 });
                 }
         }
 
@@ -545,18 +546,18 @@ function createBossBattleAdapter(deps) {
         setPlayerStunned(false);
         setPlayerStunEndTime(0);
 
-        var playerData = getPlayerData();
-        playerData.playerRage = 0;
-        playerData.tempAttackBonus = 0;
+        var pd = getSaveData();
+        pd.playerRage = 0;
+        pd.tempAttackBonus = 0;
 
         if (deps.setGreedyHpPool) deps.setGreedyHpPool(0);
         if (deps.setGreedySkillUnlocked) deps.setGreedySkillUnlocked(false);
-        playerData.playerShield = 0;
+        pd.playerShield = 0;
 
         // 重置玩家血量
-        var charStats = getCharacterFullStats(playerData.currentCharacterId);
-        playerData.maxPlayerHp = charStats ? charStats.hp : 100;
-        playerData.playerHp = playerData.maxPlayerHp;
+        var charStats = getCharacterFullStats(pd.currentCharacterId);
+        pd.maxPlayerHp = charStats ? charStats.hp : 100;
+        pd.playerHp = pd.maxPlayerHp;
 
         // 创建 Boss 怪物
         var sw = getScreenWidth();
@@ -577,11 +578,11 @@ function createBossBattleAdapter(deps) {
         var gameItems = getGameItems();
         var MAX_GAME_ITEMS = getMAX_GAME_ITEMS();
         gameItems.healPotion = Math.min(
-            playerData.items && playerData.items.healPotion ? playerData.items.healPotion.quantity : 0,
+            pd.items && pd.items.healPotion ? pd.items.healPotion.quantity : 0,
             MAX_GAME_ITEMS
         );
         gameItems.timePotion = Math.min(
-            playerData.items && playerData.items.timePotion ? playerData.items.timePotion.quantity : 0,
+            pd.items && pd.items.timePotion ? pd.items.timePotion.quantity : 0,
             MAX_GAME_ITEMS
         );
         var adItems = getAdItems();
@@ -598,12 +599,12 @@ function createBossBattleAdapter(deps) {
 
         var bossInitConfig = {
             monster: bossMonster,
-            playerHp: playerData.playerHp,
-            playerMaxHp: playerData.maxPlayerHp,
+            playerHp: pd.playerHp,
+            playerMaxHp: pd.maxPlayerHp,
             playerShield: 0,
             playerStats: charStats,
-            playerSkills: playerData.skills ? playerData.skills.equipped : [],
-            activePet: playerData.activePet || null,
+            playerSkills: pd.skills ? pd.skills.equipped : [],
+            activePet: pd.activePet || null,
             mode: 'boss',
             floor: level,
             combatOverrides: BOSS_COMBAT_OVERRIDES,
@@ -792,7 +793,7 @@ function createBossBattleAdapter(deps) {
         }
 
         // 同步状态到 game.js
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.playerHp = S.playerHp;
         pd.playerShield = S.playerShield;
         setTimeLeft(S.timeLeft);
@@ -874,29 +875,11 @@ function createBossBattleAdapter(deps) {
         isPaused = !isPaused;
 
         if (isPaused) {
-            setPauseStartTime(Date.now());
-            if (battleEngine) battleEngine.pause();
+            PauseCoordinator.instance.pause();
             clearMoveInterval();
-            stopDodgeStarTimer();
-            stopPetAttackTimer();
             saveDataImmediate();
         } else {
-            if (battleEngine) battleEngine.resume();
-
-            // 补偿 game.js 星星的消失时间（与普通模式 resumeGame 对齐）
-            if (getPauseStartTime() > 0) {
-                var pauseDuration = Date.now() - getPauseStartTime();
-                var starsArr = getStars();
-                for (var i = 0; i < starsArr.length; i++) {
-                    if (starsArr[i].disappearTime) {
-                        starsArr[i].disappearTime += pauseDuration;
-                    }
-                    if (starsArr[i].createTime) {
-                        starsArr[i].createTime += pauseDuration;
-                    }
-                }
-                setPauseStartTime(0);
-            }
+            PauseCoordinator.instance.resume();
 
             // 补偿连击时间
             if (getComboCount() > 0) {
@@ -905,10 +888,6 @@ function createBossBattleAdapter(deps) {
 
             // 重启星生成
             if (updateStarSpawnIntervalFn) updateStarSpawnIntervalFn();
-
-            // 重启闪避星 + 宠物攻击
-            startDodgeStarTimer();
-            startPetAttackTimer();
         }
     }
 

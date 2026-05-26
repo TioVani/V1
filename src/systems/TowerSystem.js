@@ -1,5 +1,6 @@
 import Logger from '../utils/Logger.js';
 import TimerManager from '../utils/TimerManager.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 import { TOWER_COMBAT_OVERRIDES, TOWER_COMBAT_FEATURES } from '../config/CombatSpec.js';
 import { getSkillAttackRatio } from '../config/SkillConfig.js';
 import { vibrateShort } from '../platform/BrowserAPI.js';
@@ -118,7 +119,7 @@ function getTowerDifficultyMult(floor) {
 
 function createTowerSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
     var addCharExp = deps.addCharExp;
     var getCharFullStats = deps.getCharFullStats;
@@ -156,6 +157,7 @@ function createTowerSystem(deps) {
     var getPets = deps.getPets;
     var clearBattleAnimations = deps.clearBattleAnimations;
     var clearStars = deps.clearStars;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // BattleEngine 引用（通过 _setBattleEngine 回填）
     var battleEngine = deps.battleEngine || null;
@@ -191,6 +193,13 @@ function createTowerSystem(deps) {
     var combatTime = 30;
     var combatTimer = null;
     var _tm = new TimerManager();
+
+    // PauseCoordinator — 塔战斗 subscriber（startCombat 时 subscribe，cleanupCombat 时 unsubscribe）
+    var _owner = { _destroyed: true }; // 初始未激活，startCombat 时才变活跃
+    PauseCoordinator.instance.subscribe(_owner, 'TowerCombat', {
+        onPause: function() { stopCombatTimers(); clearMoveInterval(); clearTimerInterval(); },
+        onResume: function() { if (updateStarSpawnIntervalFn) updateStarSpawnIntervalFn(); }
+    });
     var combatReward = null;
     var combatRewardTexts = [];
     var combatMonsterAttackTimer = null;
@@ -223,7 +232,7 @@ function createTowerSystem(deps) {
 
     function calculateMaxHp() {
         try {
-            var pd = getPlayerData();
+            var pd = getSaveData();
             if (!pd || !pd.currentCharacterId) {
                 return 100;
             }
@@ -861,6 +870,7 @@ function createTowerSystem(deps) {
     }
 
     function startCombat(cell) {
+        _owner._destroyed = false; // 激活 subscriber
         inCombat = true;
         currentCell = cell;
         preCombatPlayerX = playerX;
@@ -887,7 +897,7 @@ function createTowerSystem(deps) {
 
         // 委托给 BattleEngine
         if (battleEngine) {
-            var pd = getPlayerData();
+            var pd = getSaveData();
             var stats = getCharFullStats(pd.currentCharacterId);
 
             // 构建宠物数据
@@ -945,6 +955,22 @@ function createTowerSystem(deps) {
 
         // 启动 StarSystem 星星生成（统一星星机制和动画）
         if (updateStarSpawnIntervalFn) updateStarSpawnIntervalFn();
+
+        // 启动战斗时间倒计时
+        combatTimer = _tm.setInterval(function() {
+            if (!inCombat) return;
+            combatTime = Math.max(0, combatTime - 1);
+            if (combatTime <= 0) {
+                combatTimeout();
+            }
+        }, 1000);
+
+        // 启动怪物攻击定时器
+        var attackInterval = combatMonster.attackInterval || 2000;
+        combatMonsterAttackTimer = _tm.setInterval(function() {
+            if (!inCombat || !combatMonster) return;
+            monsterAttackPlayer();
+        }, attackInterval);
     }
 
     function stopCombatTimers() {
@@ -952,21 +978,10 @@ function createTowerSystem(deps) {
         combatMonsterAttackTimer = _tm.clearInterval(combatMonsterAttackTimer);
     }
 
-    function pauseCombat() {
-        if (!inCombat) return;
-        if (battleEngine) battleEngine.pause();
-        clearMoveInterval();
-        clearTimerInterval();
-    }
-
-    function resumeCombat() {
-        if (!inCombat) return;
-        if (battleEngine) battleEngine.resume();
-        if (updateStarSpawnIntervalFn) updateStarSpawnIntervalFn();
-    }
-
     /** 统一战斗清理 — 清全局 stars + 动画 + BattleEngine */
     function cleanupCombat() {
+        _owner._destroyed = true;
+        PauseCoordinator.instance.unsubscribe('TowerCombat');
         stopCombatTimers();
         if (battleEngine) battleEngine.destroy();
         if (releaseTowerEngineFn) releaseTowerEngineFn();
@@ -981,11 +996,13 @@ function createTowerSystem(deps) {
 
         var monsterAttack = combatMonster.attack || 10;
         var damage = monsterAttack;
+        var designOffsetY = getDesignOffsetY();
+        var scale = getScreenScaleFn();
 
         // 弹幕从怪物飞向玩家（屏幕底部）
         createMonsterProjectileAnimation(
             getScreenWidth() / 2,
-            getScreenHeight() / 3,
+            designOffsetY + Math.floor(271 * scale),
             damage,
             0,
             false,
@@ -997,7 +1014,7 @@ function createTowerSystem(deps) {
                     var counterDamage = Math.floor(damage * 0.5);
                     combatMonster.hp -= counterDamage;
                     addGameMessage('💫 反击! -' + counterDamage, '#00ff88');
-                    createMonsterDamageAnimation(getScreenWidth() / 2, getScreenHeight() / 3, counterDamage);
+                    createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), counterDamage);
                     Logger.info('闪避反击! 伤害:', counterDamage);
                     if (combatMonster.hp <= 0) {
                         defeatMonster();
@@ -1005,16 +1022,23 @@ function createTowerSystem(deps) {
                     return;
                 }
 
-                // 护盾优先吸收
+                // 护盾优先吸收（同步到 BattleEngine 再扣，保持单一血量源）
+                var currentHp = playerHp;
+                var currentShield = playerShield;
                 var shieldAbsorb = 0;
-                if (playerShield > 0) {
-                    shieldAbsorb = Math.min(playerShield, damage);
-                    playerShield -= shieldAbsorb;
+                if (currentShield > 0) {
+                    shieldAbsorb = Math.min(currentShield, damage);
+                    currentShield -= shieldAbsorb;
                     damage -= shieldAbsorb;
                 }
+                currentHp -= damage;
 
-                // 扣血
-                playerHp -= damage;
+                // 同步扣血结果到 BattleEngine（统一血量源）
+                if (battleEngine) {
+                    battleEngine.setPlayerState(currentHp, currentShield, dodging, dodgeEndTime, playerStunned, playerStunEndTime);
+                }
+                playerHp = currentHp;
+                playerShield = currentShield;
 
                 // 护盾吸收的伤害 → 灰色数字（先显示，和普通模式一致）
                 if (shieldAbsorb > 0) {
@@ -1074,12 +1098,19 @@ function createTowerSystem(deps) {
                     playerHp = 0;
                     playerDeath();
                 }
+                // 最终同步状态到 BattleEngine（中毒/眩晕等也要同步）
+                if (battleEngine) {
+                    battleEngine.setPlayerState(playerHp, playerShield, dodging, dodgeEndTime, playerStunned, playerStunEndTime);
+                    if (playerPoisoned) {
+                        battleEngine.setPoisonState(playerPoisoned, playerPoisonEndTime, playerPoisonDamage, playerPoisonTickTime);
+                    }
+                }
             }
         );
     }
 
     function getActiveSkills() {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.skills || !pd.skills.equipped) return [];
         var Skills = getSkillsConfig();
         var SkillTypes = getSkillTypes();
@@ -1109,6 +1140,9 @@ function createTowerSystem(deps) {
     function useSkillInCombat(skillId) {
         if (!inCombat || !combatMonster) return false;
 
+        var designOffsetY = getDesignOffsetY();
+        var scale = getScreenScaleFn();
+
         // 代理到 BattleEngine
         if (battleEngine && battleEngine.useSkill(skillId)) return true;
 
@@ -1129,7 +1163,7 @@ function createTowerSystem(deps) {
         switch (skill.effect) {
             case 'damage':
                 if (combatMonster.hp <= 0) return false;
-                var pd = getPlayerData();
+                var pd = getSaveData();
                 var stats = getCharFullStats(pd.currentCharacterId);
                 var attackRatio = getSkillAttackRatio(skill.rarity);
                 var baseAtk = (stats && stats.attack) ? stats.attack : 10;
@@ -1140,10 +1174,10 @@ function createTowerSystem(deps) {
                 if (isCrit) {
                     var critDmg = stats ? stats.critDamage : 2.0;
                     damage = Math.floor(damage * critDmg);
-                    createCritAnimation(getScreenWidth() / 2, getScreenHeight() / 3 - 30, damage, 0);
+                    createCritAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(241 * scale), damage, 0);
                 }
                 combatMonster.hp -= damage;
-                createMonsterDamageAnimation(getScreenWidth() / 2, getScreenHeight() / 3, damage);
+                createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), damage);
                 addGameMessage(skill.emoji + ' ' + skill.name + '! -' + damage, '#00ccff');
                 if (combatMonster.hp <= 0) defeatMonster();
                 success = true;
@@ -1182,7 +1216,7 @@ function createTowerSystem(deps) {
                     var buffDamage = (skill.attack || 0) + (stats ? stats.attack * 0.5 : 0);
                     if (buffDamage > 0) {
                         combatMonster.hp -= buffDamage;
-                        createMonsterDamageAnimation(getScreenWidth() / 2, getScreenHeight() / 3, buffDamage);
+                        createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), buffDamage);
                         addGameMessage(skill.emoji + ' 属性爆发! -' + Math.floor(buffDamage), '#00ccff');
                         if (combatMonster.hp <= 0) defeatMonster();
                     }
@@ -1364,7 +1398,7 @@ function createTowerSystem(deps) {
         var expReward = randomRange(20, 40) * floor;
         var materialReward = rollMaterialDrop(0.15, 0.4);
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.gold = (pd.gold || 0) + goldReward;
         applyMaterialReward(pd, materialReward);
         if (pd.currentCharacterId) {
@@ -1415,7 +1449,7 @@ function createTowerSystem(deps) {
         }
         var expReward = randomRange(5, 15) * floor;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.gold = (pd.gold || 0) + goldReward;
         applyMaterialReward(pd, materialReward);
         if (pd.currentCharacterId) {
@@ -1474,7 +1508,10 @@ function createTowerSystem(deps) {
 
     function addRewardFloatText(gold, exp, material) {
         var scale = getScreenScaleFn();
-        var startY = getScreenHeight() - Math.floor(100 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var screenH = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
+        var startY = designBottom - Math.floor(100 * scale);
 
         if (gold > 0) {
             combatRewardTexts.push({
@@ -1517,7 +1554,10 @@ function createTowerSystem(deps) {
 
     function addFloatText(text, color) {
         var scale = getScreenScaleFn();
-        var baseY = getScreenHeight() - Math.floor(80 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var screenH = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
+        var baseY = designBottom - Math.floor(80 * scale);
         var offsetY = combatRewardTexts.length * Math.floor(25 * scale);
         combatRewardTexts.push({
             text: text,
@@ -1551,7 +1591,7 @@ function createTowerSystem(deps) {
 
         if (boss) {
             var goldReward = randomRange(100, 300) * Math.floor(floor / 5);
-            var pd = getPlayerData();
+            var pd = getSaveData();
             pd.gold = (pd.gold || 0) + goldReward;
 
             var starSource = randomRange(10, 30);
@@ -1571,7 +1611,7 @@ function createTowerSystem(deps) {
         var treasure = cell.treasure;
         treasure.opened = true;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.gold = (pd.gold || 0) + treasure.gold;
         collectedRewards.push({type: 'gold', amount: treasure.gold});
 
@@ -1596,7 +1636,7 @@ function createTowerSystem(deps) {
         var material = cell.material;
         material.collected = true;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.materials[material.id]) {
             pd.materials[material.id] = {quantity: 0, usedCount: 0};
         }
@@ -1789,7 +1829,7 @@ function createTowerSystem(deps) {
             totalRewards: collectedRewards.length
         };
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.infiniteTower.currentFloor = 1;
         pd.infiniteTower.currentHp = playerMaxHp;
         pd.infiniteTower.collectedRewards = [];
@@ -1842,7 +1882,7 @@ function createTowerSystem(deps) {
     }
 
     function saveProgress() {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.infiniteTower.currentFloor = currentFloor;
         pd.infiniteTower.currentHp = playerHp;
         pd.infiniteTower.maxHp = playerMaxHp;
@@ -1877,7 +1917,7 @@ function createTowerSystem(deps) {
         clearMoveInterval();
         clearTimerInterval();
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.infiniteTower.currentFloor = currentFloor;
         pd.infiniteTower.currentHp = playerHp;
         pd.infiniteTower.maxHp = playerMaxHp;
@@ -1912,7 +1952,7 @@ function createTowerSystem(deps) {
             if (collectedRewards[i].type === 'gold') totalGold += collectedRewards[i].amount;
         }
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (currentFloor > (pd.infiniteTower.highestFloor || 0)) {
             pd.infiniteTower.highestFloor = currentFloor;
             pd.infiniteTower.totalClears = (pd.infiniteTower.totalClears || 0) + 1;
@@ -1946,13 +1986,14 @@ function createTowerSystem(deps) {
     function updateViewOffset() {
         var scale = getScreenScaleFn();
         var sw = getScreenWidth();
-        var sh = getScreenHeight();
+        var designOffsetY = getDesignOffsetY();
+        var DESIGN_HEIGHT = 812;
         var cellSize = Math.floor(30 * scale);
         var viewWidth = sw - Math.floor(40 * scale);
-        var viewHeight = sh - Math.floor(150 * scale);
+        var viewHeight = Math.floor(DESIGN_HEIGHT * scale) - Math.floor(150 * scale);
 
         var centerX = viewWidth / 2;
-        var centerY = viewHeight / 2;
+        var centerY = designOffsetY + viewHeight / 2;
 
         viewOffsetX = centerX - playerX * cellSize;
         viewOffsetY = centerY - playerY * cellSize;
@@ -1985,7 +2026,7 @@ function createTowerSystem(deps) {
                 victoryPopupTimer = null;
             }
 
-            var pd = getPlayerData();
+            var pd = getSaveData();
             if (!pd.infiniteTower) {
                 pd.infiniteTower = {
                     highestFloor: 0,
@@ -2032,14 +2073,14 @@ function createTowerSystem(deps) {
 
             exploreAround(0, 0);
 
-            getPlayerData().infiniteTower.isPaused = false;
+            getSaveData().infiniteTower.isPaused = false;
             saveProgress();
 
             Logger.info('爬塔模式重新开始');
         },
 
         resumeProgress: function() {
-            var saved = getPlayerData().infiniteTower;
+            var saved = getSaveData().infiniteTower;
 
             currentFloor = saved.currentFloor || 1;
             playerHp = saved.currentHp || calculateMaxHp();
@@ -2063,7 +2104,7 @@ function createTowerSystem(deps) {
                 generateFloor(currentFloor);
             }
 
-            getPlayerData().infiniteTower.isPaused = false;
+            getSaveData().infiniteTower.isPaused = false;
 
             Logger.info('恢复爬塔进度，层数:', currentFloor, '血量:', playerHp);
             showToast({ title: '继续挑战！第' + currentFloor + '层', icon: 'none', duration: 1500 });
@@ -2164,8 +2205,6 @@ function createTowerSystem(deps) {
             startCombat(currentCell);
         },
 
-        pauseCombat: pauseCombat,
-        resumeCombat: resumeCombat,
         _setBattleEngine: function(engine) { battleEngine = engine; },
         _getBattleEngine: function() { return battleEngine; },
         get battleEngine() { return battleEngine; }

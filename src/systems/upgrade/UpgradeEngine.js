@@ -7,7 +7,7 @@ import Logger from '../../utils/Logger.js';
 import { UPGRADE_CONFIG } from '../../config/UpgradeConfig.js';
 
 function createUpgradeEngine(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
     var showToast = deps.showToast;
     var strategies = deps.strategies;
@@ -19,15 +19,15 @@ function createUpgradeEngine(deps) {
             return { success: false, error: 'unknown_type' };
         }
 
-        var playerData = getPlayerData();
-        var entity = strategy.resolveEntity(entityUid, playerData);
+        var pd = getSaveData();
+        var entity = strategy.resolveEntity(entityUid, pd);
         if (!entity) {
             showToast({ title: '未找到该实体', icon: 'none', duration: 1500 });
             return { success: false, error: 'entity_not_found' };
         }
 
         var config = UPGRADE_CONFIG.entities[type];
-        var state = strategy.getUpgradeState(entityUid, playerData);
+        var state = strategy.getUpgradeState(entityUid, pd);
 
         if (state.level >= config.maxLevel) {
             showToast({ title: '已达最高等级', icon: 'none', duration: 1500 });
@@ -35,15 +35,15 @@ function createUpgradeEngine(deps) {
         }
 
         var cost = strategy.getUpgradeCost(entity, state);
-        if (!strategy.canAfford(playerData, cost)) {
+        if (!strategy.canAfford(pd, cost)) {
             showToast({ title: '资源不足', icon: 'none', duration: 1500 });
             return { success: false, error: 'insufficient' };
         }
 
-        strategy.consumeCost(playerData, cost);
-        strategy.applyUpgrade(entityUid, playerData);
+        strategy.consumeCost(pd, cost);
+        strategy.applyUpgrade(entityUid, pd);
 
-        var newState = strategy.getUpgradeState(entityUid, playerData);
+        var newState = strategy.getUpgradeState(entityUid, pd);
         saveData();
         Logger.info('[升级] type=' + type + ' uid=' + entityUid + ' level=' + state.level + '→' + newState.level);
 
@@ -58,15 +58,15 @@ function createUpgradeEngine(deps) {
             return { success: false, error: 'unknown_type' };
         }
 
-        var playerData = getPlayerData();
-        var entity = strategy.resolveEntity(entityUid, playerData);
+        var pd = getSaveData();
+        var entity = strategy.resolveEntity(entityUid, pd);
         if (!entity) {
             showToast({ title: '未找到该实体', icon: 'none', duration: 1500 });
             return { success: false, error: 'entity_not_found' };
         }
 
         var config = UPGRADE_CONFIG.entities[type];
-        var state = strategy.getUpgradeState(entityUid, playerData);
+        var state = strategy.getUpgradeState(entityUid, pd);
         var currentStar = state.starLevel || 0;
 
         if (currentStar >= config.maxStar) {
@@ -75,7 +75,7 @@ function createUpgradeEngine(deps) {
         }
 
         var needed = config.starMaterials[currentStar];
-        var available = strategy.getStarMaterials(entityUid, playerData);
+        var available = strategy.getStarMaterials(entityUid, pd);
 
         if (available.length < needed) {
             showToast({ title: '需要' + needed + '个相同' + _getTypeName(type), icon: 'none', duration: 1500 });
@@ -84,7 +84,7 @@ function createUpgradeEngine(deps) {
 
         // 消耗材料
         var consumed = available.slice(0, needed);
-        strategy.consumeStarMaterials(consumed, playerData);
+        strategy.consumeStarMaterials(consumed, pd);
 
         // 概率判定
         var rate = config.starRates[currentStar];
@@ -92,8 +92,8 @@ function createUpgradeEngine(deps) {
         var success = roll < rate;
 
         if (success) {
-            strategy.applyStarUpgrade(entityUid, playerData);
-            var newState = strategy.getUpgradeState(entityUid, playerData);
+            strategy.applyStarUpgrade(entityUid, pd);
+            var newState = strategy.getUpgradeState(entityUid, pd);
             saveData();
             Logger.info('[升星成功] type=' + type + ' uid=' + entityUid + ' star=' + currentStar + '→' + newState.starLevel + ' rate=' + rate);
             showToast({ title: '升星成功！★' + newState.starLevel, icon: 'none', duration: 2000 });
@@ -103,7 +103,7 @@ function createUpgradeEngine(deps) {
             var refundCount = Math.floor(needed * 0.5);
             if (refundCount > 0) {
                 var refundMaterials = consumed.slice(0, refundCount);
-                strategy.refundStarMaterials(refundMaterials, playerData);
+                strategy.refundStarMaterials(refundMaterials, pd);
             }
             saveData();
             Logger.info('[升星失败] type=' + type + ' uid=' + entityUid + ' star=' + currentStar + ' rate=' + rate + ' roll=' + roll.toFixed(3) + ' refund=' + refundCount);
@@ -116,12 +116,12 @@ function createUpgradeEngine(deps) {
         var strategy = strategies[type];
         if (!strategy) return null;
 
-        var playerData = getPlayerData();
-        var entity = strategy.resolveEntity(entityUid, playerData);
+        var pd = getSaveData();
+        var entity = strategy.resolveEntity(entityUid, pd);
         if (!entity) return null;
 
         var config = UPGRADE_CONFIG.entities[type];
-        var state = strategy.getUpgradeState(entityUid, playerData);
+        var state = strategy.getUpgradeState(entityUid, pd);
         var currentStar = state.starLevel || 0;
         var atMaxLevel = state.level >= config.maxLevel;
         var atMaxStar = currentStar >= config.maxStar;
@@ -142,7 +142,7 @@ function createUpgradeEngine(deps) {
             result.starMaterialCount = config.starMaterials[currentStar];
             result.starRate = config.starRates[currentStar];
             result.starMultiplier = config.starMultiplier[currentStar + 1];
-            var mats = strategy.getStarMaterials(entityUid, playerData);
+            var mats = strategy.getStarMaterials(entityUid, pd);
             result.availableMaterials = mats.length;
             result.materialDetails = mats;
         }
@@ -154,7 +154,7 @@ function createUpgradeEngine(deps) {
     function getAvailableEntities(type) {
         var strategy = strategies[type];
         if (!strategy) return [];
-        return strategy.getAvailableEntities(getPlayerData());
+        return strategy.getAvailableEntities(getSaveData());
     }
 
     function _getTypeName(type) {

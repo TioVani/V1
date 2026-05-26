@@ -15,10 +15,11 @@ var CAST_EFFECT_DURATION = 400;  // 爆裂粒子消散时长
 var METEOR_DURATION = 300;       // 流星飞行时长
 
 function createChargeSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var isTutorialComplete = deps.isTutorialComplete;
     var getActiveMonsters = deps.getActiveMonsters;
     var addMessage = deps.addMessage || function () { };
     var createScreenShake = deps.createScreenShake || function () { };
@@ -29,6 +30,7 @@ function createChargeSystem(deps) {
     var drawStar = deps.drawStar || null;
     var addScore = deps.addScore || function () { };
     var addLinkCharge = deps.addLinkCharge || function () { };
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     var state = {
         phase: 'idle',               // idle|monitoring|charging|autoCast|castEffect
@@ -51,7 +53,8 @@ function createChargeSystem(deps) {
     };
 
     function isUnlocked() {
-        var pd = getPlayerData();
+        if (isTutorialComplete && isTutorialComplete()) return true;
+        var pd = getSaveData();
         if (!pd || !pd.currentCharacterId) return false;
         var charExp = pd.characterExperience;
         if (!charExp || !charExp[pd.currentCharacterId]) return false;
@@ -170,7 +173,7 @@ function createChargeSystem(deps) {
         }
         if (aliveMonsters.length === 0) return;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var baseAtk = pd.totalAttack || 50;
         var scale = getScreenScale ? getScreenScale() : 1;
 
@@ -271,7 +274,7 @@ function createChargeSystem(deps) {
             return null;
         }
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var baseAtk = pd.totalAttack || 50;
 
         var targets;
@@ -460,6 +463,8 @@ function createChargeSystem(deps) {
     // ── 渲染 ──
 
     function render(ctx, screenW, screenH, scale) {
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
         // 监控期脉动环
         if (state.phase === 'monitoring') {
             var elapsed = Date.now() - state.chargeStartTime;
@@ -570,7 +575,7 @@ function createChargeSystem(deps) {
             var barW = 180 * scale;
             var barH = 4 * scale;
             var barX = screenW / 2 - barW / 2;
-            var barY = screenH - 35 * scale;
+            var barY = designBottom - Math.floor(35 * scale);
             ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.fillRect(barX, barY, barW, barH);
             ctx.fillStyle = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';

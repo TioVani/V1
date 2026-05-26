@@ -5,20 +5,20 @@ import Logger from '../utils/Logger.js';
 import { FUSION_CONFIG } from '../config/FusionConfig.js';
 
 function createFusionRegistry(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
 
     function _ensureFusionData() {
-        var playerData = getPlayerData();
-        if (!playerData.fusionData) {
-            playerData.fusionData = {
+        var pd = getSaveData();
+        if (!pd.fusionData) {
+            pd.fusionData = {
                 pityCount: {},
                 codex: {},
                 history: [],
                 stats: { totalAttempts: 0, totalSuccesses: 0, totalGreatSuccesses: 0 }
             };
         }
-        return playerData.fusionData;
+        return pd.fusionData;
     }
 
     // ==================== 保底 ====================

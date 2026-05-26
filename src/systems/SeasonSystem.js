@@ -81,7 +81,7 @@ var SEASON_STAR_TYPES = [
 
 function createSeasonSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getCharacters = deps.getCharacters;
     var spawnDodgeStarFn = deps.spawnDodgeStar;
     var saveDataFn = deps.saveData;
@@ -194,8 +194,8 @@ function createSeasonSystem(deps) {
     function initSeasonContent() {
         var Characters = getCharacters();
         try {
-            var playerData = getPlayerData();
-            var savedSeason = playerData.seasonData;
+            var pd = getSaveData();
+            var savedSeason = pd.seasonData;
             var currentWeek = getCurrentSeasonWeek();
 
             if (savedSeason && savedSeason.weekId === currentWeek) {
@@ -208,7 +208,7 @@ function createSeasonSystem(deps) {
                     setSeasonContent(generateSeasonContent());
                     setSeasonBestScore(0);
                     setSeasonLeaderboard(generateMockSeasonLeaderboard());
-                    playerData.seasonData = {
+                    pd.seasonData = {
                         weekId: currentWeek,
                         content: getSeasonContent(),
                         bestScore: 0,
@@ -224,7 +224,7 @@ function createSeasonSystem(deps) {
                 setSeasonBestScore(0);
                 setSeasonLeaderboard(generateMockSeasonLeaderboard());
 
-                playerData.seasonData = {
+                pd.seasonData = {
                     weekId: currentWeek,
                     content: getSeasonContent(),
                     bestScore: 0,

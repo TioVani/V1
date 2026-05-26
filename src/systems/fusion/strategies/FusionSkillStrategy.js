@@ -25,7 +25,7 @@ function _getId(entry) {
 }
 
 function createFusionSkillStrategy(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getSkills = deps.getSkills;
     var type = FUSION_TYPES.SKILL;
 

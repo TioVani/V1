@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 /**
  * Boss星星机制（Boss Star Mechanic System）
  * 从 game.js 迁移，闭包工厂 + 依赖注入模式
@@ -26,7 +27,7 @@ function createBossStarSystem(deps) {
     var getStars = deps.getStars;
     var setStars = deps.setStars;
     var pushStar = deps.pushStar;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var addMessage = deps.addMessage;
     var checkGameOver = deps.checkGameOver;
     var vibrateShort = deps.vibrateShort;
@@ -37,12 +38,30 @@ function createBossStarSystem(deps) {
     var bossStarsSpawned = [];
     var bossStarTimeout = null;
 
+    // PauseCoordinator 注册 — Boss 战斗 init 时 subscribe，destroy 时 unsubscribe
+    var _owner = { _destroyed: true }; // 初始未激活，Boss init 时才变活跃
+    PauseCoordinator.instance.subscribe(_owner, 'BossStars', {
+        onPause: function() {
+            if (bossStarTimeout) {
+                clearTimeout(bossStarTimeout);
+                bossStarTimeout = null;
+            }
+        },
+        onResume: function(duration) {
+            var starsArr = getStars();
+            for (var i = 0; i < starsArr.length; i++) {
+                if (starsArr[i].disappearTime) starsArr[i].disappearTime += duration;
+            }
+        }
+    });
+
     // ==================== 核心方法 ====================
 
     /**
      * 触发Boss星星技能
      */
     function triggerBossStarSkill(bossMonster) {
+        _owner._destroyed = false; // 激活 subscriber
         if (bossStarActive) {
             Logger.info('Boss星星技能已在激活中');
             return;
@@ -164,7 +183,7 @@ function createBossStarSystem(deps) {
     function checkBossStarPenalty(bossMonster) {
         if (!bossStarActive) return;
 
-        var playerData = getPlayerData();
+        var pd = getSaveData();
 
         // 统计漏掉的Boss星星数量
         var missedCount = 0;
@@ -190,17 +209,17 @@ function createBossStarSystem(deps) {
 
         // 检查是否触发惩罚（漏掉30%以上）
         if (missRatio >= BOSS_STAR_MISS_THRESHOLD) {
-            var maxHp = playerData.maxPlayerHp || 100;
+            var maxHp = pd.maxPlayerHp || 100;
             var penaltyDamage = Math.floor(maxHp * 2 / 3);
 
             // 护盾优先吸收
             var actualDamage = penaltyDamage;
-            if (playerData.playerShield > 0) {
-                var shieldAbsorb = Math.min(playerData.playerShield, actualDamage);
-                playerData.playerShield -= shieldAbsorb;
+            if (pd.playerShield > 0) {
+                var shieldAbsorb = Math.min(pd.playerShield, actualDamage);
+                pd.playerShield -= shieldAbsorb;
                 actualDamage -= shieldAbsorb;
             }
-            playerData.playerHp = Math.max(0, playerData.playerHp - actualDamage);
+            pd.playerHp = Math.max(0, pd.playerHp - actualDamage);
 
             // Boss回复生命值
             var healAmount = actualDamage * 2;
@@ -233,6 +252,8 @@ function createBossStarSystem(deps) {
      * 重置Boss星星机制
      */
     function resetBossStarMechanic() {
+        _owner._destroyed = true;
+        PauseCoordinator.instance.unsubscribe('BossStars');
         bossAttackCount = 0;
         bossStarActive = false;
         bossStarsSpawned = [];

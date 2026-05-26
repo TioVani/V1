@@ -11,7 +11,7 @@ import { getWorldConfig, getAllWorldIds } from '../config/WorldMapConfig.js';
 function createWorldMapSystem(deps) {
     var showToast = deps.showToast;
     var savePlayerData = deps.savePlayerData;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var _needsRespawn = false;
     var _prevPos = null;
     var _onTriggerLine = null;
@@ -63,7 +63,7 @@ function createWorldMapSystem(deps) {
         _onTriggerLine = null;
         _teleportCooldown = false;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var visited = _exploration.isWorldVisited(pd, worldId);
         if (visited) {
             _exploration.restoreProgress(pd);
@@ -75,7 +75,7 @@ function createWorldMapSystem(deps) {
             for (var i = 0; i < config.entities.length; i++) {
                 var e = config.entities[i];
                 if (e.type === 'portal' && e.targetWorld === fromWorldId) {
-                    player.setPlayerPos(e.x, e.y);
+                    player.setPlayerPos(e.spawnX || e.x, e.spawnY || e.y);
                     break;
                 }
             }
@@ -186,7 +186,7 @@ function createWorldMapSystem(deps) {
 
     // === 存档 ===
     function saveProgress() {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         _exploration.saveProgress(pd);
         unlock.saveState(pd, _exploration.getWorldId());
         if (savePlayerData) savePlayerData(true);
@@ -212,6 +212,7 @@ function createWorldMapSystem(deps) {
         isPlayerOccluded: isPlayerOccluded,
         getOcclusionCanvas: function() { return player.getOcclusionCanvas(); },
         getCurrentFloor: function() { return player.getCurrentFloor(); },
+        getFacingX: function() { return player.getFacingX(); },
         switchFloor: function(floorId) { player.switchFloor(floorId); },
         getEntities: getEntities,
         getNearbyEntity: getNearbyEntity,

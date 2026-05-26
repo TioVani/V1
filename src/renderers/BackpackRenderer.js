@@ -14,7 +14,7 @@ function createBackpackRenderer(deps) {
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
     var getGachaRoundRect = deps.getGachaRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getUiScrollState = deps.getUiScrollState;
     var uiScrollState = getUiScrollState();
     var Materials = deps.Materials;
@@ -34,6 +34,8 @@ function createBackpackRenderer(deps) {
     var calculateTotalAttack = deps.calculateTotalAttack;
     var getFaithSystem = deps.getFaithSystem;
     var getCharacterFullStats = deps.getCharacterFullStats;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     // 角色列表去重缓存（避免每帧 new Set + 展开数组）
     var _cachedCharIds = null;
@@ -58,8 +60,9 @@ function createBackpackRenderer(deps) {
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
@@ -82,7 +85,7 @@ function createBackpackRenderer(deps) {
     if (Assets.backpackImage && Assets.backpackImage.complete) {
         var bpSize = Math.floor(40 * scale);
         var bpX = Math.floor(20 * scale);  // 向右移动5像素
-        var bpY = Math.floor(25 * scale);  // 向下移动10像素
+        var bpY = designOffsetY + Math.floor(25 * scale);  // 向下移动10像素
         ctx.drawImage(Assets.backpackImage, bpX, bpY, bpSize, bpSize);
     }
 
@@ -91,7 +94,7 @@ function createBackpackRenderer(deps) {
     var tabHeight = Math.floor(45 * scale);
     var tabGap = Math.floor(5 * scale);
     var tabX = screenWidth - tabWidth;  // 右侧边缘
-    var startTabY = Math.floor(100 * scale);
+    var startTabY = designOffsetY + Math.floor(100 * scale);
     
     // 8个标签：材料、古灵、灵光、道具、装备、技能、宠物、信仰
     var tabLabels = [
@@ -160,16 +163,18 @@ function createBackpackRenderer(deps) {
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var materialItemHeight = Math.floor(80 * scale);
     var padding = Math.floor(10 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -182,12 +187,12 @@ function createBackpackRenderer(deps) {
     ctx.fillText('我的材料', Math.floor(20 * scale), startY - Math.floor(10 * scale));
 
     // 材料列表
-    var materialIds = Object.keys(playerData.materials);
+    var materialIds = Object.keys(pd.materials);
     var hasVisibleMaterials = false;
 
     // 检查是否有可见的材料（数量大于0）
     for (let j = 0; j < materialIds.length; j++) {
-        var matData = playerData.materials[materialIds[j]];
+        var matData = pd.materials[materialIds[j]];
         if (matData && matData.quantity > 0) {
             hasVisibleMaterials = true;
             break;
@@ -198,11 +203,11 @@ function createBackpackRenderer(deps) {
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('背包为空', contentWidth/2, screenHeight/2);
+        ctx.fillText('背包为空', contentWidth/2, (designOffsetY + designBottom) / 2);
     } else {
         // 内容区域裁剪（标题下方到屏幕底部）
         var contentTop = startY + Math.floor(20 * scale);
-        var contentBottom = screenHeight - Math.floor(10 * scale);
+        var contentBottom = designBottom - Math.floor(10 * scale);
         var visibleHeight = contentBottom - contentTop;
         
         ctx.save();
@@ -214,7 +219,7 @@ function createBackpackRenderer(deps) {
         for (let i = 0; i < materialIds.length; i++) {
             var materialId = materialIds[i];
             var material = Materials[materialId];
-            var materialData = playerData.materials[materialId];
+            var materialData = pd.materials[materialId];
             
             if (!material || !material.name || !material.emoji) {
                 continue;
@@ -270,15 +275,15 @@ function createBackpackRenderer(deps) {
             ctx.fillText('已用:' + usedCount + '次', Math.floor(100 * scale), itemY + Math.floor(70 * scale));
 
             // 水灵暴晶特殊显示：额外暴击率
-            if (materialId === 'critCrystal' && playerData.extraCritRate > 0) {
+            if (materialId === 'critCrystal' && pd.extraCritRate > 0) {
                 ctx.fillStyle = '#ffd700';
-                ctx.fillText('| 会心感应 +' + playerData.extraCritRate + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
+                ctx.fillText('| 会心感应 +' + pd.extraCritRate + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
             }
             
             // 火灵爆源特殊显示：额外暴击伤害
-            if (materialId === 'critFireSource' && playerData.extraCritDamage > 0) {
+            if (materialId === 'critFireSource' && pd.extraCritDamage > 0) {
                 ctx.fillStyle = '#ffd700';
-                ctx.fillText('| 爆伤 +' + (playerData.extraCritDamage * 100) + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
+                ctx.fillText('| 爆伤 +' + (pd.extraCritDamage * 100) + '%', Math.floor(180 * scale), itemY + Math.floor(70 * scale));
             }
 
             // 使用按钮（右对齐，考虑右侧标签区域，再往左移30像素）
@@ -307,16 +312,18 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var characterItemHeight = Math.floor(100 * scale);
     var padding = Math.floor(15 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -329,15 +336,15 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
     ctx.fillText('我的角色', Math.floor(20 * scale), startY - Math.floor(10 * scale));
 
     // 角色列表
-    if (!playerData.ownedCharacters || playerData.ownedCharacters.length === 0) {
+    if (!pd.ownedCharacters || pd.ownedCharacters.length === 0) {
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('暂无角色', contentWidth/2, screenHeight/2);
+        ctx.fillText('暂无角色', contentWidth/2, (designOffsetY + designBottom) / 2);
     } else {
         // 内容区域裁剪（标题下方到屏幕底部）
         var contentTop = startY + Math.floor(20 * scale);
-        var contentBottom = screenHeight - Math.floor(10 * scale);
+        var contentBottom = designBottom - Math.floor(10 * scale);
         var visibleHeight = contentBottom - contentTop;
         
         ctx.save();
@@ -346,7 +353,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
         ctx.clip();
         
         // 去重显示（使用缓存避免每帧 GC）
-        var uniqueCharIds = getUniqueCharIds(playerData.ownedCharacters);
+        var uniqueCharIds = getUniqueCharIds(pd.ownedCharacters);
         for (let i = 0; i < uniqueCharIds.length; i++) {
             var currentCharId = uniqueCharIds[i];
 
@@ -364,7 +371,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
             fillRoundRect(ctx, Math.floor(20 * scale), itemY, screenWidth - Math.floor(40 * scale), characterItemHeight, Math.floor(8 * scale));
 
             // 角色图标
-            if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete) {
+            if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete && Assets.characterImages[mappedCharId].naturalWidth > 0) {
                 // 使用角色立绘图片
                 ctx.drawImage(Assets.characterImages[mappedCharId], 70 - 25, itemY + characterItemHeight / 2 - 25, 50, 50);
             } else {
@@ -410,8 +417,8 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
 
                         // 计算总攻击力（包含材料加成）
                         var totalAttack = charStats.attack;
-                        for (let matId in playerData.usedMaterials) {
-                            var usedData = playerData.usedMaterials[matId];
+                        for (let matId in pd.usedMaterials) {
+                            var usedData = pd.usedMaterials[matId];
                             var mat = Materials[matId];
                             if (mat && mat.attributes && mat.attributes.attack) {
                                 totalAttack += mat.attributes.attack * usedData.count;
@@ -424,7 +431,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
                         ctx.fillText('灵能:' + charStats.hp + ' 灵光冲击:' + totalAttack + ' 会心感应:' + charStats.critRate.toFixed(1) + '%', Math.floor(120 * scale), itemY + Math.floor(75 * scale));
                         ctx.fillText('会心威力:' + (charStats.critDamage * 100).toFixed(0) + '% 灵场护盾:' + charStats.defense, Math.floor(120 * scale), itemY + Math.floor(92 * scale));
             // 如果是当前角色，显示标记
-            if (currentCharId === playerData.currentCharacterId) {
+            if (currentCharId === pd.currentCharacterId) {
                 ctx.fillStyle = '#4CAF50';
                 ctx.font = 'bold ' + Math.floor(12 * scale) + 'px sans-serif';
                 ctx.textAlign = 'center';
@@ -441,16 +448,18 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var starItemHeight = Math.floor(80 * scale);
     var padding = Math.floor(10 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -480,7 +489,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
         if (starId === 'normal') {
             allStarTypes[i].unlocked = true;
         } else {
-            allStarTypes[i].unlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf(starId) !== -1;
+            allStarTypes[i].unlocked = pd.unlockedStarTypes && pd.unlockedStarTypes.indexOf(starId) !== -1;
         }
     }
 
@@ -489,7 +498,7 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
 
     // 内容区域裁剪
     var contentTop = startY + Math.floor(20 * scale);
-    var contentBottom = screenHeight - Math.floor(10 * scale);
+    var contentBottom = designBottom - Math.floor(10 * scale);
     var visibleHeight = contentBottom - contentTop;
 
     // 计算滚动限制（基于实际裁剪区域）
@@ -503,10 +512,10 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('暂无灵光', contentWidth/2, screenHeight/2);
+        ctx.fillText('暂无灵光', contentWidth/2, (designOffsetY + designBottom) / 2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城唤灵获取', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取', contentWidth/2, (designOffsetY + designBottom) / 2 + Math.floor(30 * scale));
         return;
     }
     
@@ -550,11 +559,11 @@ fillRoundRect(ctx, useBtnX, useBtnY, useBtnW, useBtnH, 6);
         var isFireStar = (starType.id === 'fire');
         
         if (isIceStar || isFireStar) {
-            var starLevel = isIceStar ? (playerData.iceStarLevel || 0) : (playerData.fireStarLevel || 0);
-            var maxLevel = isIceStar ? (playerData.maxIceStarLevel || 10) : (playerData.maxFireStarLevel || 10);
+            var starLevel = isIceStar ? (pd.iceStarLevel || 0) : (pd.fireStarLevel || 0);
+            var maxLevel = isIceStar ? (pd.maxIceStarLevel || 10) : (pd.maxFireStarLevel || 10);
             var materialId = isIceStar ? 'iceCrystal' : 'fireSource';
             var materialName = isIceStar ? '水灵晶' : '火灵源';
-            var materialData = playerData.materials && playerData.materials[materialId];
+            var materialData = pd.materials && pd.materials[materialId];
             var materialQuantity = materialData ? materialData.quantity : 0;
             
             // 显示等级
@@ -619,17 +628,19 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var itemHeight = Math.floor(80 * scale);
     var padding = Math.floor(10 * scale);
-    
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
     var contentWidth = screenWidth - tabAreaWidth;
@@ -652,9 +663,9 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
 
     // 检查是否有道具
     var hasItems = false;
-    if (playerData.items) {
+    if (pd.items) {
         for (let i = 0; i < itemsConfig.length; i++) {
-            if (playerData.items[itemsConfig[i].id] && playerData.items[itemsConfig[i].id].quantity > 0) {
+            if (pd.items[itemsConfig[i].id] && pd.items[itemsConfig[i].id].quantity > 0) {
                 hasItems = true;
                 break;
             }
@@ -665,14 +676,14 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('背包为空', contentWidth/2, screenHeight/2);
+        ctx.fillText('背包为空', contentWidth/2, (designOffsetY + designBottom) / 2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城购买道具', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城购买道具', contentWidth/2, (designOffsetY + designBottom) / 2 + Math.floor(30 * scale));
     } else {
         // 内容区域裁剪（标题下方到屏幕底部）
         var contentTop = startY + Math.floor(20 * scale);
-        var contentBottom = screenHeight - Math.floor(10 * scale);
+        var contentBottom = designBottom - Math.floor(10 * scale);
         var visibleHeight = contentBottom - contentTop;
         
         ctx.save();
@@ -683,7 +694,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
         var displayIndex = 0;
         for (let i = 0; i < itemsConfig.length; i++) {
             var itemConfig = itemsConfig[i];
-            var itemData = playerData.items ? playerData.items[itemConfig.id] : null;
+            var itemData = pd.items ? pd.items[itemConfig.id] : null;
             
             // 只显示数量大于0的道具
             if (!itemData || itemData.quantity <= 0) continue;
@@ -736,16 +747,18 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var itemHeight = Math.floor(85 * scale);
     var padding = Math.floor(10 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -758,16 +771,16 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     ctx.fillText('我的装备', Math.floor(20 * scale), startY - Math.floor(10 * scale));
 
     // 检查是否拥有装备
-    var ownedEquipments = playerData.equipments ? playerData.equipments.owned : [];
+    var ownedEquipments = pd.equipments ? pd.equipments.owned : [];
     
     if (!ownedEquipments || ownedEquipments.length === 0) {
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('暂无装备', contentWidth/2, screenHeight/2);
+        ctx.fillText('暂无装备', contentWidth/2, (designOffsetY + designBottom) / 2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城唤灵获取装备', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取装备', contentWidth/2, (designOffsetY + designBottom) / 2 + Math.floor(30 * scale));
     } else {
         // 计算实际可显示的装备数量（排除无效装备）
         var validEquipCount = 0;
@@ -778,10 +791,10 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
                 validEquipCount++;
             }
         }
-        
+
         // 内容区域裁剪（标题下方到屏幕底部）
         var contentTop = startY + Math.floor(20 * scale);
-        var contentBottom = screenHeight - Math.floor(10 * scale);
+        var contentBottom = designBottom - Math.floor(10 * scale);
         var visibleHeight = contentBottom - contentTop;
 
         // 计算滚动限制（基于有效装备数量和实际裁剪区域）
@@ -871,8 +884,8 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             ctx.fillText(equip.description || '', Math.floor(90 * scale), itemY + Math.floor(70 * scale));
 
             // 装备按钮（考虑右侧标签区域）
-            var isEquipped = playerData.equipments && playerData.equipments.equipped && 
-                            playerData.equipments.equipped[equip.type] === instanceId;
+            var isEquipped = pd.equipments && pd.equipments.equipped && 
+                            pd.equipments.equipped[equip.type] === instanceId;
             if (isEquipped) {
                 uiCore.drawButton('已装备', contentWidth - Math.floor(50 * scale), itemY + Math.floor(42 * scale), Math.floor(60 * scale), Math.floor(28 * scale), '#4CAF50');
             } else {
@@ -889,16 +902,18 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var itemHeight = Math.floor(85 * scale);
     var padding = Math.floor(10 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -911,20 +926,20 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     ctx.fillText('我的技能', Math.floor(20 * scale), startY - Math.floor(10 * scale));
     
     // 检查是否拥有技能
-    var ownedSkills = playerData.skills ? playerData.skills.owned : [];
+    var ownedSkills = pd.skills ? pd.skills.owned : [];
     
     if (!ownedSkills || ownedSkills.length === 0) {
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('暂无技能', contentWidth/2, screenHeight/2);
+        ctx.fillText('暂无技能', contentWidth/2, (designOffsetY + designBottom) / 2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城唤灵获取技能', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取技能', contentWidth/2, (designOffsetY + designBottom) / 2 + Math.floor(30 * scale));
     } else {
         // 内容区域起始位置（标题下方）
         var contentTop = startY + Math.floor(20 * scale);
-        var contentBottom = screenHeight - Math.floor(10 * scale);
+        var contentBottom = designBottom - Math.floor(10 * scale);
         var visibleHeight = contentBottom - contentTop;
         
         // 计算滚动限制
@@ -1001,8 +1016,8 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             ctx.fillText(skill.description || '', Math.floor(90 * scale), itemY + Math.floor(70 * scale));
 
             // 技能按钮（考虑右侧标签区域）
-            var isEquipped = playerData.skills && playerData.skills.equipped && 
-                            playerData.skills.equipped.indexOf(skillData.id || skillData) !== -1;
+            var isEquipped = pd.skills && pd.skills.equipped && 
+                            pd.skills.equipped.indexOf(skillData.id || skillData) !== -1;
             if (isEquipped) {
                 uiCore.drawButton('已装备', contentWidth - Math.floor(50 * scale), itemY + Math.floor(42 * scale), Math.floor(60 * scale), Math.floor(28 * scale), '#4CAF50');
             } else {
@@ -1019,16 +1034,18 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var itemHeight = Math.floor(85 * scale);
     var padding = Math.floor(10 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -1041,20 +1058,20 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     ctx.fillText('我的宠物', Math.floor(20 * scale), startY - Math.floor(10 * scale));
 
     // 检查是否拥有宠物
-    var ownedPets = playerData.pets ? playerData.pets.owned : [];
+    var ownedPets = pd.pets ? pd.pets.owned : [];
     
     if (!ownedPets || ownedPets.length === 0) {
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('暂无宠物', contentWidth/2, screenHeight/2);
+        ctx.fillText('暂无宠物', contentWidth/2, (designOffsetY + designBottom) / 2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('可在商城唤灵获取宠物', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('可在商城唤灵获取宠物', contentWidth/2, (designOffsetY + designBottom) / 2 + Math.floor(30 * scale));
     } else {
         // 内容区域裁剪（标题下方到屏幕底部）
         var contentTop = startY + Math.floor(20 * scale);
-        var contentBottom = screenHeight - Math.floor(10 * scale);
+        var contentBottom = designBottom - Math.floor(10 * scale);
         var visibleHeight = contentBottom - contentTop;
 
         // 计算滚动限制（基于实际裁剪区域）
@@ -1143,7 +1160,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
             ctx.fillText(pet.description || '', Math.floor(90 * scale), itemY + Math.floor(70 * scale));
 
             // 出战按钮（使用uid来判断出战状态）
-            var isActive = playerData.pets && playerData.pets.equipped === instanceId;
+            var isActive = pd.pets && pd.pets.equipped === instanceId;
             if (isActive) {
                 uiCore.drawButton('出战中', contentWidth - Math.floor(50 * scale), itemY + Math.floor(42 * scale), Math.floor(60 * scale), Math.floor(28 * scale), '#4CAF50');
             } else {
@@ -1160,16 +1177,18 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     var screenWidth = getScreenWidth();
     var screenHeight = getScreenHeight();
     var scale = getScreenScale();
+    var designOffsetY = getDesignOffsetY();
     var Assets = getAssets();
-    var playerData = getPlayerData();
+    var pd = getSaveData();
     var uiState = getUiScrollState();
     var fillRoundRect = getFillRoundRect();
     var gachaRoundRect = getGachaRoundRect();
     var strokeRoundRect = getStrokeRoundRect();
     var scale = getScreenScale();
-    var startY = Math.floor(100 * scale);
+    var startY = designOffsetY + Math.floor(100 * scale);
     var itemHeight = Math.floor(100 * scale);
     var padding = Math.floor(10 * scale);
+    var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
     
     // 计算内容区域宽度（排除右侧标签区域）
     var tabAreaWidth = Math.floor(60 * scale);
@@ -1182,7 +1201,7 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     ctx.fillText('🙏 信仰系统', Math.floor(20 * scale), startY - Math.floor(10 * scale));
     
     // 显示信仰资源
-    var resources = playerData.faithData ? playerData.faithData.resources : null;
+    var resources = pd.faithData ? pd.faithData.resources : null;
     if (!resources) {
         resources = { devoutMark: 0, divineEssence: 0, originCrystal: 0 };
     }
@@ -1192,19 +1211,19 @@ fillRoundRect(ctx, upgradeBtnX, upgradeBtnY, upgradeBtnW, upgradeBtnH, 6);
     ctx.fillText(`虔诚印记: ${resources.devoutMark} | 神恩精华: ${resources.divineEssence} | 本源结晶: ${resources.originCrystal}`, Math.floor(20 * scale), startY + Math.floor(15 * scale));
     
     // 获取当前角色
-    var currentCharId = playerData.currentCharacterId;
+    var currentCharId = pd.currentCharacterId;
     
     // 检查是否拥有角色
-    var ownedCharacters = playerData.ownedCharacters || [];
+    var ownedCharacters = pd.ownedCharacters || [];
     
     if (!currentCharId || ownedCharacters.length === 0) {
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('请先选择角色', contentWidth/2, screenHeight/2);
+        ctx.fillText('请先选择角色', contentWidth/2, (designOffsetY + designBottom) / 2);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
-        ctx.fillText('在角色标签页中选择要培养的角色', contentWidth/2, screenHeight/2 + Math.floor(30 * scale));
+        ctx.fillText('在角色标签页中选择要培养的角色', contentWidth/2, (designOffsetY + designBottom) / 2 + Math.floor(30 * scale));
         return;
     }
     
@@ -1403,10 +1422,11 @@ fillRoundRect(ctx, skillBtnX, skillY + Math.floor(10 * scale), Math.floor(70 * s
     // ==================== 背包装备/卸载交互逻辑 ====================
 
     function handleEquipClick(endX, endY) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var scroll = getUiScrollState();
         var scale = getScreenScale();
-        var startY = Math.floor(100 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var startY = designOffsetY + Math.floor(100 * scale);
         var contentTop = startY + Math.floor(20 * scale);
         var itemHeight = Math.floor(85 * scale);
         var padding = Math.floor(10 * scale);
@@ -1446,10 +1466,11 @@ fillRoundRect(ctx, skillBtnX, skillY + Math.floor(10 * scale), Math.floor(70 * s
     }
 
     function handleSkillClick(endX, endY) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var scroll = getUiScrollState();
         var scale = getScreenScale();
-        var startY = Math.floor(100 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var startY = designOffsetY + Math.floor(100 * scale);
         var contentTop = startY + Math.floor(20 * scale);
         var itemHeight = Math.floor(85 * scale);
         var padding = Math.floor(10 * scale);
@@ -1488,10 +1509,11 @@ fillRoundRect(ctx, skillBtnX, skillY + Math.floor(10 * scale), Math.floor(70 * s
     }
 
     function handlePetClick(endX, endY) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var scroll = getUiScrollState();
         var scale = getScreenScale();
-        var startY = Math.floor(100 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var startY = designOffsetY + Math.floor(100 * scale);
         var contentTop = startY + Math.floor(20 * scale);
         var itemHeight = Math.floor(85 * scale);
         var padding = Math.floor(10 * scale);

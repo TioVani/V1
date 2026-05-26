@@ -23,10 +23,11 @@ var IDLE_THRESHOLD = 5;          // 手指停下判定像素阈值
 var METEOR_DURATION = 300;       // 流星飞行时长(ms)
 
 function createDragSystem(deps) {
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
     var getScreenScale = deps.getScreenScale;
+    var isTutorialComplete = deps.isTutorialComplete;
     var getStars = deps.getStars || function () { return []; };
     var setStars = deps.setStars || function () { };
     var addMessage = deps.addMessage || function () { };
@@ -36,6 +37,7 @@ function createDragSystem(deps) {
     var addScore = deps.addScore || function () { };
     var addLinkCharge = deps.addLinkCharge || function () { };
     var saturationState = deps.saturationState;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // 内部状态
     var state = {
@@ -58,7 +60,8 @@ function createDragSystem(deps) {
     };
 
     function isUnlocked() {
-        var pd = getPlayerData();
+        if (isTutorialComplete && isTutorialComplete()) return true;
+        var pd = getSaveData();
         if (!pd || !pd.currentCharacterId) return false;
         var charExp = pd.characterExperience;
         if (!charExp || !charExp[pd.currentCharacterId]) return false;
@@ -67,8 +70,11 @@ function createDragSystem(deps) {
 
     function isInCharacterArea(x, y) {
         var scale = getScreenScale ? getScreenScale() : 1;
+        var designOffsetY = getDesignOffsetY();
+        var screenH = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
         var centerX = (getScreenWidth ? getScreenWidth() : 375) / 2;
-        var centerY = (getScreenHeight ? getScreenHeight() : 667) - 75 * scale;
+        var centerY = designBottom - Math.floor(75 * scale);
         var radius = CHARACTER_AREA_RADIUS * scale;
         var dx = x - centerX;
         var dy = y - centerY;
@@ -128,6 +134,7 @@ function createDragSystem(deps) {
             var stars = typeof getStars === 'function' ? getStars() : [];
             if (stars && stars.length) {
                 var dragHitRadius = 30 * (getScreenScale ? getScreenScale() : 1);
+                var designOffsetY = getDesignOffsetY();
                 var removedIndices = [];
 
                 for (var i = stars.length - 1; i >= 0; i--) {
@@ -176,7 +183,7 @@ function createDragSystem(deps) {
                                 startX: x,
                                 startY: y,
                                 targetX: target.x || (getScreenWidth ? getScreenWidth() / 2 : 188),
-                                targetY: target.y || (getScreenHeight ? getScreenHeight() / 3 : 222),
+                                targetY: target.y || (designOffsetY + Math.floor(271 * (getScreenScale ? getScreenScale() : 1))),
                                 startTime: Date.now(),
                                 duration: METEOR_DURATION,
                                 damage: state.cumulativeMeteorDamage

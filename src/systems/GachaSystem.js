@@ -114,7 +114,7 @@ const STAR_CHEST_DROP_RATE = 0.08;
 
 function createGachaSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
     var getSkills = deps.getSkills;
     var getCharacters = deps.getCharacters;
@@ -124,6 +124,7 @@ function createGachaSystem(deps) {
     var getGameState = deps.getGameState;
     var getScreenWidth = deps.getScreenWidth;
     var getScreenHeight = deps.getScreenHeight;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // ==================== 动态池构建 ====================
 
@@ -322,7 +323,7 @@ function createGachaSystem(deps) {
     }
 
     function addToPlayerData(poolType, item) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         switch (poolType) {
             case 'stars':
                 if (!pd.unlockedStarTypes) pd.unlockedStarTypes = ['normal'];
@@ -404,6 +405,10 @@ function createGachaSystem(deps) {
     }
 
     function startGachaAnimation(results, poolType) {
+        var scale = deps.getScreenScale ? deps.getScreenScale() : 1;
+        var designOffsetY = getDesignOffsetY();
+        var screenH = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
         animationState.active = true;
         animationState.phase = 'flying';
         animationState.results = results;
@@ -416,7 +421,7 @@ function createGachaSystem(deps) {
 
         animationState.flyingStar = {
             x: getScreenWidth() / 2,
-            y: getScreenHeight() + 100,
+            y: designBottom + Math.floor(100 * scale),
             scale: 1.5,
             rotation: 0
         };
@@ -432,13 +437,18 @@ function createGachaSystem(deps) {
         var now = Date.now();
         var elapsed = now - animationState.startTime;
         var sw = getScreenWidth();
-        var sh = getScreenHeight();
+        var scale = deps.getScreenScale ? deps.getScreenScale() : 1;
+        var designOffsetY = getDesignOffsetY();
+        var screenH = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
 
         if (animationState.phase === 'flying') {
             var progress = Math.min(elapsed / GACHA_ANIMATION_CONFIG.flyingDuration, 1);
             var easeOut = 1 - Math.pow(1 - progress, 3);
 
-            animationState.flyingStar.y = sh + 100 - (sh / 2 + 100) * easeOut;
+            var starStartY = designBottom + Math.floor(100 * scale);
+            var starEndY = (designOffsetY + designBottom) / 2;
+            animationState.flyingStar.y = starStartY - (starStartY - starEndY) * easeOut;
             animationState.flyingStar.scale = 1.5 - 0.3 * progress;
             animationState.flyingStar.rotation += 0.1;
 
@@ -476,10 +486,13 @@ function createGachaSystem(deps) {
     function handleGachaAnimationClick(x, y) {
         if (animationState.phase === 'complete') {
             var scale = deps.getScreenScale();
+            var designOffsetY = getDesignOffsetY();
+            var screenH = getScreenHeight();
+            var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
             var btnWidth = Math.floor(150 * scale);
             var btnHeight = Math.floor(50 * scale);
             var btnX = getScreenWidth() / 2 - btnWidth / 2;
-            var btnY = getScreenHeight() - Math.floor(100 * scale);
+            var btnY = designBottom - Math.floor(100 * scale);
 
             if (x >= btnX && x <= btnX + btnWidth && y >= btnY && y <= btnY + btnHeight) {
                 closeGachaAnimation();
@@ -488,7 +501,8 @@ function createGachaSystem(deps) {
     }
 
     function handleGachaClick(x, y, scale) {
-        var startY = Math.floor(150 * scale);
+        var designOffsetY = getDesignOffsetY();
+        var startY = designOffsetY + Math.floor(150 * scale);
 
         var poolTabs = [
             { id: 'stars', name: '⭐' },
@@ -524,7 +538,7 @@ function createGachaSystem(deps) {
         var btnHeight = Math.floor(45 * scale);
         var btnGap = Math.floor(20 * scale);
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var gachaTickets = (pd.skills && pd.skills.gachaTickets) ? pd.skills.gachaTickets : 0;
         var isSkillPool = (currentPool === 'skills');
 

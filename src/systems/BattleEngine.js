@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 import { getSkillAttackRatio } from '../config/SkillConfig.js';
 import {
     COMBAT_SPEC, COMBAT_FEATURES, specResolver, getSpecValue, flattenSpec,
@@ -79,7 +80,7 @@ function createBattleEngine(deps) {
     var specSubscribers = [];
 
     // ─── 暂停 ───
-    var pauseStartTime = 0;
+    var _owner = { _destroyed: true }; // 初始未激活，init 时才变活跃
 
     // ─── 外部阻塞位置（实时查询函数，由适配器提供） ───
     var getBlockedPositionsFn = null;
@@ -627,6 +628,10 @@ function createBattleEngine(deps) {
     // ═══════════════════════════════════════════════════════
 
     function init(config) {
+        _owner._destroyed = false; // 激活 subscriber
+        if (S.phase === PHASE.RUNNING) {
+            finishBattle('reinit');
+        }
         if (S.phase !== PHASE.IDLE && S.phase !== PHASE.FINISHED) {
             Logger.error('BattleEngine.init: 阶段错误', S.phase);
             return;
@@ -1096,6 +1101,8 @@ function createBattleEngine(deps) {
     }
 
     function destroy() {
+        _owner._destroyed = true;
+        PauseCoordinator.instance.unsubscribe('BattleEngine');
         attackers = [];
         specSubscribers = [];
         RC = null;
@@ -1116,35 +1123,32 @@ function createBattleEngine(deps) {
         Logger.info('BattleEngine 替换怪物:', newMonster.name, 'HP:', newMonster.hp);
     }
 
-    function pause() {
-        if (S.phase !== PHASE.RUNNING) return;
-        S.phase = 'paused';
-        pauseStartTime = Date.now();
-    }
-
-    function resume() {
-        if (S.phase !== 'paused') return;
-        var pauseDuration = Date.now() - pauseStartTime;
-        // 补偿基于时间的计时器
-        if (S.comboStarActive) S.comboStarStartTime += pauseDuration;
-        if (S.isPoisoned) {
-            S.poisonEndTime += pauseDuration;
-            S.poisonTickTime += pauseDuration;
+    // 注册到 PauseCoordinator（init 时 subscribe，destroy 时 unsubscribe）
+    PauseCoordinator.instance.subscribe(_owner, 'BattleEngine', {
+        onPause: function() {
+            if (S.phase !== PHASE.RUNNING) return;
+            S.phase = 'paused';
+        },
+        onResume: function(duration) {
+            if (S.phase !== 'paused') return;
+            if (S.comboStarActive) S.comboStarStartTime += duration;
+            if (S.isPoisoned) {
+                S.poisonEndTime += duration;
+                S.poisonTickTime += duration;
+            }
+            if (S.isStunned) S.stunEndTime += duration;
+            if (S.dodging) S.dodgeEndTime += duration;
+            for (var ai = 0; ai < attackers.length; ai++) {
+                attackers[ai].lastAttackTime += duration;
+            }
+            for (var pi = 0; pi < S.pendingDeaths.length; pi++) {
+                S.pendingDeaths[pi].deathTime += duration;
+            }
+            petLastAttackTime += duration;
+            S.phase = PHASE.RUNNING;
+            lastTimeTick = Date.now();
         }
-        if (S.isStunned) S.stunEndTime += pauseDuration;
-        if (S.dodging) S.dodgeEndTime += pauseDuration;
-        // 补偿攻击者的 lastAttackTime
-        for (var ai = 0; ai < attackers.length; ai++) {
-            attackers[ai].lastAttackTime += pauseDuration;
-        }
-        // 补偿 pendingDeaths 的 deathTime
-        for (var pi = 0; pi < S.pendingDeaths.length; pi++) {
-            S.pendingDeaths[pi].deathTime += pauseDuration;
-        }
-        petLastAttackTime += pauseDuration;
-        S.phase = PHASE.RUNNING;
-        lastTimeTick = Date.now();
-    }
+    });
 
     function setBlockedPositionsFn(fn) {
         getBlockedPositionsFn = fn;
@@ -1167,6 +1171,13 @@ function createBattleEngine(deps) {
         if (stunEndTime !== undefined) S.stunEndTime = stunEndTime;
     }
 
+    function setPoisonState(poisoned, poisonEndTime, poisonDamage, poisonTickTime) {
+        if (poisoned !== undefined) S.isPoisoned = poisoned;
+        if (poisonEndTime !== undefined) S.poisonEndTime = poisonEndTime;
+        if (poisonDamage !== undefined) S.poisonDamage = poisonDamage;
+        if (poisonTickTime !== undefined) S.poisonTickTime = poisonTickTime;
+    }
+
     return {
         init: init,
         update: update,
@@ -1175,8 +1186,6 @@ function createBattleEngine(deps) {
         getState: getState,
         destroy: destroy,
         replaceMonster: replaceMonster,
-        pause: pause,
-        resume: resume,
         setBlockedPositionsFn: setBlockedPositionsFn,
         getEffectiveSpec: getEffectiveSpec,
         getFeatures: getFeatures,
@@ -1190,6 +1199,7 @@ function createBattleEngine(deps) {
         getTargetMonster: getTargetMonster,
         addPendingDeath: addPendingDeath,
         setPlayerState: setPlayerState,
+        setPoisonState: setPoisonState,
         finishBattle: finishBattle
     };
 }

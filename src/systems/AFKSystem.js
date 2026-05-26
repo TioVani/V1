@@ -5,7 +5,7 @@
 
 function createAFKSystem(deps) {
     // 依赖注入
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var saveData = deps.saveData;
     var addCharExp = deps.addCharExp;
     var getEquipments = deps.getEquipments;
@@ -24,7 +24,7 @@ function createAFKSystem(deps) {
     // ==================== 内部函数 ====================
 
     function calculateAccumulatedAfkRewards() {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.afkData) {
             pd.afkData = { lastClaimTime: Date.now(), maxOfflineHours: 8, baseGoldPerMinute: 10, baseExpPerMinute: 2 };
             saveData();
@@ -84,7 +84,7 @@ function createAFKSystem(deps) {
     }
 
     function claimAfkRewards() {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.afkData) {
             pd.afkData = { lastClaimTime: Date.now(), maxOfflineHours: 8, baseGoldPerMinute: 10, baseExpPerMinute: 2 };
             saveData();

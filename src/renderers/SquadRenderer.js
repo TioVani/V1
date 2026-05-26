@@ -15,7 +15,7 @@ function createSquadRenderer(deps) {
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
     var getGachaRoundRect = deps.getGachaRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getUiScrollState = deps.getUiScrollState;
     var Characters = deps.Characters;
     var getCharacterKey = deps.getCharacterKey;
@@ -34,6 +34,8 @@ function createSquadRenderer(deps) {
     var getCharacterFullStats = deps.getCharacterFullStats;
     var getSquadTab = deps.getSquadTab;
     var getShowPortraitLarge = deps.getShowPortraitLarge;
+    var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var DESIGN_HEIGHT = 812;
 
     // ==================== renderSquad ====================
     function renderSquad() {
@@ -41,8 +43,9 @@ function createSquadRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiScrollState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
@@ -54,7 +57,7 @@ function createSquadRenderer(deps) {
         ctx.fillRect(0, 0, screenWidth, screenHeight);
 
         // 获取当前角色信息
-        var currentCharId = playerData.currentCharacterId;
+        var currentCharId = pd.currentCharacterId;
         var hasCharacter = !!currentCharId;
         var mappedCharId = hasCharacter ? getCharacterKey(currentCharId) : null;
         var character = hasCharacter ? Characters[mappedCharId] : null;
@@ -65,7 +68,7 @@ function createSquadRenderer(deps) {
         // ===== 上半部分：角色立绘（左）+ 基础属性（右）=====
         if (showTopArea) {
             var portraitX = Math.floor(20 * scale);
-            var portraitY = Math.floor(120 * scale); // 向下移动到120px
+            var portraitY = designOffsetY + Math.floor(120 * scale); // 向下移动到120px
             var portraitW = Math.floor(120 * scale);
             var portraitH = Math.floor(160 * scale);
 
@@ -86,7 +89,7 @@ function createSquadRenderer(deps) {
                 // 优先使用立绘大图，没有则使用小图
                 var portraitImage = Assets.characterImages[mappedCharId + 'Portrait'] || Assets.characterImages[mappedCharId];
 
-                if (portraitImage && portraitImage.complete) {
+                if (portraitImage && portraitImage.complete && portraitImage.naturalWidth > 0) {
                     var imgRatio = portraitImage.width / portraitImage.height;
                     var drawH = portraitH - Math.floor(40 * scale);
                     var drawW = drawH * imgRatio;
@@ -104,7 +107,7 @@ function createSquadRenderer(deps) {
                     ctx.fillText(character.emoji || '👤', portraitX + portraitW / 2, portraitY + portraitH / 2 - Math.floor(20 * scale));
                 }
 
-                var charExp = playerData.characterExperience && playerData.characterExperience[currentCharId];
+                var charExp = pd.characterExperience && pd.characterExperience[currentCharId];
                 var level = charExp ? charExp.level : 1;
 
                 ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
@@ -132,7 +135,7 @@ function createSquadRenderer(deps) {
             var infoY = portraitY;
 
             if (character) {
-                var charExp = playerData.characterExperience && playerData.characterExperience[currentCharId];
+                var charExp = pd.characterExperience && pd.characterExperience[currentCharId];
                 var level = charExp ? charExp.level : 1;
                 var fullStats = getCharacterFullStats(currentCharId);
 
@@ -156,7 +159,7 @@ function createSquadRenderer(deps) {
                     { name: '灵光冲击', value: formatNum(fullStats.attack), color: '#ff6b6b' },
                     { name: '会心感应', value: formatNum(fullStats.critRate) + '%', color: '#ffd700' },
                     { name: '会心威力', value: formatNum(fullStats.critDamage * 100) + '%', color: '#ff9f43' },
-                    { name: '灵能值', value: formatNum(playerData.playerHp) + '/' + formatNum(playerData.maxPlayerHp), color: '#4CAF50' },
+                    { name: '灵能值', value: formatNum(pd.playerHp) + '/' + formatNum(pd.maxPlayerHp), color: '#4CAF50' },
                     { name: '灵场护盾', value: formatNum(fullStats.defense || 0), color: '#87CEEB' }
                 ];
 
@@ -176,7 +179,7 @@ function createSquadRenderer(deps) {
         var tabHeight = Math.floor(45 * scale);
         var tabGap = Math.floor(8 * scale);
         var tabX = screenWidth - tabWidth;
-        var startTabY = Math.floor(100 * scale);
+        var startTabY = designOffsetY + Math.floor(100 * scale);
 
         var tabs = [
             { id: 'character', name: '古灵' },
@@ -214,9 +217,10 @@ function createSquadRenderer(deps) {
         // ===== 内容区域 =====
         var contentX = Math.floor(15 * scale);
         // 角色标签页：内容区域从顶部开始；其他标签页：从上半区域下方开始
-        var contentY = showTopArea ? Math.floor(280 * scale) : Math.floor(20 * scale);
+        var contentY = showTopArea ? designOffsetY + Math.floor(280 * scale) : designOffsetY + Math.floor(20 * scale);
         var contentW = screenWidth - tabWidth - contentX - Math.floor(15 * scale);
-        var contentH = screenHeight - contentY - Math.floor(60 * scale);
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var contentH = designBottom - Math.floor(60 * scale) - contentY;
 
         // 分割线（仅在其他标签页显示）
         if (showTopArea) {
@@ -256,9 +260,11 @@ function createSquadRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
-        var currentCharId = playerData.currentCharacterId;
+        var currentCharId = pd.currentCharacterId;
         var hasCharacter = !!currentCharId;
         var mappedCharId = hasCharacter ? getCharacterKey(currentCharId) : null;
         var character = hasCharacter ? Characters[mappedCharId] : null;
@@ -271,17 +277,17 @@ function createSquadRenderer(deps) {
             ctx.fillStyle = '#666666';
             ctx.font = Math.floor(18 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
-            ctx.fillText('未选择角色', screenWidth / 2, screenHeight / 2);
+            ctx.fillText('未选择角色', screenWidth / 2, (designOffsetY + designBottom) / 2);
             ctx.fillStyle = '#aaaaaa';
             ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-            ctx.fillText('点击任意位置关闭', screenWidth / 2, screenHeight - Math.floor(30 * scale));
+            ctx.fillText('点击任意位置关闭', screenWidth / 2, designBottom - Math.floor(30 * scale));
             return;
         }
 
         // 获取立绘图片
         var portraitImage = Assets.characterImages[mappedCharId + 'Portrait'] || Assets.characterImages[mappedCharId];
 
-        if (portraitImage && portraitImage.complete) {
+        if (portraitImage && portraitImage.complete && portraitImage.naturalWidth > 0) {
             // 计算图片尺寸（保持比例，最大占屏幕80%）
             var maxW = screenWidth * 0.8;
             var maxH = screenHeight * 0.8;
@@ -298,7 +304,7 @@ function createSquadRenderer(deps) {
 
             // 居中绘制
             var drawX = (screenWidth - drawW) / 2;
-            var drawY = (screenHeight - drawH) / 2;
+            var drawY = (designOffsetY + designBottom - drawH) / 2;
 
             ctx.drawImage(portraitImage, drawX, drawY, drawW, drawH);
         }
@@ -309,7 +315,7 @@ function createSquadRenderer(deps) {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             var detailNameX = screenWidth / 2;
-            var detailNameY = screenHeight - Math.floor(60 * scale);
+            var detailNameY = designBottom - Math.floor(60 * scale);
             if (character.rarity === 'SP') {
                 uiCore.drawSPText(character.name, detailNameX, detailNameY, 18, scale);
             } else if (character.rarity === 'LR') {
@@ -326,7 +332,7 @@ function createSquadRenderer(deps) {
         ctx.fillStyle = '#aaaaaa';
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('点击任意位置关闭', screenWidth / 2, screenHeight - Math.floor(30 * scale));
+        ctx.fillText('点击任意位置关闭', screenWidth / 2, designBottom - Math.floor(30 * scale));
     }
 
     // ==================== renderSquadCharacter ====================
@@ -335,11 +341,11 @@ function createSquadRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var Assets = getAssets();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
 
-        var currentCharId = playerData.currentCharacterId;
+        var currentCharId = pd.currentCharacterId;
         var hasCharacter = !!currentCharId;
         var mappedCharId = hasCharacter ? getCharacterKey(currentCharId) : null;
         var character = hasCharacter ? Characters[mappedCharId] : null;
@@ -353,7 +359,7 @@ function createSquadRenderer(deps) {
         }
 
         // 属性数据
-        var charExp = playerData.characterExperience && playerData.characterExperience[currentCharId];
+        var charExp = pd.characterExperience && pd.characterExperience[currentCharId];
         var level = charExp ? charExp.level : 1;
         var exp = charExp ? charExp.exp : 0;
         var fullStats = getCharacterFullStats(currentCharId);
@@ -371,7 +377,7 @@ function createSquadRenderer(deps) {
 
         // 绘制角色立绘图片（保持原始比例）
         var portraitImage = Assets.characterImages[mappedCharId + 'Portrait'] || Assets.characterImages[mappedCharId];
-        if (portraitImage && portraitImage.complete) {
+        if (portraitImage && portraitImage.complete && portraitImage.naturalWidth > 0) {
             var img = portraitImage;
             var imgRatio = img.width / img.height;
             var drawW, drawH;
@@ -457,7 +463,7 @@ function createSquadRenderer(deps) {
         var stats = [
             { name: '等级', value: level + ' / 90', color: '#ffffff' },
             { name: '感悟', value: exp + ' / ' + (level * 100), color: '#ffffff' },
-            { name: '灵能值', value: formatNum(playerData.maxPlayerHp), color: '#ff6b6b' },
+            { name: '灵能值', value: formatNum(pd.maxPlayerHp), color: '#ff6b6b' },
             { name: '灵光冲击', value: formatNum(fullStats.attack), color: '#ffd700' },
             { name: '灵场护盾', value: formatNum(fullStats.defense || character.defense), color: '#4ecdc4' },
             { name: '会心感应', value: formatNum(fullStats.critRate) + '%', color: '#ff9f43' },
@@ -523,11 +529,11 @@ function createSquadRenderer(deps) {
     function renderSquadEquipment(scale, x, y, w, h) {
         var ctx = getCtx();
         var screenHeight = getScreenHeight();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiScrollState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
 
-        var equipped = playerData.equipments && playerData.equipments.equipped ? playerData.equipments.equipped : {};
+        var equipped = pd.equipments && pd.equipments.equipped ? pd.equipments.equipped : {};
 
         var slotTypes = [
             { id: 'weapon', name: '武器', emoji: '⚔️' },
@@ -539,7 +545,7 @@ function createSquadRenderer(deps) {
         var slotH = Math.floor(70 * scale);
         var slotGap = Math.floor(15 * scale);
 
-        var ownedList = playerData.equipments && playerData.equipments.owned ? playerData.equipments.owned : [];
+        var ownedList = pd.equipments && pd.equipments.owned ? pd.equipments.owned : [];
 
         for (let i = 0; i < slotTypes.length; i++) {
             var slot = slotTypes[i];
@@ -610,11 +616,11 @@ function createSquadRenderer(deps) {
     // ==================== renderSquadSkills ====================
     function renderSquadSkills(scale, x, y, w, h) {
         var ctx = getCtx();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiScrollState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
 
-        var equipped = playerData.skills && playerData.skills.equipped ? playerData.skills.equipped : [];
+        var equipped = pd.skills && pd.skills.equipped ? pd.skills.equipped : [];
 
         var slotY = y + Math.floor(70 * scale) - uiScrollState.squadScrollY; // 添加滚动偏移
         var slotH = Math.floor(60 * scale);
@@ -661,17 +667,17 @@ function createSquadRenderer(deps) {
     // ==================== renderSquadPets ====================
     function renderSquadPets(scale, x, y, w, h) {
         var ctx = getCtx();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiScrollState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
 
-        var equippedUid = playerData.pets ? playerData.pets.equipped : null;
+        var equippedUid = pd.pets ? pd.pets.equipped : null;
         // 通过uid找到宠物实例和配置
         var equippedPetData = null;
         var pet = null;
-        if (equippedUid && playerData.pets && playerData.pets.owned) {
-            for (let pi = 0; pi < playerData.pets.owned.length; pi++) {
-                var pd = playerData.pets.owned[pi];
+        if (equippedUid && pd.pets && pd.pets.owned) {
+            for (let pi = 0; pi < pd.pets.owned.length; pi++) {
+                var pd = pd.pets.owned[pi];
                 var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + pi);
                 if (pdUid === equippedUid) {
                     equippedPetData = pd;
@@ -724,14 +730,16 @@ function createSquadRenderer(deps) {
         var ctx = getCtx();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var uiScrollState = getUiScrollState();
         var fillRoundRect = getFillRoundRect();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
 
-        var equippedStars = playerData.equippedStars || [];
+        var equippedStars = pd.equippedStars || [];
 
         // ===== 普通星星开关 =====
-        var normalStarEnabled = playerData.normalStarEnabled !== false; // 默认true
+        var normalStarEnabled = pd.normalStarEnabled !== false; // 默认true
         var switchY = y + Math.floor(35 * scale);  // 分割线在y+20，开关从y+35开始
         var switchHeight = Math.floor(28 * scale);  // 高度
 
@@ -835,7 +843,7 @@ function createSquadRenderer(deps) {
 
         // 计算可见区域
         var bottomBtnHeight = Math.floor(60 * scale);
-        var visibleEndY = screenHeight - bottomBtnHeight;
+        var visibleEndY = designBottom - Math.floor(60 * scale);
 
         // 保存当前状态并设置裁剪区域
         ctx.save();
@@ -848,7 +856,7 @@ function createSquadRenderer(deps) {
         for (let j = 0; j < SEASON_STAR_TYPES.length; j++) {
             var optStar = SEASON_STAR_TYPES[j];
             if (optStar.id === 'normal') continue;
-            var isUnlocked = playerData.unlockedStarTypes && playerData.unlockedStarTypes.indexOf(optStar.id) !== -1;
+            var isUnlocked = pd.unlockedStarTypes && pd.unlockedStarTypes.indexOf(optStar.id) !== -1;
             if (isUnlocked) {
                 unlockedStars.push(optStar);
             }
@@ -919,8 +927,10 @@ function createSquadRenderer(deps) {
     // 计算当前标签页最大滚动量（handleScrollMove / handleScrollEnd 共用）
     function getMaxScroll() {
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenHeight = getScreenHeight();
-        var pd = getPlayerData();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var pd = getSaveData();
         var tab = getSquadTab();
         var maxScroll = 0;
 
@@ -937,21 +947,21 @@ function createSquadRenderer(deps) {
             var slotH = Math.floor(60 * scale);
             var slotGap = Math.floor(10 * scale);
             var totalHeight = unlockedCount === 0 ? Math.floor(80 * scale) : unlockedCount * (slotH + slotGap);
-            var scrollStartY = Math.floor(443 * scale);
+            var scrollStartY = designOffsetY + Math.floor(443 * scale);
             var bottomBtnHeight = Math.floor(60 * scale);
-            var visibleHeight = screenHeight - scrollStartY - bottomBtnHeight;
+            var visibleHeight = designBottom - Math.floor(60 * scale) - scrollStartY;
             maxScroll = Math.max(0, totalHeight - visibleHeight + Math.floor(20 * scale));
         } else if (tab === 'equipment') {
             var totalHeight = 3 * Math.floor(85 * scale);
-            var visibleHeight = screenHeight - Math.floor(150 * scale);
+            var visibleHeight = Math.floor((DESIGN_HEIGHT - 150) * scale);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (tab === 'skills') {
             var totalHeight = 3 * Math.floor(70 * scale);
-            var visibleHeight = screenHeight - Math.floor(150 * scale);
+            var visibleHeight = Math.floor((DESIGN_HEIGHT - 150) * scale);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         } else if (tab === 'pets') {
             var totalHeight = Math.floor(100 * scale);
-            var visibleHeight = screenHeight - Math.floor(150 * scale);
+            var visibleHeight = Math.floor((DESIGN_HEIGHT - 150) * scale);
             maxScroll = Math.max(0, totalHeight - visibleHeight);
         }
         return maxScroll;
@@ -960,12 +970,15 @@ function createSquadRenderer(deps) {
     // 点击处理（原 handleSquadClick）
     function handleClick(x, y) {
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var screenWidth = getScreenWidth();
+        var screenHeight = getScreenHeight();
         var GAME_STATE = deps.getGameConst();
+        console.log('[SquadDebug] click x=' + x + ' y=' + y + ' scale=' + scale + ' sw=' + screenWidth + ' sh=' + screenHeight);
 
         // 返回按钮
         if (deps.isBackButtonClicked(x, y)) {
-            deps.transitionTo(GAME_STATE.MENU);
+            deps.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
 
@@ -980,7 +993,7 @@ function createSquadRenderer(deps) {
         var tabHeight = Math.floor(45 * scale);
         var tabGap = Math.floor(8 * scale);
         var tabX = screenWidth - tabWidth;
-        var startTabY = Math.floor(100 * scale);
+        var startTabY = designOffsetY + Math.floor(100 * scale);
         var tabs = ['character', 'equipment', 'skills', 'pets', 'stars'];
 
         for (var i = 0; i < tabs.length; i++) {
@@ -993,7 +1006,7 @@ function createSquadRenderer(deps) {
 
         // 内容区域
         var contentX = Math.floor(15 * scale);
-        var contentY = (getSquadTab() === 'character') ? Math.floor(20 * scale) : Math.floor(280 * scale);
+        var contentY = (getSquadTab() === 'character') ? designOffsetY + Math.floor(20 * scale) : designOffsetY + Math.floor(280 * scale);
         var contentW = screenWidth - tabWidth - contentX - Math.floor(15 * scale);
 
         if (getSquadTab() === 'character') {
@@ -1053,7 +1066,7 @@ function createSquadRenderer(deps) {
                 return;
             }
         } else if (getSquadTab() === 'stars') {
-            var pd = getPlayerData();
+            var pd = getSaveData();
 
             // 普通星星开关
             var switchY = contentY + Math.floor(35 * scale);

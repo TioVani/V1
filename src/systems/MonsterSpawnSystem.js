@@ -13,7 +13,7 @@ function createMonsterSpawnSystem(deps) {
     var setMonsters = deps.setMonsters;
     var getScore = deps.getScore;
     var getBestScore = deps.getBestScore;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getGameState = deps.getGameState;
     var getGameConst = deps.getGameConst;
     var getScreenWidth = deps.getScreenWidth;
@@ -261,19 +261,19 @@ function createMonsterSpawnSystem(deps) {
      */
     function checkUnlockCharacter() {
         var score = getScore();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var CONFIG = getConfig();
 
         // 玉蝉仙：达到50分解锁
         var starUnlockScore = CONFIG.starUnlockScore;
         var starUnlockCharId = 'char_001';
 
-        if (playerData.ownedCharacters.indexOf(starUnlockCharId) === -1) {
+        if (pd.ownedCharacters.indexOf(starUnlockCharId) === -1) {
             if (score >= starUnlockScore) {
-                playerData.ownedCharacters.push(starUnlockCharId);
+                pd.ownedCharacters.push(starUnlockCharId);
                 initCharacterExp(starUnlockCharId);
                 if (showTipOnce) showTipOnce('unlock_char_001', '获得新角色玉蝉仙！去背包出战吧');
-                Logger.info('解锁新角色:', starUnlockCharId, '当前仍使用:', playerData.currentCharacterId);
+                Logger.info('解锁新角色:', starUnlockCharId, '当前仍使用:', pd.currentCharacterId);
                 saveData();
             }
         }
@@ -282,12 +282,12 @@ function createMonsterSpawnSystem(deps) {
         var warriorUnlockScore = CONFIG.warriorUnlockScore;
         var warriorUnlockCharId = 'char_002';
 
-        if (playerData.ownedCharacters.indexOf(warriorUnlockCharId) === -1) {
+        if (pd.ownedCharacters.indexOf(warriorUnlockCharId) === -1) {
             if (score >= warriorUnlockScore) {
-                playerData.ownedCharacters.push(warriorUnlockCharId);
+                pd.ownedCharacters.push(warriorUnlockCharId);
                 initCharacterExp(warriorUnlockCharId);
                 if (showTipOnce) showTipOnce('unlock_char_002', '获得新角色鼎魂！去背包出战吧');
-                Logger.info('解锁新角色:', warriorUnlockCharId, '当前仍使用:', playerData.currentCharacterId);
+                Logger.info('解锁新角色:', warriorUnlockCharId, '当前仍使用:', pd.currentCharacterId);
                 saveData();
             }
         }
@@ -315,17 +315,18 @@ function createMonsterSpawnSystem(deps) {
         var isSeason = (state === GAME_STATE.SEASON_PLAYING);
         var score = isSeason ? getSeasonScore() : getScore();
         var bestScore = getBestScore();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var CONFIG = getConfig();
 
-        if (score >= CONFIG.monsterAppearScore || bestScore >= CONFIG.monsterAppearScore) {
-            var requiredKills = (bestScore >= 2000) ? 30 : 8;
-            if (playerData.bossKillCount >= requiredKills) {
-                spawnMonster('boss');
-            } else {
-                spawnMonster('slime');
-            }
+        // [DEBUG] 临时注释：无条件自动出怪
+        // if (score >= CONFIG.monsterAppearScore || bestScore >= CONFIG.monsterAppearScore) {
+        var requiredKills = (bestScore >= 2000) ? 30 : 8;
+        if (pd.bossKillCount >= requiredKills) {
+            spawnMonster('boss');
+        } else {
+            spawnMonster('slime');
         }
+        // }
     }
 
     /**
@@ -334,7 +335,7 @@ function createMonsterSpawnSystem(deps) {
     function spawnMonster(type, options) {
         options = options || {};
         var score = getScore();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var screenHeight = getScreenHeight();
         var MonsterTypes = getMonsterTypes();
         var MonsterSkillType = getMonsterSkillType();
@@ -369,7 +370,7 @@ function createMonsterSpawnSystem(deps) {
         var isBoss = monsterType.isBoss || false;
 
         // 计算HP（使用统一成长公式）
-        var killCount = playerData.bossKillCount || 0;
+        var killCount = pd.bossKillCount || 0;
         var levelMultiplier = Math.pow(1.15, killCount);
 
         var maxHp;
@@ -396,12 +397,12 @@ function createMonsterSpawnSystem(deps) {
         var state = getGameState();
         var GAME_STATE = getGameConst();
         if (state === GAME_STATE.PLAYING && getAwakeHpScale && getAwakeAtkScale) {
-            awakeHpScale = getAwakeHpScale(playerData);
-            awakeAtkScale = getAwakeAtkScale(playerData);
+            awakeHpScale = getAwakeHpScale(pd);
+            awakeAtkScale = getAwakeAtkScale(pd);
             if (awakeHpScale > 1) {
                 maxHp = Math.floor(maxHp * awakeHpScale);
                 if (getAwakeStages) {
-                    awakeAbilities = getAwakeStages(playerData);
+                    awakeAbilities = getAwakeStages(pd);
                 }
             }
         }

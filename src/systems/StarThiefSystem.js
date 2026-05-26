@@ -1,4 +1,5 @@
 import Logger from '../utils/Logger.js';
+import { PauseCoordinator } from '../utils/PauseCoordinator.js';
 /**
  * 偷星者系统 - 独立模块
  *
@@ -18,6 +19,30 @@ export function createStarThiefSystem(deps) {
 
     // 闭包私有状态
     let active = false;
+
+    // PauseCoordinator 注册 — 进入战斗时 subscribe，退出时 unsubscribe
+    let _owner = { _destroyed: true }; // 初始未激活，initOnSpawn 时才变活跃
+    PauseCoordinator.instance.subscribe(_owner, 'StarThief', {
+        onPause: function() {
+            if (!active || paused) return;
+            paused = true;
+            pausedAt = Date.now();
+            if (starTimer) {
+                clearInterval(starTimer);
+                starTimer = null;
+            }
+        },
+        onResume: function(duration) {
+            if (!active || !paused) return;
+            paused = false;
+            if (isBroken && breakEndTime > 0) {
+                breakEndTime += duration;
+            }
+            if (!isBroken) {
+                startStealStarTimer();
+            }
+        }
+    });
     let breakValue = 0;
     let isBroken = false;
     let breakEndTime = 0;
@@ -36,10 +61,11 @@ export function createStarThiefSystem(deps) {
 
     // 依赖注入
     const { getStars, setStars, pushStar, removeStarAt,
-            getMonsters, getPlayerData, getEquipments,
+            getMonsters, getSaveData, getEquipments,
             addMessage, saveData, updateStarSpawn,
             clearMoveInterval, stopDodgeStarTimer,
             fillRoundRectFn, getScreenScaleFn } = deps;
+    const getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // 查找当前偷星者怪物
     function findThief() {
@@ -100,7 +126,7 @@ export function createStarThiefSystem(deps) {
 
     // 偷星击中玩家
     function handleThiefStarHit(star) {
-        var pd = getPlayerData();
+        var pd = getSaveData();
         var damage = HIT_DAMAGE;
         if (pd.playerShield > 0) {
             var absorb = Math.min(pd.playerShield, damage);
@@ -225,32 +251,10 @@ export function createStarThiefSystem(deps) {
         }
     }
 
-    // 暂停偷星者
-    function pause() {
-        if (!active || paused) return;
-        paused = true;
-        pausedAt = Date.now();
-        if (starTimer) {
-            clearInterval(starTimer);
-            starTimer = null;
-        }
-    }
-
-    // 恢复偷星者
-    function resumeThief() {
-        if (!active || !paused) return;
-        paused = false;
-        var pauseDuration = Date.now() - pausedAt;
-        if (isBroken && breakEndTime > 0) {
-            breakEndTime += pauseDuration;
-        }
-        if (!isBroken) {
-            startStealStarTimer();
-        }
-    }
-
     // 重置偷星者状态
     function resetState() {
+        _owner._destroyed = true;
+        PauseCoordinator.instance.unsubscribe('StarThief');
         active = false;
         breakValue = 0;
         isBroken = false;
@@ -292,7 +296,7 @@ export function createStarThiefSystem(deps) {
 
         var EquipmentsRef = getEquipments();
         var equip = EquipmentsRef[chosenId];
-        var pd = getPlayerData();
+        var pd = getSaveData();
         if (!pd.equipments) pd.equipments = { owned: [], equipped: {} };
         if (!pd.equipments.owned) pd.equipments.owned = [];
         pd.equipments.owned.push({ id: chosenId, rarity: equip.rarity, level: 1 });
@@ -310,6 +314,7 @@ export function createStarThiefSystem(deps) {
 
     // 偷星者生成时初始化
     function initOnSpawn(newMonster, screenH) {
+        _owner._destroyed = false; // 激活 subscriber
         active = true;
         breakValue = 0;
         isBroken = false;
@@ -319,7 +324,7 @@ export function createStarThiefSystem(deps) {
         startTime = Date.now();
         spawnX = newMonster.x;  // 记录初始位置
         // 位置设为屏幕上方
-        newMonster.y = screenH * 0.15;
+        newMonster.y = getDesignOffsetY() + Math.floor(812 * 0.15 * getScreenScaleFn());
         // 清除玩家所有星星
         setStars(getStars().filter(function(s) { return s.isBossStar; }));
         // 停止玩家星星生成
@@ -340,7 +345,7 @@ export function createStarThiefSystem(deps) {
         else if (thiefTime <= 90) starSourceReward = 10;
         else starSourceReward = 5;
 
-        var pd = getPlayerData();
+        var pd = getSaveData();
         pd.starSource += starSourceReward;
 
         // 偷星碎片（2-5个）
@@ -378,7 +383,7 @@ export function createStarThiefSystem(deps) {
         var barHeight = Math.floor(8 * scale);
         var barX = m.x - barWidth / 2;
         // 破防条对齐普通怪物位置（screenHeight/3处的血条上方）
-        var normalMonsterY = deps.getScreenHeight() / 3;
+        var normalMonsterY = getDesignOffsetY() + Math.floor(812 / 3 * getScreenScaleFn());
         var barY = normalMonsterY - m.size * scale / 2 - Math.floor(28 * scale);
 
         // 背景
@@ -436,8 +441,6 @@ export function createStarThiefSystem(deps) {
         update: update,
         drawBreakBar: drawBreakBar,
         drawStarShape: drawStarShape,
-        resetState: resetState,
-        pause: pause,
-        resume: resumeThief
+        resetState: resetState
     };
 }

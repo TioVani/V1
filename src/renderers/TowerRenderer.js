@@ -16,7 +16,7 @@ function createTowerRenderer(deps) {
     var getAssets = deps.getAssets;
     var getFillRoundRect = deps.getFillRoundRect;
     var getStrokeRoundRect = deps.getStrokeRoundRect;
-    var getPlayerData = deps.getPlayerData;
+    var getSaveData = deps.getSaveData;
     var getTowerSystem = deps.getTowerSystem;
     var getCombatState = deps.getCombatState;
     var getComboState = deps.getComboState;
@@ -56,8 +56,10 @@ function createTowerRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var towerSystem = getTowerSystem();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var TOWER_CONFIG = getTowerConfig();
         var fillRoundRect = getFillRoundRect();
 
@@ -67,31 +69,31 @@ function createTowerRenderer(deps) {
 
         // 标题栏
         ctx.fillStyle = '#1a1a2e';
-        fillRoundRect(ctx, 0, 0, screenWidth, Math.floor(60 * scale), 8);
+        fillRoundRect(ctx, 0, designOffsetY, screenWidth, Math.floor(60 * scale), 8);
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('🏰 无尽之塔 - 第 ' + towerSystem.currentFloor + ' 层', screenWidth / 2, Math.floor(38 * scale));
+        ctx.fillText('🏰 无尽之塔 - 第 ' + towerSystem.currentFloor + ' 层', screenWidth / 2, designOffsetY + Math.floor(38 * scale));
 
         // 层数信息
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'right';
-        ctx.fillText('最高: ' + (playerData.infiniteTower.highestFloor || 0) + '层', screenWidth - Math.floor(20 * scale), Math.floor(55 * scale));
+        ctx.fillText('最高: ' + (pd.infiniteTower.highestFloor || 0) + '层', screenWidth - Math.floor(20 * scale), designOffsetY + Math.floor(55 * scale));
 
         // 迷雾状态显示
         if (towerSystem.blindSteps > 0) {
             ctx.textAlign = 'center';
             ctx.fillStyle = '#9b59b6';
-            ctx.fillText('🌫️ 视野受限 ' + towerSystem.blindSteps + '步', screenWidth / 2, Math.floor(55 * scale));
+            ctx.fillText('🌫️ 视野受限 ' + towerSystem.blindSteps + '步', screenWidth / 2, designOffsetY + Math.floor(55 * scale));
         }
 
         // 更新视图偏移
         towerSystem.updateViewOffset();
 
         // 渲染地图区域
-        var mapTop = Math.floor(70 * scale);
-        var mapBottom = screenHeight - Math.floor(80 * scale);
+        var mapTop = designOffsetY + Math.floor(70 * scale);
+        var mapBottom = designBottom - Math.floor(80 * scale);
         var cellSize = Math.floor(30 * scale);
 
         // 设置裁剪区域
@@ -283,13 +285,13 @@ function createTowerRenderer(deps) {
 
         // 底部信息栏
         ctx.fillStyle = '#1a1a2e';
-        fillRoundRect(ctx, 0, screenHeight - Math.floor(70 * scale), screenWidth, Math.floor(70 * scale), 8);
+        fillRoundRect(ctx, 0, designBottom - Math.floor(70 * scale), screenWidth, Math.floor(70 * scale), 8);
 
         // 血条
         var hpBarWidth = screenWidth - Math.floor(40 * scale);
         var hpBarHeight = Math.floor(12 * scale);
         var hpBarX = Math.floor(20 * scale);
-        var hpBarY = screenHeight - Math.floor(60 * scale);
+        var hpBarY = designBottom - Math.floor(60 * scale);
         var hpBarRadius = Math.floor(4 * scale);
 
         ctx.fillStyle = '#333333';
@@ -314,7 +316,7 @@ function createTowerRenderer(deps) {
         ctx.font = Math.floor(12 * scale) + 'px sans-serif';
         ctx.fillStyle = '#888888';
         ctx.textAlign = 'center';
-        ctx.fillText('滑动/WASD移动 | 点击格子查看详情', screenWidth / 2, screenHeight - Math.floor(35 * scale));
+        ctx.fillText('滑动/WASD移动 | 点击格子查看详情', screenWidth / 2, designBottom - Math.floor(35 * scale));
 
         // 返回按钮
         uiCore.drawBackButton();
@@ -346,6 +348,8 @@ function createTowerRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
 
@@ -357,7 +361,7 @@ function createTowerRenderer(deps) {
         var boxWidth = Math.floor(320 * scale);
         var boxHeight = Math.floor(280 * scale);
         var boxX = (screenWidth - boxWidth) / 2;
-        var boxY = (screenHeight - boxHeight) / 2;
+        var boxY = (designOffsetY + designBottom - boxHeight) / 2;
 
         ctx.fillStyle = '#1a1a2e';
         fillRoundRect(ctx, boxX, boxY, boxWidth, boxHeight, 15);
@@ -437,6 +441,8 @@ function createTowerRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var fillRoundRect = getFillRoundRect();
         var comboState = getComboState();
 
@@ -445,7 +451,7 @@ function createTowerRenderer(deps) {
         var monsterName = monster.name || '邪灵';
         var monsterSize = Math.floor(60 * scale);
         var monsterX = screenWidth / 2;
-        var monsterY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * scale);
+        var monsterY = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale);
 
         ctx.font = monsterSize + 'px sans-serif';
         ctx.textAlign = 'center';
@@ -503,7 +509,7 @@ function createTowerRenderer(deps) {
             else if (comboLevel >= 1) comboColor = '#00ff00';
 
             var comboX = screenWidth - 20;
-            var comboY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT / 3 * scale + 150 * scale);
+            var comboY = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale + 150 * scale);
             ctx.textBaseline = 'middle';
             ctx.textAlign = 'right';
 
@@ -563,7 +569,7 @@ function createTowerRenderer(deps) {
         var hpBarWidth = Math.floor(200 * scale);
         var hpBarHeight = Math.floor(12 * scale);
         var hpBarX = screenWidth / 2 - hpBarWidth / 2;
-        var hpBarY = screenHeight - Math.floor(50 * scale);
+        var hpBarY = designBottom - Math.floor(50 * scale);
 
         if (shield > 0) {
             var shieldBarY = hpBarY - Math.floor(16 * scale);
@@ -608,7 +614,7 @@ function createTowerRenderer(deps) {
             ctx.font = 'bold ' + Math.floor(24 * scale) + 'px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('⚡ 被打断! ' + stunRemaining + 's', screenWidth / 2, screenHeight / 2);
+            ctx.fillText('⚡ 被打断! ' + stunRemaining + 's', screenWidth / 2, (designOffsetY + designBottom) / 2);
         }
     }
 
@@ -618,8 +624,9 @@ function createTowerRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
         var towerSystem = getTowerSystem();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var Assets = getAssets();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
@@ -636,13 +643,13 @@ function createTowerRenderer(deps) {
         ctx.fillStyle = '#FF6B6B';
         ctx.font = 'bold ' + Math.floor(32 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('🔻 挑战失败 🔻', screenWidth / 2, Math.floor(80 * scale));
+        ctx.fillText('🔻 挑战失败 🔻', screenWidth / 2, designOffsetY + Math.floor(80 * scale));
 
         // 结算面板
         var panelWidth = Math.floor(300 * scale);
         var panelHeight = Math.floor(300 * scale);
         var panelX = (screenWidth - panelWidth) / 2;
-        var panelY = Math.floor(120 * scale);
+        var panelY = designOffsetY + Math.floor(120 * scale);
 
         // 面板背景（圆角）
         ctx.fillStyle = 'rgba(30, 30, 50, 0.9)';
@@ -671,7 +678,7 @@ function createTowerRenderer(deps) {
         yOffset += Math.floor(40 * scale);
         ctx.font = Math.floor(16 * scale) + 'px sans-serif';
         ctx.fillStyle = '#aaaaaa';
-        ctx.fillText('最高记录: 第 ' + (playerData.infiniteTower.highestFloor || 1) + ' 层', screenWidth / 2, yOffset);
+        ctx.fillText('最高记录: 第 ' + (pd.infiniteTower.highestFloor || 1) + ' 层', screenWidth / 2, yOffset);
 
         // 获得灵币
         yOffset += Math.floor(35 * scale);
@@ -727,7 +734,8 @@ function createTowerRenderer(deps) {
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
         var scale = getScreenScale();
-        var playerData = getPlayerData();
+        var designOffsetY = getDesignOffsetY();
+        var pd = getSaveData();
         var fillRoundRect = getFillRoundRect();
         var strokeRoundRect = getStrokeRoundRect();
 
@@ -743,18 +751,18 @@ function createTowerRenderer(deps) {
         ctx.fillStyle = '#FFD700';
         ctx.font = 'bold ' + Math.floor(28 * scale) + 'px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('🏰 无尽之塔', screenWidth / 2, Math.floor(80 * scale));
+        ctx.fillText('🏰 无尽之塔', screenWidth / 2, designOffsetY + Math.floor(80 * scale));
 
         // 发现存档提示
         ctx.fillStyle = '#ffffff';
         ctx.font = Math.floor(20 * scale) + 'px sans-serif';
-        ctx.fillText('发现未完成的挑战', screenWidth / 2, Math.floor(130 * scale));
+        ctx.fillText('发现未完成的挑战', screenWidth / 2, designOffsetY + Math.floor(130 * scale));
 
         // 存档信息面板
         var panelWidth = Math.floor(280 * scale);
         var panelHeight = Math.floor(180 * scale);
         var panelX = (screenWidth - panelWidth) / 2;
-        var panelY = Math.floor(160 * scale);
+        var panelY = designOffsetY + Math.floor(160 * scale);
 
         ctx.fillStyle = 'rgba(30, 30, 50, 0.9)';
         fillRoundRect(ctx, panelX, panelY, panelWidth, panelHeight, 15);
@@ -771,17 +779,17 @@ function createTowerRenderer(deps) {
 
         // 当前层数
         ctx.fillStyle = '#FFD700';
-        ctx.fillText('第 ' + (playerData.infiniteTower.currentFloor || 1) + ' 层', screenWidth / 2, yOffset);
+        ctx.fillText('第 ' + (pd.infiniteTower.currentFloor || 1) + ' 层', screenWidth / 2, yOffset);
         yOffset += Math.floor(35 * scale);
 
         // 当前血量
         ctx.fillStyle = '#ff6b6b';
-        ctx.fillText('灵能: ' + (playerData.infiniteTower.currentHp || 100) + '/' + (playerData.infiniteTower.maxHp || 100), screenWidth / 2, yOffset);
+        ctx.fillText('灵能: ' + (pd.infiniteTower.currentHp || 100) + '/' + (pd.infiniteTower.maxHp || 100), screenWidth / 2, yOffset);
         yOffset += Math.floor(35 * scale);
 
         // 已收集奖励
         var totalGold = 0;
-        (playerData.infiniteTower.collectedRewards || []).forEach(function(r) {
+        (pd.infiniteTower.collectedRewards || []).forEach(function(r) {
             if (r.type === 'gold') totalGold += r.amount;
         });
         ctx.fillStyle = '#FFD700';
@@ -791,7 +799,7 @@ function createTowerRenderer(deps) {
         // 最高记录
         ctx.fillStyle = '#aaaaaa';
         ctx.font = Math.floor(14 * scale) + 'px sans-serif';
-        ctx.fillText('最高记录: 第 ' + (playerData.infiniteTower.highestFloor || 0) + ' 层', screenWidth / 2, yOffset);
+        ctx.fillText('最高记录: 第 ' + (pd.infiniteTower.highestFloor || 0) + ' 层', screenWidth / 2, yOffset);
 
         // 按钮
         var btnWidth = Math.floor(200 * scale);
@@ -828,7 +836,9 @@ function createTowerRenderer(deps) {
         var towerSystem = getTowerSystem();
         var screenWidth = getScreenWidth();
         var screenHeight = getScreenHeight();
-        var playerData = getPlayerData();
+        var designOffsetY = getDesignOffsetY();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var pd = getSaveData();
         var GAME_STATE = getGameState();
 
         // 隐藏之路弹窗处理（优先处理）
@@ -836,7 +846,7 @@ function createTowerRenderer(deps) {
             var boxWidth = Math.floor(320 * scale);
             var boxHeight = Math.floor(280 * scale);
             var boxX = (screenWidth - boxWidth) / 2;
-            var boxY = (screenHeight - boxHeight) / 2;
+            var boxY = (designOffsetY + designBottom - boxHeight) / 2;
 
             var options = towerSystem.hiddenPathDialog.options;
             var optBtnWidth = Math.floor(90 * scale);
@@ -873,7 +883,7 @@ function createTowerRenderer(deps) {
         if (towerSystem.inCombat) {
             var btnWidth = Math.floor(120 * scale);
             var btnHeight = Math.floor(45 * scale);
-            var btnY = (screenHeight - Math.floor(350 * scale)) / 2 + Math.floor(350 * scale) - Math.floor(100 * scale);
+            var btnY = (designOffsetY + designBottom - Math.floor(350 * scale)) / 2 + Math.floor(350 * scale) - Math.floor(100 * scale);
 
             if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
                 y >= btnY && y <= btnY + btnHeight) {
@@ -902,8 +912,8 @@ function createTowerRenderer(deps) {
             return;
         }
 
-        var mapTop = Math.floor(70 * scale);
-        var mapBottom = screenHeight - Math.floor(80 * scale);
+        var mapTop = designOffsetY + Math.floor(70 * scale);
+        var mapBottom = designBottom - Math.floor(80 * scale);
         var cellSize = Math.floor(30 * scale);
         var mapLeft = Math.floor(20 * scale);
 
@@ -969,6 +979,7 @@ function createTowerRenderer(deps) {
         var towerSystem = getTowerSystem();
         var audioSystem = getAudioSystem();
         var GAME_STATE = getGameState();
+        var designOffsetY = getDesignOffsetY();
 
         if (towerSystem.resultEndTime > 0) {
             var timeSinceEnd = Date.now() - towerSystem.resultEndTime;
@@ -982,7 +993,7 @@ function createTowerRenderer(deps) {
         var btnWidth = Math.floor(200 * scale);
         var btnHeight = Math.floor(50 * scale);
         var panelHeight = Math.floor(300 * scale);
-        var panelY = Math.floor(120 * scale);
+        var panelY = designOffsetY + Math.floor(120 * scale);
         var btnY = panelY + panelHeight + Math.floor(30 * scale);
 
         var restartBtnY = btnY;
@@ -1009,16 +1020,17 @@ function createTowerRenderer(deps) {
 
     function handleTowerResumeTouch(x, y) {
         var towerSystem = getTowerSystem();
-        var playerData = getPlayerData();
+        var pd = getSaveData();
         var audioSystem = getAudioSystem();
         var GAME_STATE = getGameState();
+        var designOffsetY = getDesignOffsetY();
 
         var scale = getScreenScale();
         var screenWidth = getScreenWidth();
         var btnWidth = Math.floor(200 * scale);
         var btnHeight = Math.floor(50 * scale);
         var panelHeight = Math.floor(180 * scale);
-        var panelY = Math.floor(160 * scale);
+        var panelY = designOffsetY + Math.floor(160 * scale);
         var btnY = panelY + panelHeight + Math.floor(30 * scale);
 
         if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
@@ -1032,9 +1044,9 @@ function createTowerRenderer(deps) {
         if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
             y >= giveUpBtnY && y <= giveUpBtnY + btnHeight) {
             if (audioSystem) audioSystem.playTowerExit();
-            towerSystem.currentFloor = playerData.infiniteTower.currentFloor || 1;
-            towerSystem.collectedRewards = JSON.parse(JSON.stringify(playerData.infiniteTower.collectedRewards || []));
-            towerSystem.playerMaxHp = playerData.infiniteTower.maxHp || 100;
+            towerSystem.currentFloor = pd.infiniteTower.currentFloor || 1;
+            towerSystem.collectedRewards = JSON.parse(JSON.stringify(pd.infiniteTower.collectedRewards || []));
+            towerSystem.playerMaxHp = pd.infiniteTower.maxHp || 100;
             towerSystem.giveUp();
             return true;
         }
