@@ -28,6 +28,16 @@ function createAudioSystem(deps) {
     var _savedTowerBgmId = null;
     var _savedTowerBgmVolume = 0;
 
+    // 战斗音效状态
+    var _comboPitchLevel = 0;
+    var _criticalPendingTimer = null;
+    var _lastQuickIdx = -1;
+    var _quickIds = ['battleQuick1', 'battleQuick2', 'battleQuick3', 'battleQuick4', 'battleQuick5', 'battleQuick6'];
+    var _lastHitEnemyIdx = -1;
+    var _hitEnemyIds = ['battleHitEnemy1', 'battleHitEnemy2', 'battleHitEnemy3', 'battleHitEnemy4', 'battleHitEnemy5'];
+    var _lastRainbowIdx = -1;
+    var _rainbowIds = ['battleRainbow1', 'battleRainbow2', 'battleRainbow3', 'battleRainbow4'];
+
     function init() {
         try {
             ctx = createWebAudioContext();
@@ -111,6 +121,210 @@ function createAudioSystem(deps) {
 
     function playTowerExit() {
         _play(_buffers['towerClick'], 0.65, 0.75, 0.5);
+    }
+
+    function playTeleport() {
+        var el = document.querySelector('audio[data-bgm-id="battleTeleport"]');
+        if (!el) return;
+        el.playbackRate = 0.85 + Math.random() * 0.3;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playCombo() {
+        var el = document.querySelector('audio[data-bgm-id="battleCombo"]');
+        if (!el) return;
+        el.playbackRate = 1.0 + _comboPitchLevel * 0.15;
+        el.volume = 0.7;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+        if (_comboPitchLevel < 3) _comboPitchLevel++;
+    }
+
+    function playCritical() {
+        var el = document.querySelector('audio[data-bgm-id="battleCritical"]');
+        if (!el) return;
+        if (!el.paused) {
+            fadeOutAudio('battleCritical', 250);
+            if (_criticalPendingTimer) clearTimeout(_criticalPendingTimer);
+            _criticalPendingTimer = setTimeout(function() {
+                _criticalPendingTimer = null;
+                el.playbackRate = 0.9 + Math.random() * 0.2;
+                el.volume = 0.6;
+                el.currentTime = 0;
+                el.play().catch(function() {});
+            }, 260);
+        } else {
+            el.playbackRate = 0.9 + Math.random() * 0.2;
+            el.volume = 0.6;
+            el.currentTime = 0;
+            el.play().catch(function() {});
+        }
+    }
+
+    function playHit() {
+        var el = document.querySelector('audio[data-bgm-id="battleHit"]');
+        if (!el) return;
+        el.playbackRate = 0.8 + Math.random() * 0.4;
+        el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playFail() {
+        var el = document.querySelector('audio[data-bgm-id="battleFail"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function stopFail() {
+        fadeOutAudio('battleFail', 500);
+    }
+
+    function playSuccess() {
+        var el = document.querySelector('audio[data-bgm-id="battleSuccess"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function stopSuccess() {
+        fadeOutAudio('battleSuccess', 500);
+    }
+
+    function playNormal() {
+        var el = document.querySelector('audio[data-bgm-id="battleNormal"]');
+        if (!el) return;
+        el.playbackRate = 0.4 + Math.random() * 1.2;
+        el.volume = 0.4;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playAnswer1() {
+        var el = document.querySelector('audio[data-bgm-id="uiAnswer1"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playAnswer2() {
+        var el = document.querySelector('audio[data-bgm-id="uiAnswer2"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playTreasureBox() {
+        var el = document.querySelector('audio[data-bgm-id="treasureBox"]');
+        if (!el) return;
+        el.volume = 0.7;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playQuestion() {
+        var el = document.querySelector('audio[data-bgm-id="uiQuestion"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playMenu1() {
+        var el = document.querySelector('audio[data-bgm-id="uiMenu1"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playMenu2() {
+        var el = document.querySelector('audio[data-bgm-id="uiMenu2"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playSpirit() {
+        var el = document.querySelector('audio[data-bgm-id="uiSpirit"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playTreasureMisc() {
+        var el = document.querySelector('audio[data-bgm-id="treasureMisc"]');
+        if (!el) return;
+        el.playbackRate = 0.85 + Math.random() * 0.3;
+        el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playRainbow() {
+        var idx;
+        if (_lastRainbowIdx < 0) {
+            idx = Math.floor(Math.random() * _rainbowIds.length);
+        } else {
+            idx = Math.floor(Math.random() * (_rainbowIds.length - 1));
+            if (idx >= _lastRainbowIdx) idx++;
+        }
+        _lastRainbowIdx = idx;
+        var el = document.querySelector('audio[data-bgm-id="' + _rainbowIds[idx] + '"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playMerge() {
+        var el = document.querySelector('audio[data-bgm-id="battleOne"]');
+        if (!el) return;
+        el.playbackRate = 0.9 + Math.random() * 0.2;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playQuickTap() {
+        var idx;
+        if (_lastQuickIdx < 0) {
+            idx = Math.floor(Math.random() * _quickIds.length);
+        } else {
+            idx = Math.floor(Math.random() * (_quickIds.length - 1));
+            if (idx >= _lastQuickIdx) idx++;
+        }
+        _lastQuickIdx = idx;
+        var el = document.querySelector('audio[data-bgm-id="' + _quickIds[idx] + '"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playHitEnemy() {
+        var idx;
+        if (_lastHitEnemyIdx < 0) {
+            idx = Math.floor(Math.random() * _hitEnemyIds.length);
+        } else {
+            idx = Math.floor(Math.random() * (_hitEnemyIds.length - 1));
+            if (idx >= _lastHitEnemyIdx) idx++;
+        }
+        _lastHitEnemyIdx = idx;
+        var el = document.querySelector('audio[data-bgm-id="' + _hitEnemyIds[idx] + '"]');
+        if (!el) return;
+        el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
     }
 
     function playBackpack() {
@@ -336,14 +550,20 @@ function createAudioSystem(deps) {
 
     function endBattle() {
         stopBgm(500);
+        _comboPitchLevel = 0;
+        if (_criticalPendingTimer) { clearTimeout(_criticalPendingTimer); _criticalPendingTimer = null; }
     }
 
     function exitBattle() {
         _battleMusicPending = false;
+        _comboPitchLevel = 0;
+        if (_criticalPendingTimer) { clearTimeout(_criticalPendingTimer); _criticalPendingTimer = null; }
         if (_savedBgmId) {
             playBgm(_savedBgmId, _savedBgmVolume);
             _savedBgmId = null;
             _savedBgmVolume = 0;
+        } else {
+            playBgm('shuhanTheme', 0.32);
         }
     }
 
@@ -371,6 +591,8 @@ function createAudioSystem(deps) {
             playBgm(_savedTowerBgmId, _savedTowerBgmVolume);
             _savedTowerBgmId = null;
             _savedTowerBgmVolume = 0;
+        } else {
+            playBgm('shuhanTheme', 0.32);
         }
     }
 
@@ -392,6 +614,27 @@ function createAudioSystem(deps) {
         playMenuClick: playMenuClick,
         playTowerClick: playTowerClick,
         playTowerExit: playTowerExit,
+        playTeleport: playTeleport,
+        playCombo: playCombo,
+        playCritical: playCritical,
+        playHit: playHit,
+        playQuickTap: playQuickTap,
+        playHitEnemy: playHitEnemy,
+        playRainbow: playRainbow,
+        playMerge: playMerge,
+        playFail: playFail,
+        stopFail: stopFail,
+        playSuccess: playSuccess,
+        stopSuccess: stopSuccess,
+        playNormal: playNormal,
+        playTreasureBox: playTreasureBox,
+        playQuestion: playQuestion,
+        playMenu1: playMenu1,
+        playMenu2: playMenu2,
+        playSpirit: playSpirit,
+        playAnswer1: playAnswer1,
+        playAnswer2: playAnswer2,
+        playTreasureMisc: playTreasureMisc,
         playBackpack: playBackpack,
         playMonsterDefeat: playMonsterDefeat,
         playMeteor: playMeteor,

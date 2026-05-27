@@ -121,6 +121,16 @@ function createNormalBattleAdapter(deps) {
     var removeBossStar = deps.removeBossStar;
     var tipShowTipOnce = deps.tipShowTipOnce;
 
+    // ═══ 战斗音效 ═══
+    var playCombo = deps.playCombo;
+    var playCritical = deps.playCritical;
+    var playHit = deps.playHit;
+    var playNormal = deps.playNormal;
+    var playQuickTap = deps.playQuickTap;
+    var playHitEnemy = deps.playHitEnemy;
+    var playPetAttack = deps.playPetAttack;
+    var playRainbow = deps.playRainbow;
+
     // ═══ 净化/掉落 deps ═══
     var getMonsterTypes = deps.getMonsterTypes;
     var getMonstersConfig = deps.getMonstersConfig;
@@ -201,7 +211,15 @@ function createNormalBattleAdapter(deps) {
                 createTimeDamage: function(d) { if (deps.createTimeDamageAnimation) deps.createTimeDamageAnimation(d); },
                 createPetDamage: function() {},
                 addMessage: addMessage,
-                vibrateShort: vibrateShort
+                vibrateShort: vibrateShort,
+                playCombo: playCombo,
+                playCritical: playCritical,
+                playHit: playHit,
+                playNormal: playNormal,
+                playQuickTap: playQuickTap,
+                playHitEnemy: playHitEnemy,
+                playPetAttack: playPetAttack,
+                playRainbow: playRainbow
             },
             combat: {
                 getSeasonStarTypes: function() { return []; },
@@ -1028,6 +1046,7 @@ function createNormalBattleAdapter(deps) {
         fx.poisonTickTime = Date.now() + 1000;
         addMessage('☠️ 毒灵爆发! -15灵能+中毒!', '#00ff00', true);
         vibrateShort({ type: 'heavy' });
+        if (playPetAttack) playPetAttack();
     }
 
     function handlePuddleStarEffect(star) {
@@ -1055,6 +1074,7 @@ function createNormalBattleAdapter(deps) {
         fx.poisonTickTime = Date.now() + 1000;
         addMessage('☠️ 毒灵爆发! -15灵能+中毒!', '#00ff00', true);
         vibrateShort({ type: 'heavy' });
+        if (playPetAttack) playPetAttack();
     }
 
     // ═══════════════════════════════════════════════════════

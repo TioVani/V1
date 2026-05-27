@@ -12,6 +12,7 @@ function createWorldMapSystem(deps) {
     var showToast = deps.showToast;
     var savePlayerData = deps.savePlayerData;
     var getSaveData = deps.getSaveData;
+    var onTeleport = deps.onTeleport || function() {};
     var _needsRespawn = false;
     var _prevPos = null;
     var _onTriggerLine = null;
@@ -116,6 +117,7 @@ function createWorldMapSystem(deps) {
                     player.setPlayerPos(te.targetX, te.targetY);
                     if (te.targetFloor !== undefined) player.switchFloor(te.targetFloor);
                     _teleportCooldown = true;
+                    onTeleport();
                     break;
                 }
             }

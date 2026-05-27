@@ -269,7 +269,7 @@ function createBattleEngine(deps) {
         S.poisonTickTime = Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS');
 
         if (shieldAbsorb > 0) anim.createPlayerDamage(shieldAbsorb, false, false, null, true);
-        if (poisonDmg > 0) anim.createPlayerDamage(poisonDmg, false, true);
+        if (poisonDmg > 0) { anim.createPlayerDamage(poisonDmg, false, true); anim.playHit(); }
 
         if (S.playerHp <= 0) { S.playerHp = 0; finishBattle('playerDeath'); }
     }
@@ -299,9 +299,11 @@ function createBattleEngine(deps) {
         if (isCrit) {
             var critMult = 1 + (S.activePet.critDamage || 0.5);
             damage = Math.floor(damage * critMult);
+            anim.playCritical();
         }
 
         S.monster.hp -= damage;
+        anim.playHitEnemy();
         anim.createPetDamage(
             scr.getWidth() / 2, scr.getHeight() / 3 - 50,
             damage, S.activePet.emoji || '🐾', isCrit
@@ -439,6 +441,7 @@ function createBattleEngine(deps) {
                         anim.createHpBarCounter();
                         var counterDamage = Math.floor(damage * getSpecValue(RC, 'SPECIAL_STARS.DODGE_COUNTER_MULT'));
                         monster.hp -= counterDamage;
+                        anim.playHitEnemy();
                         anim.addMessage('💫 反击! -' + counterDamage, '#00ff88');
                         anim.createMonsterDamage(monster.x || scr.getWidth() / 2, monster.y || scr.getHeight() / 3, counterDamage);
                         callExtensionHooks('onMonsterAttackHit', { monster: monster, damage: 0, dodged: true, counterDamage: counterDamage });
@@ -465,6 +468,7 @@ function createBattleEngine(deps) {
                         anim.createTimeDamage(S.timeDamageOnHit);
                         anim.addMessage('-' + damage + ' 灵能', '#ff6b6b');
                         anim.vibrateShort({ type: 'heavy' });
+                        anim.playHit();
                     }
 
                     // 中毒技能检查
@@ -526,6 +530,7 @@ function createBattleEngine(deps) {
     function handleSpecialStar(star, stats, pd, isQuickTap, isSuperQuickTap) {
         switch (star.type) {
             case 'heal':
+                anim.playNormal();
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var healPct = getSpecValue(RC, 'SPECIAL_STARS.HEAL_HP') / 100;
                 var healAmt = Math.min(Math.floor(maxHp * healPct), maxHp - S.playerHp);
@@ -546,6 +551,7 @@ function createBattleEngine(deps) {
                 break;
 
             case 'shield':
+                anim.playNormal();
                 var shieldPct = getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT') / 100;
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var shieldAmt = Math.floor(maxHp * shieldPct);
@@ -555,12 +561,14 @@ function createBattleEngine(deps) {
                 break;
 
             case 'time':
+                anim.playNormal();
                 S.timeLeft += getSpecValue(RC, 'SPECIAL_STARS.TIME_SECONDS');
                 anim.addMessage('⏰ +' + getSpecValue(RC, 'SPECIAL_STARS.TIME_SECONDS') + '秒', '#00ccff');
                 anim.createStarBurst(star.x, star.y, 'time');
                 break;
 
             case 'unlucky':
+                anim.playNormal();
                 var hpCost = getSpecValue(RC, 'SPECIAL_STARS.UNLUCKY_HP_COST');
                 if (S.playerShield > 0) {
                     var absorb = Math.min(S.playerShield, hpCost);
@@ -570,13 +578,14 @@ function createBattleEngine(deps) {
                 S.playerHp -= hpCost;
                 S.playerRage = (S.playerRage || 0) + 1;
                 anim.addMessage('🔻 -' + hpCost + '灵能 怒气 ' + S.playerRage + '/3', '#ff6b6b');
+                if (hpCost > 0) anim.playHit();
 
                 if (S.playerRage >= 3) {
                     S.playerRage = 0;
                     var roll = Math.random();
                     if (roll < 0.33) {
                         var critDmg = Math.floor((stats.attack || 50) * 2);
-                        if (S.monster) S.monster.hp -= critDmg;
+                        if (S.monster) { S.monster.hp -= critDmg; anim.playHitEnemy(); }
                         anim.addMessage('🔥 怒气爆发! -' + critDmg, '#ff0000');
                         anim.createMonsterDamage(scr.getWidth() / 2, scr.getHeight() / 3, critDmg);
                         if (S.monster && S.monster.hp <= 0) finishBattle('monsterDeath');
@@ -593,14 +602,18 @@ function createBattleEngine(deps) {
                 break;
 
             case 'greedy':
-                S.playerHp -= getSpecValue(RC, 'SPECIAL_STARS.GREEDY_HP_COST');
+                anim.playNormal();
+                var greedyHpCost = getSpecValue(RC, 'SPECIAL_STARS.GREEDY_HP_COST');
+                S.playerHp -= greedyHpCost;
                 S.greedyHpPool = (S.greedyHpPool || 0) + 2;
                 anim.addMessage('🌀 -1灵能 贪婪池 ' + S.greedyHpPool + '/20', '#8b0000');
+                if (greedyHpCost > 0) anim.playHit();
                 anim.createStarBurst(star.x, star.y, 'greedy');
                 if (S.playerHp <= 0) { S.playerHp = 0; finishBattle('playerDeath'); }
                 break;
 
             case 'dodge':
+                anim.playNormal();
                 var dodgeTime = getSpecValue(RC, 'SPECIAL_STARS.DODGE_DURATION_MS');
                 if (isSuperQuickTap) {
                     dodgeTime += 500;
@@ -617,7 +630,13 @@ function createBattleEngine(deps) {
                 anim.createStarBurst(star.x, star.y, 'dodge');
                 break;
 
+            case 'rainbow':
+                anim.playRainbow();
+                anim.createStarBurst(star.x, star.y, 'rainbow');
+                break;
+
             default:
+                anim.playNormal();
                 anim.createStarBurst(star.x, star.y, star.type);
                 break;
         }
@@ -822,8 +841,10 @@ function createBattleEngine(deps) {
 
                     if (result.isSuperQuickTap) {
                         anim.createQuickTap(star.x, star.y, result.starScore, 4, false);
+                        anim.playQuickTap();
                     } else if (result.isQuickTap) {
                         anim.createQuickTap(star.x, star.y, result.starScore, 2, false);
+                        anim.playQuickTap();
                     }
 
                     if (isCrit) {
@@ -834,6 +855,7 @@ function createBattleEngine(deps) {
                     if (S.extensions && S.extensions.onScoreEarned) {
                         S.extensions.onScoreEarned(star, result, 0, false);
                     }
+                    anim.playNormal();
                     return true;
                 }
 
@@ -890,8 +912,10 @@ function createBattleEngine(deps) {
 
                 if (result.isSuperQuickTap) {
                     anim.createQuickTap(star.x, star.y, result.starScore, 4, false);
+                    anim.playQuickTap();
                 } else if (result.isQuickTap) {
                     anim.createQuickTap(star.x, star.y, result.starScore, 2, false);
+                    anim.playQuickTap();
                 }
 
                 anim.createMeteor(
@@ -899,6 +923,7 @@ function createBattleEngine(deps) {
                     result.starScore, result.comboMultiplier, null,
                     { x: targetMonster.x || scr.getWidth() / 2, y: targetMonster.y || scr.getHeight() / 3 }
                 );
+                anim.playNormal();
 
                 if (isCrit) anim.createCrit(star.x, star.y, actualDamage, result.starScore);
 
@@ -906,6 +931,7 @@ function createBattleEngine(deps) {
 
                 if (isCrit) {
                     anim.addMessage('💥暴击! -' + actualDamage, '#FFD700');
+                    anim.playCritical();
                 } else {
                     anim.addMessage('-' + actualDamage, '#ffffff');
                 }
@@ -913,9 +939,11 @@ function createBattleEngine(deps) {
                 if (result.comboCount >= 5 && result.comboCount % 5 === 0) {
                     var cc = result.comboCount >= 15 ? '#ff00ff' : (result.comboCount >= 10 ? '#ffd700' : '#00ff00');
                     anim.addMessage('🔥 ' + result.comboCount + ' COMBO!', cc);
+                    anim.playCombo();
                 }
 
                 targetMonster.hp -= actualDamage;
+                anim.playHitEnemy();
                 safeCall(callbacks.onDamageDealt, { monster: targetMonster, damage: actualDamage });
                 Logger.info('BattleEngine 攻击怪物，伤害:', actualDamage, '连击:', result.comboCount, '暴击:', isCrit);
 
@@ -1018,8 +1046,10 @@ function createBattleEngine(deps) {
                 if (isCrit) {
                     dmg = Math.floor(dmg * (stats.critDamage + (pd.extraCritDamage || 0)));
                     anim.createCrit(scr.getWidth() / 2, scr.getHeight() / 3, dmg, 0);
+                    anim.playCritical();
                 }
                 S.monster.hp -= dmg;
+                anim.playHitEnemy();
                 anim.createMonsterDamage(scr.getWidth() / 2, scr.getHeight() / 3, dmg);
                 anim.addMessage(skill.emoji + ' ' + skill.name + '! -' + dmg, '#00ccff');
                 safeCall(callbacks.onDamageDealt, { monster: S.monster, damage: dmg });

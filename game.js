@@ -1131,7 +1131,8 @@ function init() {
             getScreenScaleFn: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         _log('偷灵者模块初始化完成');
 
@@ -1145,7 +1146,8 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
 
         // 初始化任务系统模块
@@ -1201,34 +1203,20 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
             playCharacterStep: function() { if (audioSystem) audioSystem.playCharacterStep(); },
+            playTeleport: function() { if (audioSystem) audioSystem.playTeleport(); },
+            playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+            playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+            playHit: function() { if (audioSystem) audioSystem.playHit(); },
+            playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
+            playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            playTreasureBox: function() { if (audioSystem) audioSystem.playTreasureBox(); },
+            playTreasureMisc: function() { if (audioSystem) audioSystem.playTreasureMisc(); },
+            playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
-            setGameState: function(s) {
-                var prevState = state;
-                state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
-                // 进入塔探索：保存当前BGM，播放塔音乐
-                if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
-                    audioSystem.enterTower();
-                    _battleMusicTriggered = false;
-                }
-                // 进入塔战斗：保存塔探索音乐，切换战斗音乐
-                if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
-                    audioSystem.enterBattle();
-                }
-                // 塔战斗结束
-                if (prevState === GAME_STATE.TOWER_COMBAT && state !== GAME_STATE.TOWER_COMBAT && audioSystem) {
-                    if (state === GAME_STATE.TOWER) {
-                        audioSystem.exitBattle(); // 回到探索：恢复塔探索音乐
-                    } else {
-                        audioSystem.endBattle(); // 结算/退出等：只淡出战斗音乐
-                    }
-                }
-                // 回到大地图：恢复记忆的BGM
-                if (state === GAME_STATE.WORLDMAP && audioSystem) {
-                    audioSystem.exitTower();
-                }
-            },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             getCtx: function() { return ctx; },
             showToast: function(opts) { $P.showToast(opts); },
@@ -1284,7 +1272,12 @@ function init() {
                 createTimeDamage: function(d) { createTimeDamageAnimation(d); },
                 createPetDamage: function(x, y, d, e, c) { createPetDamageAnimation(x, y, d, e, c); },
                 addMessage: function(t, c, r) { addGameMessage(t, c, r); },
-                vibrateShort: function(o) { try { $P.vibrateShort(o); } catch(e) {} }
+                vibrateShort: function(o) { try { $P.vibrateShort(o); } catch(e) {} },
+                playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+                playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+                playHit: function() { if (audioSystem) audioSystem.playHit(); },
+                playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+                playRainbow: function() { if (audioSystem) audioSystem.playRainbow(); }
             },
             combat: {
                 getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
@@ -1298,7 +1291,8 @@ function init() {
                 getConfig: function() { return Skills; },
                 getTypes: function() { return SkillTypes; }
             },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         towerSystem._setBattleEngine(battleEngine);
         _log('爬塔系统模块初始化完成');
@@ -1337,7 +1331,8 @@ function init() {
                     comboState.currentStarInterval = newInterval;
                 }
             },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
 
         // 初始化挂机系统模块
@@ -1367,12 +1362,13 @@ function init() {
             getCharacters: function() { return Characters; },
             getPets: function() { return Pets; },
             getStarTypes: function() { return SEASON_STAR_TYPES; },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             getScreenScale: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         performGacha = function(count, poolType) { return gachaSystem.performGacha(count, poolType); };
         showGachaResults = function(results) { gachaSystem.showGachaResults(results); };
@@ -1465,6 +1461,7 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
             getMonster: function() { return monster; },
@@ -1554,7 +1551,8 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         tipShowTipOnce = function(tipId, text) { tipSystem.showTipOnce(tipId, text); };
         tipUpdateTip = function() { tipSystem.updateTip(); };
@@ -1659,6 +1657,7 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
             getGameState: function() { return state; },
@@ -1679,7 +1678,8 @@ function init() {
             },
             combatSpec: _gameModules.COMBAT_SPEC,
             getPauseStartTime: function() { return pauseStartTime; },
-            createMergeAnimation: function(x1,y1,t1,x2,y2,t2,cb) { animationSystem.createMergeAnimation(x1,y1,t1,x2,y2,t2,cb); }
+            createMergeAnimation: function(x1,y1,t1,x2,y2,t2,cb) { animationSystem.createMergeAnimation(x1,y1,t1,x2,y2,t2,cb); },
+            playMerge: function() { if (audioSystem) audioSystem.playMerge(); }
         });
         addNewStar = function() { starSystem.addNewStar(); };
         addRandomStar = function() { starSystem.addRandomStar(); };
@@ -1734,6 +1734,7 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             getConfig: function() { return CONFIG; },
             getMonsterTypes: function() { return MonsterTypes; },
             getMonstersConfig: function() { return Monsters; },
@@ -1782,7 +1783,8 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getCtx: function() { return ctx; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
 
         // 初始化Boss灵韵机制
@@ -1791,6 +1793,7 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: getScreenScale,
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             getStars: function() { return stars; },
             setStars: function(val) { stars = val; },
             pushStar: function(star) { stars.push(star); },
@@ -1820,7 +1823,8 @@ function init() {
             BACK_BTN_WIDTH: BACK_BTN_WIDTH,
             BACK_BTN_HEIGHT: BACK_BTN_HEIGHT,
             BACK_BTN_COLOR: BACK_BTN_COLOR,
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         monsterDrawRenderer = createMonsterDrawRenderer({
             getCtx: function() { return ctx; },
@@ -1859,7 +1863,8 @@ function init() {
             getClaimAfkRewards: function() { return claimAfkRewards; },
             getFillRoundRect: function() { return fillRoundRect; },
             getGachaRoundRect: function() { return gachaRoundRect; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderAfkPopup = function() { afkRenderer.renderAfkPopup(); };
         renderAfkResultPopup = function() { afkRenderer.renderAfkResultPopup(); };
@@ -1874,6 +1879,7 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             uiCore: uiCoreRenderer,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
@@ -1943,7 +1949,8 @@ function init() {
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
             getLog: function() { return _log; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderSeasonMenu = function() { seasonRenderer.renderSeasonMenu(); };
         renderSeasonSelect = function() { seasonRenderer.renderSeasonSelect(); };
@@ -1960,7 +1967,8 @@ function init() {
             getTasksTab: function() { return tasksTab; },
             getTasksScrollY: function() { return tasksScrollY; },
             setTasksScrollY: function(val) { tasksScrollY = val; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderTasks = function() { taskRenderer.renderTasks(); };
 
@@ -1972,7 +1980,8 @@ function init() {
             getFillRoundRect: function() { return fillRoundRect; },
             getStrokeRoundRect: function() { return strokeRoundRect; },
             getGodMode: function() { return godMode; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderDebugPanel = function() { debugRenderer.renderDebugPanel(); };
 
@@ -1994,7 +2003,8 @@ function init() {
             getGachaSystem: function() { return gachaSystem; },
             getMonthlyCardSystem: function() { return monthlyCardSystem; },
             getCombatState: function() { return combatState; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderShop = function() { shopRenderer.renderShop(); };
         renderShopMaterialsTab = function() { shopRenderer.renderShopMaterialsTab(); };
@@ -2037,7 +2047,8 @@ function init() {
             savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
             getMaxActiveSkills: function() { return MAX_ACTIVE_SKILLS; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderBackpack = function() { backpackRenderer.renderBackpack(); };
         renderMaterialsTab = function() { backpackRenderer.renderMaterialsTab(); };
@@ -2170,7 +2181,8 @@ function init() {
             getFillRoundRect: function() { return fillRoundRect; },
             getAssets: function() { return Assets; },
             showToast: function(opts) { $P.showToast(opts); },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         var upgradeCharStrategy = createUpgradeCharacterStrategy({
             getSaveData: function() { return saveData; },
@@ -2223,7 +2235,8 @@ function init() {
             uiCore: uiCoreRenderer,
             getFillRoundRect: function() { return fillRoundRect; },
             getAssets: function() { return Assets; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderSkillsTab = function() { backpackRenderer.renderSkillsTab(); };
         renderPetsTab = function() { backpackRenderer.renderPetsTab(); };
@@ -2243,7 +2256,8 @@ function init() {
             getGachaSystem: function() { return gachaSystem; },
             getStarSystem: function() { return starSystem; },
             getGachaAnimationConfig: function() { return GACHA_ANIMATION_CONFIG; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderGachaAnimation = function() { gachaRenderer.renderGachaAnimation(); };
         renderGachaStarfield = function() { gachaRenderer.renderGachaStarfield(); };
@@ -2274,7 +2288,8 @@ function init() {
             getDifficultyColor: function(d) { return getDifficultyColor(d); },
             getStageModeSystem: function() { return stageModeSystem; },
             getMaterials: function() { return Materials; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderStageSelect = function() { stageRenderer.renderStageSelect(); };
         renderStageResult = function() { stageRenderer.renderStageResult(); };
@@ -2318,7 +2333,8 @@ function init() {
             savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
             showToast: function(opts) { $P.showToast(opts); },
             log: function() { _log.apply(null, arguments); },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderSquad = function() { squadRenderer.renderSquad(); };
         renderPortraitLarge = function() { squadRenderer.renderPortraitLarge(); };
@@ -2351,7 +2367,8 @@ function init() {
             getSkills: function() { return Skills; },
             getBossSelectIsDragging: function() { return bossSelectIsDragging; },
             setBossSelectScrollY: function(v) { bossSelectScrollY = v; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         renderBossBattleResult = function() { bossRenderer.renderBossBattleResult(); };
         renderBossSelect = function() { bossRenderer.renderBossSelect(); };
@@ -2362,6 +2379,7 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             uiCore: uiCoreRenderer,
             isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
             transitionTo: function(s) { stateMachine.transitionTo(s); },
@@ -2416,6 +2434,7 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             uiCore: uiCoreRenderer,
             getAssets: function() { return Assets; },
             getFillRoundRect: function() { return fillRoundRect; },
@@ -2590,7 +2609,8 @@ function init() {
             showToast: function(opts) { $P.showToast(opts); },
             getRewardedVideoAd: function() { return adSystem ? adSystem.getRewardedVideoAd() : null; },
             isAdLoaded: function() { return adSystem ? adSystem.isAdLoaded() : false; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         isMonthlyCardClaimedToday = function(cardType) { return monthlyCardSystem.isMonthlyCardClaimedToday(cardType); };
         getTodayString = function() { return monthlyCardSystem.getTodayString(); };
@@ -2630,7 +2650,7 @@ function init() {
             getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
             addCharacterExperience: function(charId, exp) { addCharacterExperience(charId, exp); },
             saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
             getStageSelectScrollY: function() { return uiScrollState.stageSelectScrollY; },
@@ -2685,7 +2705,7 @@ function init() {
             saveDataImmediate: function() { dataStore.flush(); },
             flushData: function() { dataStore.flush(); },
             saveBestScore: function() { saveBestScore(); },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
             getBOSS_LIST: function() { return BOSS_LIST; },
@@ -2844,6 +2864,7 @@ function init() {
             addScore: function(pts) { score += pts; },
             addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); },
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             calculateTotalAttack: function() { return calculateTotalAttack(); },
             createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); }
         });
@@ -2870,6 +2891,7 @@ function init() {
             addScore: function(pts) { score += pts; },
             addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); },
             getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; },
             createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
             getStarImage: function() { return Assets.normalStarImage; },
             getTotalAttack: function() { return calculateTotalAttack ? calculateTotalAttack() : 0; }
@@ -2899,7 +2921,8 @@ function init() {
             saturationState: saturationState,
             getBeautyFrames: function() { return Assets.beautyFrames || []; },
             rhythmSkillSystem: null,  // 后注入
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         _log('D4 灵光联连系统初始化完成');
 
@@ -3092,6 +3115,15 @@ function init() {
             createTimeDamageAnimation: function(dmg) { createTimeDamageAnimation(dmg); },
             endGame: function() { endGame(); },
             getIsTutorialBattle: function() { return _tutorial.active; },
+            // 战斗音效
+            playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+            playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+            playHit: function() { if (audioSystem) audioSystem.playHit(); },
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
+            playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
+            playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
+            playRainbow: function() { if (audioSystem) audioSystem.playRainbow(); },
             // 觉醒系统
             getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
             getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || saveData); },
@@ -3102,7 +3134,8 @@ function init() {
                     engine.subscribe(starSystem.onSpecChanged);
                 }
             },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
         _log('普通战斗适配器模块初始化完成');
 
@@ -3119,7 +3152,7 @@ function init() {
         gameLifecycleSystem = _gameModules.createGameLifecycleSystem({
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
             getScore: function() { return score; },
@@ -3348,7 +3381,7 @@ runtimeData.godMode = false;
         // ===== ModeLifecycleManager — 统一模式生命周期 =====
         modeLifecycle = createModeLifecycleManager({
             getGameState: function() { return state; },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             GAME_STATE: GAME_STATE,
             saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ }
         });
@@ -3405,14 +3438,55 @@ runtimeData.godMode = false;
             setGameStateRaw: function(s) {
                 var prevState = state;
                 state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
+                // 结算音效
+                if (audioSystem) {
+                    if (state === GAME_STATE.GAMEOVER) {
+                        if (prevState === GAME_STATE.SEASON_PLAYING) {
+                            audioSystem.playSuccess();
+                        } else {
+                            audioSystem.playFail();
+                        }
+                    }
+                    if (state === GAME_STATE.STAGE_RESULT) {
+                        var stageResult = (stageModeSystem && stageModeSystem.getResult) ? stageModeSystem.getResult() : null;
+                        if (stageResult && stageResult.success) audioSystem.playSuccess();
+                        else audioSystem.playFail();
+                    }
+                    if (state === GAME_STATE.BOSS_BATTLE_RESULT) {
+                        var bossResult = (BossBattleMode && BossBattleMode.getResult) ? BossBattleMode.getResult() : null;
+                        if (bossResult && bossResult.success) audioSystem.playSuccess();
+                        else audioSystem.playFail();
+                    }
+                    if (state === GAME_STATE.TOWER_RESULT) {
+                        audioSystem.playFail();
+                    }
+                }
+                // 暂停音效
+                if (state === GAME_STATE.PAUSED && audioSystem) {
+                    audioSystem.playQuestion();
+                }
+                // 进入赛季战斗：淡出当前BGM，记忆它
+                if (state === GAME_STATE.SEASON_PLAYING && prevState !== GAME_STATE.SEASON_PLAYING && prevState !== GAME_STATE.PAUSED && audioSystem) {
+                    audioSystem.enterBattle();
+                    _battleMusicTriggered = false;
+                }
                 // 进入塔探索：保存当前BGM，播放塔音乐
                 if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
                     audioSystem.enterTower();
+                    audioSystem.playUiEnter2();
                     _battleMusicTriggered = false;
+                }
+                // 进入任务界面
+                if (state === GAME_STATE.TASKS && prevState !== GAME_STATE.TASKS && audioSystem) {
+                    audioSystem.playMenu2();
                 }
                 // 进入塔战斗：淡出当前BGM，记忆它
                 if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
                     audioSystem.enterBattle();
+                }
+                // 赛季战斗结束
+                if (prevState === GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.PAUSED && audioSystem) {
+                    audioSystem.endBattle();
                 }
                 // 塔战斗结束
                 if (prevState === GAME_STATE.TOWER_COMBAT && state !== GAME_STATE.TOWER_COMBAT && audioSystem) {
@@ -3424,7 +3498,13 @@ runtimeData.godMode = false;
                 }
                 // 回到大地图：恢复记忆的BGM
                 if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
-                    if (audioSystem) audioSystem.exitTower();
+                    if (audioSystem) {
+                        if (prevState === GAME_STATE.TOWER || prevState === GAME_STATE.TOWER_COMBAT || prevState === GAME_STATE.TOWER_RESUME || prevState === GAME_STATE.TOWER_RESULT) {
+                            audioSystem.exitTower();
+                        } else if (prevState === GAME_STATE.GAMEOVER || prevState === GAME_STATE.PLAYING || prevState === GAME_STATE.SEASON_PLAYING || prevState === GAME_STATE.STAGE_RESULT || prevState === GAME_STATE.BOSS_BATTLE_RESULT) {
+                            audioSystem.exitBattle();
+                        }
+                    }
                     worldMapSystem.markNeedsRespawn();
                     worldMapSystem.restoreReturnPosition();
                     worldMapSystem.saveProgress();
@@ -3509,6 +3589,7 @@ runtimeData.godMode = false;
 
         worldMapSystem = _gameModules.createWorldMapSystem({
             showToast: function(opts) { $P.showToast(opts); },
+            onTeleport: function() { if (audioSystem) audioSystem.playTeleport(); },
             flushData: function() { dataStore.flush(); },
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
@@ -3617,6 +3698,7 @@ runtimeData.godMode = false;
                     }
                     _lastPortalTime = _now;
                     _log('传送到:', result.targetWorld);
+                    if (audioSystem) audioSystem.playTeleport();
                     var fromWorld = worldMapSystem.getWorldId();
                     worldMapSystem.saveProgress();
                     worldMapSystem.loadWorld(result.targetWorld, fromWorld);
@@ -3655,7 +3737,8 @@ runtimeData.godMode = false;
             getWorldMapSystem: function() { return worldMapSystem; },
             getAssets: function() { return Assets; },
             getJoystickState: function() { return { active: _joystickActive, startX: _joystickStartX, startY: _joystickStartY, dx: _joystickDX, dy: _joystickDY }; },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            getAudioSystem: function() { return audioSystem; }
         });
 
         // 键盘事件
@@ -3839,12 +3922,12 @@ function handleTouchStart(res) {
             // 展开菜单项点击
             if (uiScrollState.menuExpanded) {
                 var _menuItems = [
-                    { id: 'backpack', action: function() { if (audioSystem) audioSystem.playBackpack(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
-                    { id: 'shop', action: function() { stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
-                    { id: 'leaderboard', action: function() { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
-                    { id: 'season', action: function() { try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
-                    { id: 'boss', action: function() { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
-                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playTowerClick(); try { if (saveData.infiniteTower && saveData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
+                    { id: 'backpack', action: function() { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
+                    { id: 'shop', action: function() { if (audioSystem) audioSystem.playSpirit(); stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
+                    { id: 'leaderboard', action: function() { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
+                    { id: 'season', action: function() { if (audioSystem) audioSystem.playMenu2(); try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
+                    { id: 'boss', action: function() { if (audioSystem) audioSystem.playMenu2(); bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
+                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playMenu2(); try { if (saveData.infiniteTower && saveData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
                     // { id: 'fusion', action: function() { state = GAME_STATE.FUSION; } },
                     // { id: 'upgrade', action: function() { state = GAME_STATE.UPGRADE; } }
                 ];
@@ -3873,7 +3956,7 @@ function handleTouchStart(res) {
             }
             if (x >= _tbX && x <= _tbX + _tbSize && y >= _tbY && y <= _tbY + _tbSize) {
                 _log('大地图点击展开菜单按钮');
-                if (audioSystem) audioSystem.playMenuClick();
+                if (audioSystem) audioSystem.playAnswer2();
                 uiScrollState.menuExpanded = !uiScrollState.menuExpanded;
                 return;
             }
@@ -4313,6 +4396,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击重新开始');
+                if (audioSystem) audioSystem.playMenu1();
                 PauseCoordinator.instance.resume();
                 var rMode = modeLifecycle.getPreviousMode();
                 if (rMode === 'boss') {
@@ -4467,10 +4551,10 @@ function handleTouchStart(res) {
             // 展开的菜单项点击检测
             if (uiScrollState.menuExpanded) {
                 var menuItems = [
-                    { id: 'backpack', action: () => { if (audioSystem) audioSystem.playBackpack(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
-                    { id: 'shop', action: () => { stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
-                    { id: 'leaderboard', action: () => { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
-                    { id: 'season', action: () => { 
+                    { id: 'backpack', action: () => { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
+                    { id: 'shop', action: () => { if (audioSystem) audioSystem.playSpirit(); stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
+                    { id: 'leaderboard', action: () => { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
+                    { id: 'season', action: () => { if (audioSystem) audioSystem.playMenu2();
                         try {
                             initSeasonContent(); 
                             seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
@@ -4479,9 +4563,9 @@ function handleTouchStart(res) {
                             $P.showToast({ title: '赛季暂不可用', icon: 'none' });
                         }
                     } },
-                    { id: 'boss', action: () => { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
+                    { id: 'boss', action: () => { if (audioSystem) audioSystem.playMenu2(); bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
                     { id: 'tower', action: () => {
-                        if (audioSystem) audioSystem.playTowerClick();
+                        if (audioSystem) audioSystem.playMenu2();
                         try {
                             // 检查是否有暂停的进度
                             if (saveData.infiniteTower && saveData.infiniteTower.isPaused) {
@@ -4850,6 +4934,7 @@ function handleTouchStart(res) {
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('切换到引导任务');
             tasksTab = 'guide';
+            if (audioSystem) audioSystem.playUiSkip();
             return;
         }
 
@@ -4859,6 +4944,7 @@ function handleTouchStart(res) {
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('切换到每日任务');
             tasksTab = 'daily';
+            if (audioSystem) audioSystem.playUiSkip();
             return;
         }
 
@@ -4868,6 +4954,7 @@ function handleTouchStart(res) {
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('切换到成就任务');
             tasksTab = 'achievements';
+            if (audioSystem) audioSystem.playUiSkip();
             return;
         }
 
@@ -4894,6 +4981,7 @@ function handleTouchStart(res) {
                 y >= btnY - btnH/2 && y <= btnY + btnH/2) {
                 if (!task.claimed && task.completed) {
                     claimTaskReward(task.id, tasksTab);
+                    if (audioSystem) audioSystem.playTreasureBox();
                 }
             }
         });
@@ -4901,6 +4989,7 @@ function handleTouchStart(res) {
         // 返回按钮
         if (isBackButtonClicked(x, y)) {
             _log('点击任务返回按钮');
+            if (audioSystem) audioSystem.playMenu2();
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
@@ -4967,13 +5056,15 @@ function handleTouchStart(res) {
         if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
             y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
             _log('点击重试按钮');
+            if (audioSystem) { var sr = stageModeSystem.getResult(); if (sr && sr.success) audioSystem.stopSuccess(); else audioSystem.stopFail(); }
             startStage(StageMode.currentStage);
             return;
         }
-        
+
         // 返回按钮
         if (isBackButtonClicked(x, y)) {
             _log('点击返回按钮');
+            if (audioSystem) { var sr = stageModeSystem.getResult(); if (sr && sr.success) audioSystem.stopSuccess(); else audioSystem.stopFail(); }
             stateMachine.transitionTo(GAME_STATE.STAGE_SELECT);
             return;
         }
@@ -5179,12 +5270,13 @@ function handleTouchStart(res) {
             // ===== 赛季模式结束按钮 =====
             const btnWidth = Math.floor(160 * scale);
             const btnHeight = Math.floor(50 * scale);
-            
+
             // 再来一局按钮
             const restartBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.68 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击再来一局按钮');
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
                 startSeasonGame();
                 return;
             }
@@ -5194,6 +5286,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
                 _log('点击查看排行榜按钮');
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
                 stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
                 currentLeaderboardTab = 'season_score';
                 if (!openDataContext) initOpenDataContext();
@@ -5207,6 +5300,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单按钮');
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playUiSkip(); }
                 seasonSelection = { character: null, skills: [], pet: null };
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
@@ -5219,7 +5313,7 @@ function handleTouchStart(res) {
 
             if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
                 _log('点击重新开始按钮');
-                if (audioSystem) audioSystem.restartBattle();
+                if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer1(); audioSystem.restartBattle(); }
                 startGame();
             }
 
@@ -5228,7 +5322,7 @@ function handleTouchStart(res) {
 
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
-            if (audioSystem) audioSystem.exitBattle();
+            if (audioSystem) { audioSystem.stopFail(); audioSystem.exitBattle(); }
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
         }
 
@@ -5406,6 +5500,7 @@ function render() {
         // 触发线自动切换地图
         var _tl = worldMapSystem.consumeTriggerLine();
         if (_tl && _tl.targetWorld) {
+            if (audioSystem) audioSystem.playTeleport();
             worldMapSystem.saveProgress();
             worldMapSystem.loadWorld(_tl.targetWorld, worldMapSystem.getWorldId());
         }
@@ -5537,7 +5632,7 @@ function render() {
             if (normalBattleAdapter) normalBattleAdapter.update();
 
             // 普通战斗 / 塔战斗：第一个灵光出现时播放战斗音乐
-            if ((state === GAME_STATE.PLAYING || state === GAME_STATE.TOWER_COMBAT) && !_battleMusicTriggered && stars && stars.length > 0) {
+            if ((state === GAME_STATE.PLAYING || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING) && !_battleMusicTriggered && stars && stars.length > 0) {
                 _battleMusicTriggered = true;
                 if (audioSystem) audioSystem.playBattleBgm();
             }
