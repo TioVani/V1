@@ -3446,6 +3446,11 @@ runtimeData.godMode = false;
                 if (state === GAME_STATE.PAUSED && audioSystem) {
                     audioSystem.playQuestion();
                 }
+                // 进入赛季战斗：淡出当前BGM，记忆它
+                if (state === GAME_STATE.SEASON_PLAYING && prevState !== GAME_STATE.SEASON_PLAYING && prevState !== GAME_STATE.PAUSED && audioSystem) {
+                    audioSystem.enterBattle();
+                    _battleMusicTriggered = false;
+                }
                 // 进入塔探索：保存当前BGM，播放塔音乐
                 if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
                     audioSystem.enterTower();
@@ -3454,6 +3459,10 @@ runtimeData.godMode = false;
                 // 进入塔战斗：淡出当前BGM，记忆它
                 if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
                     audioSystem.enterBattle();
+                }
+                // 赛季战斗结束
+                if (prevState === GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.PAUSED && audioSystem) {
+                    audioSystem.endBattle();
                 }
                 // 塔战斗结束
                 if (prevState === GAME_STATE.TOWER_COMBAT && state !== GAME_STATE.TOWER_COMBAT && audioSystem) {
@@ -5583,7 +5592,7 @@ function render() {
             if (normalBattleAdapter) normalBattleAdapter.update();
 
             // 普通战斗 / 塔战斗：第一个灵光出现时播放战斗音乐
-            if ((state === GAME_STATE.PLAYING || state === GAME_STATE.TOWER_COMBAT) && !_battleMusicTriggered && stars && stars.length > 0) {
+            if ((state === GAME_STATE.PLAYING || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING) && !_battleMusicTriggered && stars && stars.length > 0) {
                 _battleMusicTriggered = true;
                 if (audioSystem) audioSystem.playBattleBgm();
             }
