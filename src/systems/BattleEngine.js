@@ -530,6 +530,7 @@ function createBattleEngine(deps) {
     function handleSpecialStar(star, stats, pd, isQuickTap, isSuperQuickTap) {
         switch (star.type) {
             case 'heal':
+                anim.playNormal();
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var healPct = getSpecValue(RC, 'SPECIAL_STARS.HEAL_HP') / 100;
                 var healAmt = Math.min(Math.floor(maxHp * healPct), maxHp - S.playerHp);
@@ -550,6 +551,7 @@ function createBattleEngine(deps) {
                 break;
 
             case 'shield':
+                anim.playNormal();
                 var shieldPct = getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT') / 100;
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var shieldAmt = Math.floor(maxHp * shieldPct);
@@ -559,12 +561,14 @@ function createBattleEngine(deps) {
                 break;
 
             case 'time':
+                anim.playNormal();
                 S.timeLeft += getSpecValue(RC, 'SPECIAL_STARS.TIME_SECONDS');
                 anim.addMessage('⏰ +' + getSpecValue(RC, 'SPECIAL_STARS.TIME_SECONDS') + '秒', '#00ccff');
                 anim.createStarBurst(star.x, star.y, 'time');
                 break;
 
             case 'unlucky':
+                anim.playNormal();
                 var hpCost = getSpecValue(RC, 'SPECIAL_STARS.UNLUCKY_HP_COST');
                 if (S.playerShield > 0) {
                     var absorb = Math.min(S.playerShield, hpCost);
@@ -598,6 +602,7 @@ function createBattleEngine(deps) {
                 break;
 
             case 'greedy':
+                anim.playNormal();
                 var greedyHpCost = getSpecValue(RC, 'SPECIAL_STARS.GREEDY_HP_COST');
                 S.playerHp -= greedyHpCost;
                 S.greedyHpPool = (S.greedyHpPool || 0) + 2;
@@ -608,6 +613,7 @@ function createBattleEngine(deps) {
                 break;
 
             case 'dodge':
+                anim.playNormal();
                 var dodgeTime = getSpecValue(RC, 'SPECIAL_STARS.DODGE_DURATION_MS');
                 if (isSuperQuickTap) {
                     dodgeTime += 500;
@@ -630,6 +636,7 @@ function createBattleEngine(deps) {
                 break;
 
             default:
+                anim.playNormal();
                 anim.createStarBurst(star.x, star.y, star.type);
                 break;
         }
