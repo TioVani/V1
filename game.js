@@ -3433,7 +3433,11 @@ runtimeData.godMode = false;
                 // 结算音效
                 if (audioSystem) {
                     if (state === GAME_STATE.GAMEOVER) {
-                        audioSystem.playFail();
+                        if (prevState === GAME_STATE.SEASON_PLAYING) {
+                            audioSystem.playSuccess();
+                        } else {
+                            audioSystem.playFail();
+                        }
                     }
                     if (state === GAME_STATE.STAGE_RESULT) {
                         var stageResult = (stageModeSystem && stageModeSystem.getResult) ? stageModeSystem.getResult() : null;
@@ -5248,7 +5252,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击再来一局按钮');
-                if (audioSystem) audioSystem.stopFail();
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
                 startSeasonGame();
                 return;
             }
@@ -5258,6 +5262,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
                 _log('点击查看排行榜按钮');
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
                 stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
                 currentLeaderboardTab = 'season_score';
                 if (!openDataContext) initOpenDataContext();
@@ -5271,7 +5276,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单按钮');
-                if (audioSystem) audioSystem.stopFail();
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
                 seasonSelection = { character: null, skills: [], pet: null };
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
