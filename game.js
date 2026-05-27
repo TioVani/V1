@@ -1213,31 +1213,7 @@ function init() {
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
-            setGameState: function(s) {
-                var prevState = state;
-                state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
-                // 进入塔探索：保存当前BGM，播放塔音乐
-                if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
-                    audioSystem.enterTower();
-                    _battleMusicTriggered = false;
-                }
-                // 进入塔战斗：保存塔探索音乐，切换战斗音乐
-                if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
-                    audioSystem.enterBattle();
-                }
-                // 塔战斗结束
-                if (prevState === GAME_STATE.TOWER_COMBAT && state !== GAME_STATE.TOWER_COMBAT && audioSystem) {
-                    if (state === GAME_STATE.TOWER) {
-                        audioSystem.exitBattle(); // 回到探索：恢复塔探索音乐
-                    } else {
-                        audioSystem.endBattle(); // 结算/退出等：只淡出战斗音乐
-                    }
-                }
-                // 回到大地图：恢复记忆的BGM
-                if (state === GAME_STATE.WORLDMAP && audioSystem) {
-                    audioSystem.exitTower();
-                }
-            },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             getCtx: function() { return ctx; },
             showToast: function(opts) { $P.showToast(opts); },
