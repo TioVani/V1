@@ -5291,7 +5291,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单按钮');
-                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
+                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playUiSkip(); }
                 seasonSelection = { character: null, skills: [], pet: null };
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
