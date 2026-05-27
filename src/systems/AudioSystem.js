@@ -205,6 +205,15 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playPoisonClick() {
+        var el = document.querySelector('audio[data-bgm-id="battleNormal"]');
+        if (!el) return;
+        el.playbackRate = 0.2;
+        el.volume = 0.4;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playAnswer1() {
         var el = document.querySelector('audio[data-bgm-id="uiAnswer1"]');
         if (!el) return;
@@ -270,7 +279,7 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
-    function playRainbow() {
+    function playRainbow(pitch) {
         var idx;
         if (_lastRainbowIdx < 0) {
             idx = Math.floor(Math.random() * _rainbowIds.length);
@@ -281,6 +290,7 @@ function createAudioSystem(deps) {
         _lastRainbowIdx = idx;
         var el = document.querySelector('audio[data-bgm-id="' + _rainbowIds[idx] + '"]');
         if (!el) return;
+        el.playbackRate = pitch || 1.0;
         el.volume = 0.6;
         el.currentTime = 0;
         el.play().catch(function() {});
@@ -627,6 +637,7 @@ function createAudioSystem(deps) {
         playSuccess: playSuccess,
         stopSuccess: stopSuccess,
         playNormal: playNormal,
+        playPoisonClick: playPoisonClick,
         playTreasureBox: playTreasureBox,
         playQuestion: playQuestion,
         playMenu1: playMenu1,

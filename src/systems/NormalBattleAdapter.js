@@ -126,6 +126,7 @@ function createNormalBattleAdapter(deps) {
     var playCritical = deps.playCritical;
     var playHit = deps.playHit;
     var playNormal = deps.playNormal;
+    var playPoisonClick = deps.playPoisonClick;
     var playQuickTap = deps.playQuickTap;
     var playHitEnemy = deps.playHitEnemy;
     var playPetAttack = deps.playPetAttack;
@@ -216,6 +217,7 @@ function createNormalBattleAdapter(deps) {
                 playCritical: playCritical,
                 playHit: playHit,
                 playNormal: playNormal,
+                playPoisonClick: playPoisonClick,
                 playQuickTap: playQuickTap,
                 playHitEnemy: playHitEnemy,
                 playPetAttack: playPetAttack,
@@ -1029,6 +1031,7 @@ function createNormalBattleAdapter(deps) {
     // ═══════════════════════════════════════════════════════
 
     function handlePoisonStarEffect(star) {
+        playPoisonClick();
         var pd = getSaveData();
         var poisonDmg = 15;
         if (pd.playerShield > 0) {
@@ -1050,6 +1053,7 @@ function createNormalBattleAdapter(deps) {
     }
 
     function handlePuddleStarEffect(star) {
+        playPoisonClick();
         var pd = getSaveData();
         var poisonDmg = 15;
         var designOffsetY = getDesignOffsetY();

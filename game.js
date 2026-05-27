@@ -1210,6 +1210,7 @@ function init() {
             playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
             playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
             playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            playPoisonClick: function() { if (audioSystem) audioSystem.playPoisonClick(); },
             playTreasureBox: function() { if (audioSystem) audioSystem.playTreasureBox(); },
             playTreasureMisc: function() { if (audioSystem) audioSystem.playTreasureMisc(); },
             playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
@@ -1277,7 +1278,8 @@ function init() {
                 playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
                 playHit: function() { if (audioSystem) audioSystem.playHit(); },
                 playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
-                playRainbow: function() { if (audioSystem) audioSystem.playRainbow(); }
+                playPoisonClick: function() { if (audioSystem) audioSystem.playPoisonClick(); },
+                playRainbow: function(p) { if (audioSystem) audioSystem.playRainbow(p); }
             },
             combat: {
                 getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
@@ -3120,10 +3122,11 @@ function init() {
             playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
             playHit: function() { if (audioSystem) audioSystem.playHit(); },
             playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            playPoisonClick: function() { if (audioSystem) audioSystem.playPoisonClick(); },
             playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
             playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
             playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
-            playRainbow: function() { if (audioSystem) audioSystem.playRainbow(); },
+            playRainbow: function(p) { if (audioSystem) audioSystem.playRainbow(p); },
             // 觉醒系统
             getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
             getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || saveData); },
@@ -4488,6 +4491,8 @@ function handleTouchStart(res) {
                 var psDx = touchX - ps.x;
                 var psDy = touchY - ps.y;
                 if (psDx * psDx + psDy * psDy < ps.size * ps.size) {
+                    audioSystem.playPoisonClick();
+                    audioSystem.playPetAttack();
                     var pDmg = _COMBAT_SPEC.STATUS.POISON_STAR_DAMAGE;
                     // 创建飞向玩家血条的反向流星动画
                     createMeteorAnimation(
@@ -4833,6 +4838,7 @@ function handleTouchStart(res) {
         if (x >= tabStartX && x <= tabStartX + tabWidth &&
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('点击最高分标签');
+            audioSystem.playUiSkip();
             currentLeaderboardTab = 'best_score';
             currentLeaderboardTab = 'best_score';
             sendLeaderboardMessage('switchTab', 'best_score');
@@ -4844,6 +4850,7 @@ function handleTouchStart(res) {
         if (x >= killsTabX && x <= killsTabX + tabWidth &&
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('点击击杀数标签');
+            audioSystem.playUiSkip();
             currentLeaderboardTab = 'total_kills';
             currentLeaderboardTab = 'total_kills';
             sendLeaderboardMessage('switchTab', 'total_kills');
@@ -4855,6 +4862,7 @@ function handleTouchStart(res) {
         if (x >= seasonTabX && x <= seasonTabX + tabWidth &&
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('点击赛季分标签');
+            audioSystem.playUiSkip();
             currentLeaderboardTab = 'season_score';
             currentLeaderboardTab = 'season_score';
             sendLeaderboardMessage('switchTab', 'season_score');

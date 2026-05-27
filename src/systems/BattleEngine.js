@@ -525,12 +525,12 @@ function createBattleEngine(deps) {
     // 子模块: SpecialStarHandler
     // ═══════════════════════════════════════════════════════
 
-    var NON_DAMAGE_TYPES = ['heal', 'shield', 'time', 'greedy', 'unlucky', 'boss_star', 'dodge'];
+    var NON_DAMAGE_TYPES = ['heal', 'shield', 'time', 'greedy', 'unlucky', 'boss_star', 'dodge', 'rainbow'];
 
     function handleSpecialStar(star, stats, pd, isQuickTap, isSuperQuickTap) {
         switch (star.type) {
             case 'heal':
-                anim.playNormal();
+                anim.playRainbow(1.8);
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var healPct = getSpecValue(RC, 'SPECIAL_STARS.HEAL_HP') / 100;
                 var healAmt = Math.min(Math.floor(maxHp * healPct), maxHp - S.playerHp);
@@ -551,7 +551,7 @@ function createBattleEngine(deps) {
                 break;
 
             case 'shield':
-                anim.playNormal();
+                anim.playRainbow();
                 var shieldPct = getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT') / 100;
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var shieldAmt = Math.floor(maxHp * shieldPct);
@@ -855,7 +855,9 @@ function createBattleEngine(deps) {
                     if (S.extensions && S.extensions.onScoreEarned) {
                         S.extensions.onScoreEarned(star, result, 0, false);
                     }
-                    anim.playNormal();
+                    if (star.type === 'fire') anim.playRainbow();
+                    else if (star.type === 'earth') anim.playRainbow(0.4);
+                    else anim.playNormal();
                     return true;
                 }
 
@@ -923,7 +925,9 @@ function createBattleEngine(deps) {
                     result.starScore, result.comboMultiplier, null,
                     { x: targetMonster.x || scr.getWidth() / 2, y: targetMonster.y || scr.getHeight() / 3 }
                 );
-                anim.playNormal();
+                if (star.type === 'fire') anim.playRainbow();
+                else if (star.type === 'earth') anim.playRainbow(0.4);
+                else anim.playNormal();
 
                 if (isCrit) anim.createCrit(star.x, star.y, actualDamage, result.starScore);
 
