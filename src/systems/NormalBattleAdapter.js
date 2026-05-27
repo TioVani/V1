@@ -1979,7 +1979,8 @@ function createNormalBattleAdapter(deps) {
             onScoreEarned: onScoreEarnedHook,
             onStarConsumed: onStarConsumedHook,
             onAfterSpecialStar: onAfterSpecialStarHook,
-            preventFinish: true
+            preventFinish: true,
+            immediateDeath: true
         };
         engine.init(towerConfig);
         if (onEngineReady) onEngineReady(engine);

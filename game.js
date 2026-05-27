@@ -315,6 +315,7 @@ var drawScorePopupAnimations = null;
 var createScreenShake = null;
 var updateScreenShake = null;
 var getScreenShakeOffset = null;
+var clearScreenShake = null;
 // 提示系统
 var tipSystem = null;
 var tipShowTipOnce = null;
@@ -1279,6 +1280,9 @@ function init() {
                 playHit: function() { if (audioSystem) audioSystem.playHit(); },
                 playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
                 playPoisonClick: function() { if (audioSystem) audioSystem.playPoisonClick(); },
+                playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
+                playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
+                playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
                 playRainbow: function(p) { if (audioSystem) audioSystem.playRainbow(p); }
             },
             combat: {
@@ -1297,6 +1301,7 @@ function init() {
             getAudioSystem: function() { return audioSystem; }
         });
         towerSystem._setBattleEngine(battleEngine);
+        window._tower = towerSystem; // 控制台快捷入口
         _log('爬塔系统模块初始化完成');
 
         // 初始化开发者战斗调参工具
@@ -1534,6 +1539,7 @@ function init() {
         createScreenShake = function(intensity) { animationSystem.createScreenShake(intensity); };
         updateScreenShake = function() { animationSystem.updateScreenShake(); };
         getScreenShakeOffset = function() { return animationSystem.getScreenShakeOffset(); };
+        clearScreenShake = function() { animationSystem.clearScreenShake(); };
         getStarColor = function(st) { return animationSystem.getStarColor(st); };
         getStarGlowColor = function(st) { return animationSystem.getStarGlowColor(st); };
         easeOutQuad = function(t) { return animationSystem.easeOutQuad(t); };
@@ -1909,7 +1915,7 @@ function init() {
             getGameState: function() { return GAME_STATE; },
             getSeasonScore: function() { return seasonScore; },
             getSeasonBestScore: function() { return seasonBestScore; },
-            getMonstersKilled: function() { return monstersKilled; },
+            getMonstersKilled: function() { return saveData.taskProgress.stats.monstersKilled; },
             getSeasonRank: function() { return getSeasonRank(); },
             getSeasonContent: function() { return seasonContent; },
             getSeasonLeaderboard: function() { return seasonLeaderboard; },
@@ -3251,6 +3257,7 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
             getSeasonBestScore: function() { return seasonBestScore; },
             setSeasonBestScore: function(val) { seasonBestScore = val; },
             getSeasonSelection: function() { return seasonSelection; },
+            setSeasonSelection: function(val) { seasonSelection = val; },
             getSeasonLeaderboard: function() { return seasonLeaderboard; },
             setSeasonLeaderboard: function(val) { seasonLeaderboard = val; },
             getStarThief: function() { return starThief; },
@@ -3451,6 +3458,11 @@ runtimeData.godMode = false;
             setGameStateRaw: function(s) {
                 var prevState = state;
                 state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s;
+                // 离开战斗状态时立即清除屏幕震动，防止震动偏移污染非战斗界面
+                var _combatStates = [GAME_STATE.PLAYING, GAME_STATE.SEASON_PLAYING, GAME_STATE.STAGE_PLAYING, GAME_STATE.BOSS_BATTLE, GAME_STATE.TOWER_COMBAT];
+                if (_combatStates.indexOf(prevState) !== -1 && _combatStates.indexOf(state) === -1 && state !== GAME_STATE.PAUSED) {
+                    if (clearScreenShake) clearScreenShake();
+                }
                 // 结算音效
                 if (audioSystem) {
                     if (state === GAME_STATE.GAMEOVER) {
@@ -3539,8 +3551,18 @@ runtimeData.godMode = false;
         // 启动渲染循环（requestAnimationFrame）— 移到所有系统初始化之后
         // （见文件末尾，大世界探索系统初始化之后）
         $P.onHide(function() {
-            _log('游戏隐藏 - 保存数据');
+            _log('游戏隐藏 - 保存数据并暂停战斗');
             dataStore.flush();
+            // 如果当前处于战斗状态，自动暂停
+            if (state === GAME_STATE.SEASON_PLAYING ||
+                state === GAME_STATE.PLAYING ||
+                state === GAME_STATE.STAGE_PLAYING ||
+                state === GAME_STATE.BOSS_BATTLE ||
+                state === GAME_STATE.TOWER_COMBAT) {
+                previousState = state;
+                PauseCoordinator.instance.pause();
+                stateMachine.transitionTo(GAME_STATE.PAUSED);
+            }
         });
         
         $P.onShow(function() {
@@ -4409,10 +4431,33 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单');
-                PauseCoordinator.instance.resume();
                 var exitMode = modeLifecycle.getPreviousMode() || modeLifecycle.getActiveMode();
-                modeLifecycle.cleanupMode(exitMode);
-                stateMachine.transitionTo(GAME_STATE.WORLDMAP);
+                // 不调 resume()，原因：resume → resumeNormalTimers → setGameState(PLAYING)
+                // → 覆盖 prevState → endSeasonGame 中 setGameState(GAMEOVER) 不被识别为赛季结束
+                // → endBattle 不触发 → 战斗音乐残留
+                if (exitMode === 'season') {
+                    endSeasonGame();
+                } else if (exitMode === 'stage') {
+                    stageModeSystem.end(false);
+                } else if (exitMode === 'boss') {
+                    BossBattleMode.cleanup();
+                } else if (exitMode === 'tower') {
+                    if (towerSystem && towerSystem.endCombat) towerSystem.endCombat();
+                    endGame();
+                } else {
+                    endGame();
+                }
+                // 兜底清理全局定时器（endSeasonGame 已清，双保险）
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                if (normalBattleAdapter) normalBattleAdapter.destroy();
+                // 停止战斗音乐（直接调，绕过 prevState 依赖）
+                if (audioSystem) audioSystem.endBattle();
+                // 清除暂停标志（直接设内部字段，不触发 subscriber 重建定时器）
+                PauseCoordinator.instance._paused = false;
+                PauseCoordinator.instance._pauseStartTime = 0;
                 return;
             }
 
@@ -5317,6 +5362,12 @@ function handleTouchStart(res) {
                 y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
                 _log('点击查看排行榜按钮');
                 if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
+                // 记录赛季配置（排行榜展示用），但清空赛季选择防止后续误判
+                var _seasonSelectionSnapshot = Object.assign({}, seasonSelection);
+                seasonSelection = { character: null, skills: [], pet: null };
+                if (saveData.seasonData && saveData.seasonData.selection) {
+                    saveData.seasonData.selection = null;
+                }
                 stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
                 currentLeaderboardTab = 'season_score';
                 if (!openDataContext) initOpenDataContext();
@@ -5331,7 +5382,11 @@ function handleTouchStart(res) {
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单按钮');
                 if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playUiSkip(); }
+                modeLifecycle.cleanupMode('season');
                 seasonSelection = { character: null, skills: [], pet: null };
+                if (saveData.seasonData && saveData.seasonData.selection) {
+                    saveData.seasonData.selection = null;
+                }
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
                 return;
             }
@@ -5353,6 +5408,11 @@ function handleTouchStart(res) {
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
             if (audioSystem) { audioSystem.stopFail(); }
+            // 清空赛季残留，防止后续 GAMEOVER 误判
+            seasonSelection = { character: null, skills: [], pet: null };
+            if (saveData.seasonData && saveData.seasonData.selection) {
+                saveData.seasonData.selection = null;
+            }
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
         }
 
@@ -5559,8 +5619,13 @@ function render() {
 
     // 更新视觉屏幕震动
     updateScreenShake();
+    // 每帧清屏，防止跨状态渲染残留导致闪白屏
+    ctx.clearRect(0, 0, screenWidth, screenHeight);
     var shakeOffset = getScreenShakeOffset();
-    if (shakeOffset.offsetX !== 0 || shakeOffset.offsetY !== 0) {
+    var isCombatState = state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED ||
+        state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING ||
+        state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT;
+    if (isCombatState && (shakeOffset.offsetX !== 0 || shakeOffset.offsetY !== 0)) {
         ctx.save();
         ctx.translate(shakeOffset.offsetX, shakeOffset.offsetY);
     }
@@ -5734,8 +5799,8 @@ function render() {
     } catch (error) {
         console.error('Render error:', error);
     }
-    // 恢复屏幕震动偏移
-    if (shakeOffset.offsetX !== 0 || shakeOffset.offsetY !== 0) {
+    // 恢复屏幕震动偏移（仅战斗状态）
+    if (isCombatState && (shakeOffset.offsetX !== 0 || shakeOffset.offsetY !== 0)) {
         ctx.restore();
     }
 }

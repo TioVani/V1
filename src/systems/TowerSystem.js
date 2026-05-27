@@ -187,6 +187,11 @@ function createTowerSystem(deps) {
     var collectedRewards = [];
     var currentCell = null;
     var inCombat = false;
+    var _inCleanupDefend = false; // 旧方案B遗留，保留兼容
+    var inDeathPending = false;
+    var deathPendingTimer = null;
+    var deathPendingStartTime = 0;
+    var DEATH_DELAY_MS = 1000;
     var isHiddenPathBoss = false;
     var combatMonster = null;
     var preCombatPlayerX = 0;
@@ -881,6 +886,35 @@ function createTowerSystem(deps) {
         }
     }
 
+    // ═══════════════════════════════════════════════════════
+    // 死亡等待态 — TowerSystem 统一管理 1000ms 延迟
+    // ═══════════════════════════════════════════════════════
+
+    function startDeathPending() {
+        if (inDeathPending) return;
+        if (!inCombat) return;
+        inDeathPending = true;
+        deathPendingStartTime = Date.now();
+        deathPendingTimer = _tm.setTimeout(function() {
+            inDeathPending = false;
+            deathPendingTimer = null;
+            defeatMonster();
+        }, DEATH_DELAY_MS);
+    }
+
+    function checkDeathPending() {
+        if (!inDeathPending) return;
+        // 防御：如果 setTimeout 因暂停等原因延迟超过 DEATH_DELAY_MS+500ms，强制结算
+        if (Date.now() - deathPendingStartTime >= DEATH_DELAY_MS + 500) {
+            inDeathPending = false;
+            if (deathPendingTimer) {
+                _tm.clearTimeout(deathPendingTimer);
+                deathPendingTimer = null;
+            }
+            defeatMonster();
+        }
+    }
+
     function startCombat(cell) {
         _owner._destroyed = false; // 激活 subscriber
         inCombat = true;
@@ -949,7 +983,7 @@ function createTowerSystem(deps) {
                 playerSkills: playerSkills,
                 mode: 'tower',
                 floor: currentFloor,
-                onMonsterDeath: function() { defeatMonster(); },
+                onMonsterDeath: function() { startDeathPending(); },
                 onPlayerDeath: function() { playerDeath(); },
                 onTimeUp: function() { combatTimeout(); }
             };
@@ -971,6 +1005,18 @@ function createTowerSystem(deps) {
         // 启动战斗时间倒计时
         combatTimer = _tm.setInterval(function() {
             if (!inCombat) return;
+
+            // 死亡等待期间暂停倒计时
+            if (inDeathPending) return;
+
+            // 消散动画期间暂停倒计时（冗余防护）
+            if (battleEngine) {
+                var beState = battleEngine.getState();
+                if (beState && beState.pendingDeaths && beState.pendingDeaths.length > 0) {
+                    return;
+                }
+            }
+
             combatTime = Math.max(0, combatTime - 1);
             if (combatTime <= 0) {
                 combatTimeout();
@@ -981,6 +1027,7 @@ function createTowerSystem(deps) {
         var attackInterval = combatMonster.attackInterval || 2000;
         combatMonsterAttackTimer = _tm.setInterval(function() {
             if (!inCombat || !combatMonster) return;
+            if (inDeathPending) return;
             monsterAttackPlayer();
         }, attackInterval);
     }
@@ -992,6 +1039,19 @@ function createTowerSystem(deps) {
 
     /** 统一战斗清理 — 清全局 stars + 动画 + BattleEngine */
     function cleanupCombat() {
+        // 兜底：如果有未完成的死亡等待且怪物 HP≤0，强制结算
+        if (inDeathPending) {
+            inDeathPending = false;
+            if (deathPendingTimer) {
+                _tm.clearTimeout(deathPendingTimer);
+                deathPendingTimer = null;
+            }
+            if (combatMonster && combatMonster.hp <= 0) {
+                defeatMonster();
+                return;
+            }
+        }
+
         _owner._destroyed = true;
         PauseCoordinator.instance.unsubscribe('TowerCombat');
         stopCombatTimers();
@@ -1030,7 +1090,7 @@ function createTowerSystem(deps) {
                     createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), counterDamage);
                     Logger.info('闪避反击! 伤害:', counterDamage);
                     if (combatMonster.hp <= 0) {
-                        defeatMonster();
+                        startDeathPending();
                     }
                     return;
                 }
@@ -1194,7 +1254,7 @@ function createTowerSystem(deps) {
                 playHitEnemy();
                 createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), damage);
                 addGameMessage(skill.emoji + ' ' + skill.name + '! -' + damage, '#00ccff');
-                if (combatMonster.hp <= 0) defeatMonster();
+                if (combatMonster.hp <= 0) startDeathPending();
                 success = true;
                 break;
             case 'heal':
@@ -1233,7 +1293,7 @@ function createTowerSystem(deps) {
                         combatMonster.hp -= buffDamage;
                         createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), buffDamage);
                         addGameMessage(skill.emoji + ' 属性爆发! -' + Math.floor(buffDamage), '#00ccff');
-                        if (combatMonster.hp <= 0) defeatMonster();
+                        if (combatMonster.hp <= 0) startDeathPending();
                     }
                 }
                 success = true;
@@ -1253,6 +1313,7 @@ function createTowerSystem(deps) {
     }
 
     function updateCombatTick() {
+        checkDeathPending();
         if (!inCombat || !combatMonster) return;
         // 隐藏之路 Boss 不走 BattleEngine，用纯 TowerSystem 逻辑
         if (battleEngine && !isHiddenPathBoss) {
@@ -1508,6 +1569,7 @@ function createTowerSystem(deps) {
     }
 
     function defeatMonster() {
+        if (!inCombat) return;
         // 清除怪物保存的 HP 记录
         if (currentCell && currentCell.monster) {
             currentCell.monster.savedHp = null;
@@ -1771,6 +1833,7 @@ function createTowerSystem(deps) {
         var attackInterval = combatMonster.attackInterval || 2000;
         combatMonsterAttackTimer = _tm.setInterval(function() {
             if (!inCombat || !combatMonster) return;
+            if (inDeathPending) return;
             monsterAttackPlayer();
         }, attackInterval);
     }
@@ -1828,6 +1891,12 @@ function createTowerSystem(deps) {
     }
 
     function playerDeath() {
+        // 清理死亡等待（玩家死亡优先，怪物死亡不再结算）
+        inDeathPending = false;
+        if (deathPendingTimer) {
+            _tm.clearTimeout(deathPendingTimer);
+            deathPendingTimer = null;
+        }
         Logger.info('灵核归零！爬塔结束');
 
         cleanupCombat();
@@ -2140,6 +2209,28 @@ function createTowerSystem(deps) {
         movePlayer: movePlayer,
         playerDeath: playerDeath,
         restartTower: restartTower,
+        resetSave: function() {
+            var pd = getSaveData();
+            pd.infiniteTower = {
+                highestFloor: 0,
+                totalClears: 0,
+                currentFloor: 1,
+                currentHp: 100,
+                maxHp: 100,
+                collectedRewards: [],
+                exploredCells: [],
+                playerX: 0,
+                playerY: 0,
+                totalKills: 0,
+                totalTreasures: 0,
+                totalMaterials: 0,
+                isPaused: false,
+                grid: null,
+                blindSteps: 0
+            };
+            saveData();
+            Logger.info('[TowerSystem] 无尽之塔存档已清理');
+        },
         saveProgress: saveProgress,
         pauseTower: pauseTower,
         giveUp: giveUp,

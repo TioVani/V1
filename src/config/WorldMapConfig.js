@@ -128,6 +128,28 @@ var WORLDS = {
                 chestType: 'normal',
                 reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
             },
+            {
+                id: 'chest_world02_normal_1284',
+                type: 'chest',
+                x: 1284, y: 697,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
+            {
+                id: 'chest_world02_normal_982',
+                type: 'chest',
+                x: 982, y: 160,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
             ],
         triggerLines: []
     },
@@ -229,6 +251,28 @@ var WORLDS = {
                 respawnTime: 0,
                 monster: 'slime',
                 level: 1
+            },
+            {
+                id: 'chest_world05_normal_334',
+                type: 'chest',
+                x: 334, y: 534,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
+            {
+                id: 'chest_world05_normal_490',
+                type: 'chest',
+                x: 490, y: 677,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
             }
         ],
         triggerLines: []
@@ -392,6 +436,17 @@ var WORLDS = {
                 priority: 80,
                 once: false,
                 unlockMenuId: 'tower'
+            },
+            {
+                id: 'chest_world10_normal_920',
+                type: 'chest',
+                x: 920, y: 243,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
             }
         ],
         triggerLines: []

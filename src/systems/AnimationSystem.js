@@ -2221,6 +2221,12 @@ function createAnimationSystem(deps) {
         return screenShakeState;
     }
 
+    function clearScreenShake() {
+        screenShakeState.active = false;
+        screenShakeState.offsetX = 0;
+        screenShakeState.offsetY = 0;
+    }
+
     function clearAllAnimations() {
         // 重置动画时钟（防止暂停后残留 _pauseStartTime 导致新动画卡住）
         _pauseStartTime = null;
@@ -2341,6 +2347,7 @@ function createAnimationSystem(deps) {
         createScreenShake: createScreenShake,
         updateScreenShake: updateScreenShake,
         getScreenShakeOffset: getScreenShakeOffset,
+        clearScreenShake: clearScreenShake,
 
         // 辅助函数
         getStarColor: getStarColor,

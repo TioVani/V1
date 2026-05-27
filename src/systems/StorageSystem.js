@@ -34,10 +34,14 @@ function createStorageSystem(deps) {
         try {
             var currentScore = getScore();
             var currentBest = getBestScore();
+            console.log('[saveBestScore] 触发 — 当前分:', currentScore, '最高分:', currentBest);
             if (currentScore > currentBest) {
                 setBestScore(currentScore);
                 setStorageSync('bestScore', currentScore);
+                console.log('[saveBestScore] 新纪录:', currentScore);
                 Logger.info('保存新最高分:', currentScore);
+            } else {
+                console.log('[saveBestScore] 未刷新纪录 (当前分 <= 最高分)');
             }
         } catch (e) {
             console.error('保存最高分失败:', e);

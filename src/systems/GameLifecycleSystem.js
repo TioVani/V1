@@ -122,6 +122,7 @@ function createGameLifecycleSystem(deps) {
     var getSeasonBestScore = deps.getSeasonBestScore;
     var setSeasonBestScore = deps.setSeasonBestScore;
     var getSeasonSelection = deps.getSeasonSelection;
+    var setSeasonSelection = deps.setSeasonSelection;
     var getSeasonLeaderboard = deps.getSeasonLeaderboard;
     var setSeasonLeaderboard = deps.setSeasonLeaderboard;
 
@@ -165,6 +166,9 @@ function createGameLifecycleSystem(deps) {
         // 清除赛季模式数据，防止结算时被误判
         if (pd.seasonData && pd.seasonData.selection) {
             pd.seasonData.selection = null;
+        }
+        if (setSeasonSelection) {
+            setSeasonSelection({ character: null, skills: [], pet: null, starTypes: [] });
         }
 
         // 清空
@@ -451,6 +455,10 @@ function createGameLifecycleSystem(deps) {
                 saveData();
             }
         }
+
+        // 注意：不在 endSeasonGame 中清空 seasonSelection，因为 GAMEOVER 渲染在下一帧，
+        // 需要 seasonSelection 仍有值才能正确显示赛季结算面板。
+        // seasonSelection 的清空时机：在 GAMEOVER 界面的退出按钮中、以及 startGame 中。
     }
 
     /**

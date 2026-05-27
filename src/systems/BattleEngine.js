@@ -957,7 +957,12 @@ function createBattleEngine(deps) {
                 }
 
                 if (targetMonster.hp <= 0) {
-                    addPendingDeath(targetMonster);
+                    if (S.extensions && S.extensions.immediateDeath) {
+                        safeCall(callbacks.onBeforeMonsterDeath, { monster: targetMonster });
+                        safeCall(callbacks.onMonsterDeath, { monster: targetMonster, floor: S.floor });
+                    } else {
+                        addPendingDeath(targetMonster);
+                    }
                 }
                 return true;
             }

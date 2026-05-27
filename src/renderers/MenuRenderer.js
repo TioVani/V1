@@ -830,10 +830,8 @@ function createMenuRenderer(deps) {
         var drawText = uiCore.drawText;
         var drawButton = uiCore.drawButton;
 
-        // 判断是否是赛季模式
-        var isSeasonMode = (state === GAME_STATE.SEASON_PLAYING ||
-            (pd.seasonData && pd.seasonData.selection &&
-                pd.seasonData.selection.character));
+        // 判断是否是赛季模式 — 只看运行时 seasonSelection，不看 pd.seasonData 残留
+        var isSeasonMode = (getSeasonSelection() && getSeasonSelection().character);
 
         // 绘制背景图片（使用缓存的背景位置）
         if (Assets.backgroundImage && Assets.backgroundImage.complete && Assets.bgPositionCache) {
