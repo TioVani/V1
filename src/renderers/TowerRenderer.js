@@ -999,7 +999,7 @@ function createTowerRenderer(deps) {
         var restartBtnY = btnY;
         if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
             y >= restartBtnY && y <= restartBtnY + btnHeight) {
-            if (audioSystem) audioSystem.stopFail();
+            if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer1(); }
             towerSystem.restartTower();
             return true;
         }
@@ -1008,7 +1008,7 @@ function createTowerRenderer(deps) {
         if (x >= (screenWidth - btnWidth) / 2 && x <= (screenWidth + btnWidth) / 2 &&
             y >= exitBtnY && y <= exitBtnY + btnHeight) {
             towerSystem.resultData = null;
-            if (audioSystem) { audioSystem.stopFail(); audioSystem.playTowerExit(); }
+            if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer2(); audioSystem.playTowerExit(); }
             // 检查 barrier 解除
             var wms = getWorldMapSystem ? getWorldMapSystem() : null;
             if (wms) wms.checkBarriers(true);

@@ -203,10 +203,34 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playAnswer1() {
+        var el = document.querySelector('audio[data-bgm-id="uiAnswer1"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playAnswer2() {
+        var el = document.querySelector('audio[data-bgm-id="uiAnswer2"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playTreasureBox() {
         var el = document.querySelector('audio[data-bgm-id="treasureBox"]');
         if (!el) return;
         el.volume = 0.7;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playQuestion() {
+        var el = document.querySelector('audio[data-bgm-id="uiQuestion"]');
+        if (!el) return;
+        el.volume = 0.6;
         el.currentTime = 0;
         el.play().catch(function() {});
     }
@@ -547,6 +571,9 @@ function createAudioSystem(deps) {
         stopSuccess: stopSuccess,
         playNormal: playNormal,
         playTreasureBox: playTreasureBox,
+        playQuestion: playQuestion,
+        playAnswer1: playAnswer1,
+        playAnswer2: playAnswer2,
         playTreasureMisc: playTreasureMisc,
         playBackpack: playBackpack,
         playMonsterDefeat: playMonsterDefeat,

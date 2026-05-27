@@ -1382,7 +1382,7 @@ function init() {
             getCharacters: function() { return Characters; },
             getPets: function() { return Pets; },
             getStarTypes: function() { return SEASON_STAR_TYPES; },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             getScreenScale: getScreenScale,
             getScreenWidth: function() { return screenWidth; },
@@ -2669,7 +2669,7 @@ function init() {
             getCharacterFullStats: function(charId) { return getCharacterFullStats(charId); },
             addCharacterExperience: function(charId, exp) { addCharacterExperience(charId, exp); },
             saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
             getStageSelectScrollY: function() { return uiScrollState.stageSelectScrollY; },
@@ -2724,7 +2724,7 @@ function init() {
             saveDataImmediate: function() { dataStore.flush(); },
             flushData: function() { dataStore.flush(); },
             saveBestScore: function() { saveBestScore(); },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
             getBOSS_LIST: function() { return BOSS_LIST; },
@@ -3161,7 +3161,7 @@ function init() {
         gameLifecycleSystem = _gameModules.createGameLifecycleSystem({
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             getGameState: function() { return state; },
             GAME_STATE: GAME_STATE,
             getScore: function() { return score; },
@@ -3390,7 +3390,7 @@ runtimeData.godMode = false;
         // ===== ModeLifecycleManager — 统一模式生命周期 =====
         modeLifecycle = createModeLifecycleManager({
             getGameState: function() { return state; },
-            setGameState: function(s) { state = (typeof s === 'string' && GAME_STATE[s]) ? GAME_STATE[s] : s; },
+            setGameState: function(s) { stateMachine.transitionTo(s); },
             GAME_STATE: GAME_STATE,
             saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ }
         });
@@ -3466,6 +3466,10 @@ runtimeData.godMode = false;
                         audioSystem.playFail();
                     }
                 }
+                // 暂停音效
+                if (state === GAME_STATE.PAUSED && audioSystem) {
+                    audioSystem.playQuestion();
+                }
                 // 进入塔探索：保存当前BGM，播放塔音乐
                 if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
                     audioSystem.enterTower();
@@ -3485,7 +3489,9 @@ runtimeData.godMode = false;
                 }
                 // 回到大地图：恢复记忆的BGM
                 if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
-                    if (audioSystem) audioSystem.exitTower();
+                    if (audioSystem && (prevState === GAME_STATE.TOWER || prevState === GAME_STATE.TOWER_COMBAT || prevState === GAME_STATE.TOWER_RESUME || prevState === GAME_STATE.TOWER_RESULT)) {
+                        audioSystem.exitTower();
+                    }
                     worldMapSystem.markNeedsRespawn();
                     worldMapSystem.restoreReturnPosition();
                     worldMapSystem.saveProgress();
@@ -5282,7 +5288,7 @@ function handleTouchStart(res) {
 
             if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
                 _log('点击重新开始按钮');
-                if (audioSystem) { audioSystem.stopFail(); audioSystem.restartBattle(); }
+                if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer1(); audioSystem.restartBattle(); }
                 startGame();
             }
 

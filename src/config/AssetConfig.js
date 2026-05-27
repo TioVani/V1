@@ -97,6 +97,8 @@ export var AUDIO_CONFIG = {
         { id: 'uiEnter3',     src: 'assets/audio/UI_Enter3.ogg', loop: false },
         { id: 'characterStep', src: 'assets/audio/Character_Step.ogg', loop: false },
         { id: 'uiSkip',       src: 'assets/audio/UI_Skip.ogg', loop: false },
+        { id: 'uiAnswer1',    src: 'assets/audio/UI_Answer1.ogg', loop: false },
+        { id: 'uiAnswer2',    src: 'assets/audio/UI_Answer2.ogg', loop: false },
         { id: 'voLing001',    src: 'assets/audio/vo/vo_ling_001.ogg', loop: false },
         { id: 'voLing002',    src: 'assets/audio/vo/vo_ling_002.ogg', loop: false },
         { id: 'voLing003',    src: 'assets/audio/vo/vo_ling_003.ogg', loop: false },
@@ -120,6 +122,7 @@ export var AUDIO_CONFIG = {
         { id: 'battleNormal',   src: 'assets/audio/battle/Battle_Normal.ogg',   loop: false },
         { id: 'treasureBox',    src: 'assets/audio/Treasure_box.ogg',            loop: false },
         { id: 'treasureMisc',   src: 'assets/audio/Treasure_misc.ogg',            loop: false },
+        { id: 'uiQuestion',    src: 'assets/audio/UI_Question.ogg',             loop: false },
     ],
 };
 
