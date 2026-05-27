@@ -46,19 +46,24 @@ var TRANSFER_TABLE = [
     { id:'start_world_16', world:'world_16', x:704, y:680 },
     { id:'stairs_01_up', world:'world_01', x:377, y:561, tx:222, ty:317, tf:2, dr:40, ir:25, pr:70 },
     { id:'stairs_01_down', world:'world_01', x:222, y:317, tx:377, ty:561, tf:1, dr:40, ir:25, pr:70 },
+    { id:'stairs_01b_up', world:'world_01', x:759, y:376, tx:849, ty:127, tf:2, dr:40, ir:25, pr:70 },
+    { id:'stairs_01b_down', world:'world_01', x:849, y:127, tx:759, ty:376, tf:1, dr:40, ir:25, pr:70 },
+    { id:'stairs_01c_down', world:'world_01', x:1032, y:218, tx:1230, ty:685, tf:1, rf:2, dr:40, ir:25, pr:70 },
+    { id:'stairs_01c_up', world:'world_01', x:1230, y:685, tx:1032, ty:218, tf:2, dr:40, ir:25, pr:70 },
+    { id:'stairs_01d_up', world:'world_01', x:1106, y:737, tx:1136, ty:466, tf:2, dr:40, ir:25, pr:70 },
+    { id:'stairs_01d_down', world:'world_01', x:1136, y:466, tx:1106, ty:737, tf:1, dr:40, ir:25, pr:70 },
     { id:'portal_01_02', world:'world_01', x:1274, y:80, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_return', world:'world_02', x:116, y:746, sx:null, sy:null, to:'world_01', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_shuhan', world:'world_02', x:12, y:379, sx:null, sy:null, to:'world_03', exp:0, msg:'通往蜀汉的传送门', dr:100, ir:50, pr:90 },
-    { id:'portal_world05', world:'world_02', x:660, y:33, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:120, ir:60, pr:90 },
+    { id:'portal_world05', world:'world_02', x:750, y:56, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_w02_w17', world:'world_02', x:1314, y:353, sx:37, sy:939, to:'world_17', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_return_egypt', world:'world_03', x:114, y:754, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_market', world:'world_03', x:1338, y:384, sx:null, sy:null, to:'world_04', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_alley', world:'world_04', x:70, y:384, sx:null, sy:null, to:'world_03', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_temple', world:'world_04', x:1338, y:384, sx:742, sy:50, to:'world_05', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_market_w05', world:'world_05', x:70, y:384, sx:null, sy:null, to:'world_04', exp:0, msg:null, dr:100, ir:50, pr:90 },
-    { id:'portal_secret', world:'world_05', x:1338, y:384, sx:null, sy:null, to:'world_06', exp:0.5, msg:'神庙深处似乎隐藏着什么，探索更多再说……', dr:100, ir:50, pr:89 },
-    { id:'portal_return_w02', world:'world_05', x:1284, y:748, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:120, ir:60, pr:90 },
-    { id:'portal_w05_w10', world:'world_05', x:269, y:335, sx:null, sy:null, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:90 },
+        { id:'portal_return_w02', world:'world_05', x:1284, y:748, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:120, ir:60, pr:90 },
+    { id:'portal_w05_w10', world:'world_05', x:320, y:291, sx:993, sy:440, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_temple_w06', world:'world_06', x:70, y:384, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_ruins', world:'world_06', x:1338, y:384, sx:null, sy:null, to:'world_07', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_secret_w07', world:'world_07', x:70, y:384, sx:null, sy:null, to:'world_06', exp:0, msg:null, dr:100, ir:50, pr:90 },
@@ -67,6 +72,7 @@ var TRANSFER_TABLE = [
     { id:'portal_garden', world:'world_08', x:1338, y:384, sx:null, sy:null, to:'world_03', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_palace_w09', world:'world_09', x:70, y:384, sx:null, sy:null, to:'world_08', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_tunnel', world:'world_09', x:1338, y:384, sx:null, sy:null, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:89 },
+    { id:'portal_w10_w05', world:'world_10', x:993, y:440, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_garden_w10', world:'world_10', x:70, y:384, sx:null, sy:null, to:'world_03', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_dusk', world:'world_10', x:1338, y:384, sx:null, sy:null, to:'world_11', exp:0.5, msg:'密道尽头似乎通向某个特殊的地方……', dr:100, ir:50, pr:89 },
     { id:'portal_tunnel_w11', world:'world_11', x:70, y:384, sx:null, sy:null, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:90 },
@@ -101,7 +107,7 @@ function buildTransferDataForWorld(worldId) {
             playerStart = { x: row.x, y: row.y };
         } else if (row.tf !== undefined) {
             // teleport: 同世界楼层切换
-            entities.push({
+            var entity = {
                 id: row.id,
                 type: 'teleport',
                 x: row.x, y: row.y,
@@ -111,7 +117,9 @@ function buildTransferDataForWorld(worldId) {
                 interactRadius: row.ir,
                 priority: row.pr,
                 once: false
-            });
+            };
+            if (row.rf !== undefined && row.rf !== null) entity.requireFloor = row.rf;
+            entities.push(entity);
         } else if (row.x1 !== undefined) {
             // triggerLine: 触发线
             triggerLines.push({

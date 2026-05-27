@@ -8,6 +8,7 @@ function createWorldMapEntity(deps) {
     var onInteractResult = deps.onInteractResult;
     var showToast = deps.showToast;
     var getExplorationPercent = deps.getExplorationPercent;
+    var _getCurrentFloor = deps.getCurrentFloor;
 
     var _entities = [];
     var _entityStates = {};
@@ -35,7 +36,12 @@ function createWorldMapEntity(deps) {
         if (!entity) return false;
         if (_hiddenEntityIds.indexOf(entity.id) !== -1) return false;
         if (entity.requireTutorial && !_tutorialComplete) return false;
+        if (entity.requireFloor !== undefined && entity.requireFloor !== getCurrentFloor()) return false;
         return true;
+    }
+
+    function getCurrentFloor() {
+        return _getCurrentFloor ? _getCurrentFloor() : 1;
     }
 
     function updateDiscoveries() {

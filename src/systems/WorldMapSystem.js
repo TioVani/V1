@@ -27,7 +27,8 @@ function createWorldMapSystem(deps) {
         getWorldConfig: function() { return getWorldConfig(_exploration.getWorldId()); },
         onInteractResult: deps.onInteractResult,
         showToast: showToast,
-        getExplorationPercent: function() { return _exploration.getExplorationPercent(); }
+        getExplorationPercent: function() { return _exploration.getExplorationPercent(); },
+        getCurrentFloor: player.getCurrentFloor
     });
 
     var _exploration = createWorldMapExploration({
@@ -72,11 +73,12 @@ function createWorldMapSystem(deps) {
         }
 
         // 从另一个世界传送过来时，落点为目标世界中指向来源世界的 portal 坐标
+        // spawnX/spawnY 是正向传送的落点覆盖（目标世界坐标），回传时不应使用
         if (fromWorldId && config.entities) {
             for (var i = 0; i < config.entities.length; i++) {
                 var e = config.entities[i];
                 if (e.type === 'portal' && e.targetWorld === fromWorldId) {
-                    player.setPlayerPos(e.spawnX || e.x, e.spawnY || e.y);
+                    player.setPlayerPos(e.x, e.y);
                     break;
                 }
             }
@@ -107,6 +109,7 @@ function createWorldMapSystem(deps) {
         for (var ti = 0; ti < teleportEntities.length; ti++) {
             var te = teleportEntities[ti];
             if (te.type !== 'teleport') continue;
+            if (te.requireFloor !== undefined && te.requireFloor !== player.getCurrentFloor()) continue;
             var tdx = pos.x - te.x;
             var tdy = pos.y - te.y;
             var tDist = Math.sqrt(tdx * tdx + tdy * tdy);
@@ -164,6 +167,7 @@ function createWorldMapSystem(deps) {
     function restoreReturnPosition() { player.restoreReturnPosition(); }
     function checkCollision(x, y) { return player.checkCollision(x, y); }
     function isPlayerOccluded() { return player.isPlayerOccluded(); }
+    function isPositionOccluded(x, y) { return player.isPositionOccluded(x, y); }
 
     // === 实体交互 ===
     function getEntities() { return entity.getActiveEntities(); }
@@ -212,6 +216,7 @@ function createWorldMapSystem(deps) {
         restoreReturnPosition: restoreReturnPosition,
         checkCollision: checkCollision,
         isPlayerOccluded: isPlayerOccluded,
+        isPositionOccluded: isPositionOccluded,
         getOcclusionCanvas: function() { return player.getOcclusionCanvas(); },
         getCurrentFloor: function() { return player.getCurrentFloor(); },
         getFacingX: function() { return player.getFacingX(); },

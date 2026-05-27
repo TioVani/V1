@@ -98,9 +98,11 @@ function createRhythmSkillSystem(deps) {
     var createMeteor = deps.createMeteor || function () { };
     var playerEffects = deps.playerEffects || null;
     var onComplete = deps.onComplete || function () { };
-    var playQte = deps.playQte || function () {};
+var playQte = deps.playQte || function () {};
     var playUiSkip = deps.playUiSkip || function () {};
     var playQteActivate = deps.playQteActivate || function () {};
+    var calculateStarScore = deps.calculateStarScore || function () { return 0; };
+    var calculateTotalAttack = deps.calculateTotalAttack || function () { return 0; };
 
     var state = {
         phase: 'idle',
@@ -144,6 +146,13 @@ function createRhythmSkillSystem(deps) {
         state.respawnTimer = 0;
         state.shockwaveTime = 0;
 
+        // 节奏灵光出现即施加闪避buff（全程覆盖，标记对抗一次性清除）
+        if (playerEffects) {
+            playerEffects.dodging = true;
+            playerEffects.dodgeEndTime = Date.now() + 3600000; // 持续直到节奏技结束
+            playerEffects._rhythmActive = true; // 标记：节奏技活跃中，弹幕命中不清除闪避
+        }
+
         addMessage('节奏技就绪! 点击节奏灵光!', '#00FFFF', true);
         vibShort('heavy');
     }
@@ -171,12 +180,8 @@ function createRhythmSkillSystem(deps) {
             state.ringResetTime = Date.now();
             state.shrinkDuration = BASE_SHRINK_MS;
             rs.createTime = Date.now();
-            playQteActivate();
-            // 节奏技期间玩家闪避所有攻击，复用闪避星星机制
-            if (playerEffects) {
-                playerEffects.dodging = true;
-                playerEffects.dodgeEndTime = Date.now() + 3600000; // 持续直到节奏技结束
-            }
+playQteActivate();
+playQteActivate();
             addMessage('节奏开始!', '#00FFFF', true);
             vibShort('medium');
             return true;
@@ -232,17 +237,19 @@ function createRhythmSkillSystem(deps) {
         var monsters = getActiveMonsters();
         var pd = getSaveData();
         var baseAtk = pd.totalAttack || 50;
-        var baseDmg = Math.floor(baseAtk * 0.6); // 每次冲击波造成 60% 基础攻击力的伤害
+        var baseDmg = Math.max(10, Math.floor(baseAtk * 0.6)); // 冲击波最低 10 点伤害
+        var totalHit = 0;
 
         for (var m = 0; m < monsters.length; m++) {
             var mon = monsters[m];
             if (mon.hp <= 0 || !mon.active) continue;
-            var dmg = baseDmg; // 每个怪物独立计算伤害，避免护盾扣除污染后续怪物
+            var dmg = baseDmg;
             if (mon.shield && mon.shield > 0) {
-                if (dmg <= mon.shield) { mon.shield -= dmg; continue; }
+                if (dmg <= mon.shield) { mon.shield -= dmg; totalHit++; continue; }
                 else { dmg -= mon.shield; mon.shield = 0; }
             }
             mon.hp = Math.max(0, mon.hp - dmg);
+            totalHit++;
         }
     }
 
@@ -252,8 +259,6 @@ function createRhythmSkillSystem(deps) {
         if (!stars || stars.length === 0) return;
 
         var monsters = getActiveMonsters();
-        var pd = getSaveData();
-        var baseAtk = pd.totalAttack || 50;
 
         // 找一个活跃怪物作为流星目标（优先最近的）
         function findNearestMonster(sx, sy) {
@@ -280,27 +285,31 @@ function createRhythmSkillSystem(deps) {
             if (target && createMeteor) {
                 var sw = getScreenWidth ? getScreenWidth() : 375;
                 var sh = getScreenHeight ? getScreenHeight() : 667;
-                var dmg = Math.floor(baseAtk * 0.5);
+                // 伤害 = 普通点击该灵光时的伤害（starScore + totalAttack）
+                var dmg = Math.floor(calculateStarScore(s.type || 'normal') + calculateTotalAttack());
                 var targetRef = target;  // 闭包捕获，避免流星到达时 target 被其他攻击打死导致引用失效
-                createMeteor(
-                    s.x, s.y,           // 起点：灵光位置
-                    dmg, false,         // 伤害, 非暴击
-                    s.type || 'normal', // 灵光类型
-                    0, 1,               // score, comboMultiplier
-                    function() {        // 命中回调：流星到达时造成伤害
-                        if (targetRef && targetRef.hp > 0 && targetRef.active) {
-                            if (targetRef.shield > 0) {
-                                if (dmg <= targetRef.shield) { targetRef.shield -= dmg; return; }
-                                var leftover = dmg - targetRef.shield;
-                                targetRef.shield = 0;
-                                targetRef.hp = Math.max(0, targetRef.hp - leftover);
-                            } else {
-                                targetRef.hp = Math.max(0, targetRef.hp - dmg);
+                // 使用 IIFE 确保每个流星的 dmg/targetRef 闭包独立
+                (function(dmgCopy, targetCopy, starX, starY, starType, endPos) {
+                    createMeteor(
+                        starX, starY,       // 起点：灵光位置
+                        dmgCopy, false,     // 伤害, 非暴击
+                        starType,           // 灵光类型
+                        0, 1,               // score, comboMultiplier
+                        function() {        // 命中回调：流星到达时造成伤害
+                            if (targetCopy && targetCopy.hp > 0) {
+                                var applied = dmgCopy;  // 记录实际造成伤害
+                                if (targetCopy.shield > 0) {
+                                    if (dmgCopy <= targetCopy.shield) { targetCopy.shield -= dmgCopy; applied = dmgCopy; }
+                                    else { applied = dmgCopy; var leftover = dmgCopy - targetCopy.shield; targetCopy.shield = 0; targetCopy.hp = Math.max(0, targetCopy.hp - leftover); }
+                                } else {
+                                    targetCopy.hp = Math.max(0, targetCopy.hp - dmgCopy);
+                                }
+                                addMessage('灵光流星 -' + applied, '#FFD700');
                             }
-                        }
-                    },
-                    { x: target.x || sw / 2, y: target.y || sh / 3, heroic: true }  // 终点：怪物位置 + fallback + 英雄流星标记
-                );
+                        },
+                        endPos  // 终点：怪物位置 + fallback + 英雄流星标记
+                    );
+                })(dmg, targetRef, s.x, s.y, s.type || 'normal', { x: target.x || sw / 2, y: target.y || sh / 3, heroic: true });
             }
 
             // 生存类灵光额外触发效果
@@ -393,6 +402,7 @@ function createRhythmSkillSystem(deps) {
         if (playerEffects) {
             playerEffects.dodging = false;
             playerEffects.dodgeEndTime = 0;
+            playerEffects._rhythmActive = false;
         }
 
         onComplete();
@@ -414,6 +424,11 @@ function createRhythmSkillSystem(deps) {
                 state.pendingStartTime = 0;
                 state.respawnTimer = Date.now() + RESPAWN_DELAY_MS;
                 state.shockwaveTime = 0;
+                if (playerEffects) {
+                    playerEffects.dodging = false;
+                    playerEffects.dodgeEndTime = 0;
+                    playerEffects._rhythmActive = false;
+                }
                 return;
             }
             return;

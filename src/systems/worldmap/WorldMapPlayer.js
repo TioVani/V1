@@ -400,6 +400,25 @@ function createWorldMapPlayer(deps) {
         return _transparencyBitmap.data[py * _transparencyBitmap.width + px] === 1;
     }
 
+    function isPositionOccluded(x, y) {
+        if (!_transparencyBitmap) return false;
+        var cx = Math.round(x);
+        var cy = Math.round(y);
+        var r = 6;
+        var w = _transparencyBitmap.width;
+        var h = _transparencyBitmap.height;
+        for (var dy = -r; dy <= r; dy++) {
+            for (var dx = -r; dx <= r; dx++) {
+                if (dx * dx + dy * dy > r * r) continue;
+                var px = cx + dx;
+                var py = cy + dy;
+                if (px < 0 || px >= w || py < 0 || py >= h) continue;
+                if (_transparencyBitmap.data[py * w + px] === 1) return true;
+            }
+        }
+        return false;
+    }
+
     function getOcclusionCanvas() { return _occlusionCanvas; }
 
     return {
@@ -415,6 +434,7 @@ function createWorldMapPlayer(deps) {
         getSpeed: getSpeed,
         setSpeed: setSpeed,
         isPlayerOccluded: isPlayerOccluded,
+        isPositionOccluded: isPositionOccluded,
         getOcclusionCanvas: getOcclusionCanvas,
         switchFloor: switchFloor,
         getCurrentFloor: getCurrentFloor,

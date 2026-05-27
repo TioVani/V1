@@ -34,7 +34,7 @@ var WORLDS = {
             {
                 id: 'chest_01',
                 type: 'chest',
-                x: 422, y: 205,
+                x: 87, y: 386,
                 discoverRadius: 60,
                 interactRadius: 30,
                 priority: 40,
@@ -68,6 +68,40 @@ var WORLDS = {
                 chestType: 'normal',
                 reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
             },
+            {
+                id: 'chest_world01_normal_1360',
+                type: 'chest',
+                x: 1360, y: 563,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
+            {
+                id: 'chest_world01_normal_270',
+                type: 'chest',
+                x: 270, y: 631,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
+            {
+                id: 'chest_world01_normal_f2',
+                type: 'chest',
+                x: 893, y: 173,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                requireFloor: 2,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
             ],
         triggerLines: [] // 由 TeleportConfig 注入
     },
@@ -83,6 +117,17 @@ var WORLDS = {
         transparencyMaskData: 'world_02_T01',
         collisions: [],
         entities: [
+            {
+                id: 'chest_world02_normal_604',
+                type: 'chest',
+                x: 604, y: 631,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
+            },
             ],
         triggerLines: []
     },

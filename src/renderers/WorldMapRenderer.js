@@ -33,6 +33,7 @@ function createWorldMapRenderer(deps) {
     var _dialogueCallback = null;
     var _confirmEntity = null;  // { id, type, x, y, label }
     var _playerCanvas = null;
+    var _chestCanvas = null;
 
     function showDialogue(lines, callback) {
         _dialogue = { lines: lines, index: 0 };
@@ -129,11 +130,9 @@ function createWorldMapRenderer(deps) {
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var designOffsetY = getDesignOffsetY();
-        console.log('[W17-DBG-RENDER] renderWorldMap START, wms exists:', !!getWorldMapSystem());
         _computeMapScale();
         var scale = _mapScale;
         var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
-        console.log('[W17-DBG-RENDER] scale=' + scale + ' designBottom=' + designBottom + ' sw=' + sw + ' sh=' + sh);
         var wms = getWorldMapSystem();
         if (!wms) return;
         _computeMapScale();
@@ -210,7 +209,32 @@ function createWorldMapRenderer(deps) {
                 var resolved = wms.isEntityResolved(e.id);
                 if (!resolved && assets.chestImage && assets.chestImage.complete) {
                     var chestSize = ir * 2;
-                    ctx.drawImage(assets.chestImage, sp.x - chestSize / 2, sp.y - chestSize / 2, chestSize, chestSize);
+                    var occCanvas = wms.getOcclusionCanvas();
+                    if (occCanvas) {
+                        if (!_chestCanvas || _chestCanvas.width !== Math.ceil(chestSize) || _chestCanvas.height !== Math.ceil(chestSize)) {
+                            _chestCanvas = document.createElement('canvas');
+                            _chestCanvas.width = Math.ceil(chestSize);
+                            _chestCanvas.height = Math.ceil(chestSize);
+                        }
+                        var cc = _chestCanvas.getContext('2d');
+                        cc.clearRect(0, 0, _chestCanvas.width, _chestCanvas.height);
+                        cc.globalCompositeOperation = 'source-over';
+                        cc.globalAlpha = 1.0;
+                        cc.drawImage(assets.chestImage, 0, 0, chestSize, chestSize);
+                        cc.globalCompositeOperation = 'destination-out';
+                        cc.globalAlpha = 0.7;
+                        var worldW = chestSize / scale;
+                        var worldH = chestSize / scale;
+                        cc.drawImage(occCanvas, e.x - worldW / 2, e.y - worldH / 2, worldW, worldH, 0, 0, chestSize, chestSize);
+                        cc.globalCompositeOperation = 'source-over';
+                        cc.globalAlpha = 1.0;
+                        var prevAlpha = ctx.globalAlpha;
+                        ctx.globalAlpha = 1.0;
+                        ctx.drawImage(_chestCanvas, sp.x - chestSize / 2, sp.y - chestSize / 2);
+                        ctx.globalAlpha = prevAlpha;
+                    } else {
+                        ctx.drawImage(assets.chestImage, sp.x - chestSize / 2, sp.y - chestSize / 2, chestSize, chestSize);
+                    }
                 } else if (!resolved) {
                     ctx.fillStyle = '#f0c040';
                     ctx.fillRect(sp.x - ir / 2, sp.y - ir / 2, ir, ir);

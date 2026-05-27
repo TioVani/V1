@@ -1543,11 +1543,14 @@ function createNormalBattleAdapter(deps) {
                     if (m.hp <= 0) {
                         handleMonsterDeath(false, m, state, GAME_STATE, getSaveData());
                     }
-                    fx.dodging = false;
-                    fx.dodgeEndTime = 0;
+                    // 节奏技活跃期间保持闪避状态（由 RhythmSkillSystem.settle 统一清除）
+                    if (!fx._rhythmActive) {
+                        fx.dodging = false;
+                        fx.dodgeEndTime = 0;
+                    }
                     return;
                 }
-                if (fx.dodging && Date.now() >= fx.dodgeEndTime) {
+                if (fx.dodging && Date.now() >= fx.dodgeEndTime && !fx._rhythmActive) {
                     fx.dodging = false;
                     fx.dodgeEndTime = 0;
                 }

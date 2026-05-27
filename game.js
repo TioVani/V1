@@ -2957,9 +2957,11 @@ function init() {
             createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
             playerEffects: playerEffects,
             onComplete: function() { linkChainSystem.onRhythmSkillComplete(); },
-            playQte: function() { if (audioSystem) audioSystem.playQte(); },
+playQte: function() { if (audioSystem) audioSystem.playQte(); },
             playUiSkip: function() { if (audioSystem) audioSystem.playUiSkip(); },
-            playQteActivate: function() { if (audioSystem) audioSystem.playQteActivate(); }
+            playQteActivate: function() { if (audioSystem) audioSystem.playQteActivate(); },
+            calculateStarScore: function(t) { return calculateStarScore(t); },
+            calculateTotalAttack: function() { return calculateTotalAttack(); }
         });
         // 后注入 rhythmSkillSystem 到 linkChainSystem
         linkChainSystem._injectRhythmSkillSystem(rhythmSkillSystem);
