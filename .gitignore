@@ -50,3 +50,16 @@ package-lock.json
 # 文案包装迭代文档
 文案包装*
 项目诊断报告*
+
+# 临时调试文件
+Snipaste_*.jpg
+screenshot_temp.png
+debug_bitmap*.js
+_fix_*.js
+_test_*.js
+test_moveplayer_mock.js
+test_puppeteer_move*.js
+test_realbitmap_mock.js
+leaderboard-mock-test.html
+temp_stash_full.diff
+assets/images/tmp/
