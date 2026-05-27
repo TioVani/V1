@@ -98,6 +98,8 @@ function createRhythmSkillSystem(deps) {
     var createMeteor = deps.createMeteor || function () { };
     var playerEffects = deps.playerEffects || null;
     var onComplete = deps.onComplete || function () { };
+    var playQte = deps.playQte || function () {};
+    var playUiSkip = deps.playUiSkip || function () {};
 
     var state = {
         phase: 'idle',
@@ -199,6 +201,7 @@ function createRhythmSkillSystem(deps) {
                 addMessage('Perfect! x' + state.successCount, '#00FFFF', true);
                 addScore(5);
                 vibShort('light');
+                playQte();
             } else if (delta <= greatHalf) {
                 // Great
                 state.successCount++;
@@ -211,7 +214,9 @@ function createRhythmSkillSystem(deps) {
                 addMessage('Great! x' + state.successCount, '#00FFFF', true);
                 addScore(5);
                 vibShort('light');
+                playQte();
             } else {
+                playUiSkip();
                 settle();
             }
             return true;
@@ -416,6 +421,7 @@ function createRhythmSkillSystem(deps) {
             // 超时缓冲：Great 窗口外 + 额外 50ms
             var greatHalf = getGreatHalfWindow(state.shrinkDuration);
             if (Date.now() - state.ringResetTime >= state.shrinkDuration + greatHalf + 50) {
+                playUiSkip();
                 settle();
             }
         }

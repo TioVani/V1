@@ -2951,7 +2951,9 @@ function init() {
             applyDamage: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); },
             createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
             playerEffects: playerEffects,
-            onComplete: function() { linkChainSystem.onRhythmSkillComplete(); }
+            onComplete: function() { linkChainSystem.onRhythmSkillComplete(); },
+            playQte: function() { if (audioSystem) audioSystem.playQte(); },
+            playUiSkip: function() { if (audioSystem) audioSystem.playUiSkip(); }
         });
         // 后注入 rhythmSkillSystem 到 linkChainSystem
         linkChainSystem._injectRhythmSkillSystem(rhythmSkillSystem);

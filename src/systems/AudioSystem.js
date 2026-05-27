@@ -43,6 +43,8 @@ function createAudioSystem(deps) {
     var _hitEnemyIds = ['battleHitEnemy1', 'battleHitEnemy2', 'battleHitEnemy3', 'battleHitEnemy4', 'battleHitEnemy5'];
     var _lastRainbowIdx = -1;
     var _rainbowIds = ['battleRainbow1', 'battleRainbow2', 'battleRainbow3', 'battleRainbow4'];
+    var _lastQteIdx = -1;
+    var _qteIds = ['battleQte1', 'battleQte2', 'battleQte3', 'battleQte4'];
 
     function init() {
         try {
@@ -297,6 +299,22 @@ function createAudioSystem(deps) {
         var el = document.querySelector('audio[data-bgm-id="' + _rainbowIds[idx] + '"]');
         if (!el) return;
         el.playbackRate = pitch || 1.0;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playQte() {
+        var idx;
+        if (_lastQteIdx < 0) {
+            idx = Math.floor(Math.random() * _qteIds.length);
+        } else {
+            idx = Math.floor(Math.random() * (_qteIds.length - 1));
+            if (idx >= _lastQteIdx) idx++;
+        }
+        _lastQteIdx = idx;
+        var el = document.querySelector('audio[data-bgm-id="' + _qteIds[idx] + '"]');
+        if (!el) return;
         el.volume = 0.6;
         el.currentTime = 0;
         el.play().catch(function() {});
@@ -710,6 +728,7 @@ function createAudioSystem(deps) {
         playQuickTap: playQuickTap,
         playHitEnemy: playHitEnemy,
         playRainbow: playRainbow,
+        playQte: playQte,
         playMerge: playMerge,
         playFail: playFail,
         stopFail: stopFail,
