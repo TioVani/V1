@@ -100,6 +100,7 @@ function createRhythmSkillSystem(deps) {
     var onComplete = deps.onComplete || function () { };
     var playQte = deps.playQte || function () {};
     var playUiSkip = deps.playUiSkip || function () {};
+    var playQteActivate = deps.playQteActivate || function () {};
 
     var state = {
         phase: 'idle',
@@ -170,6 +171,7 @@ function createRhythmSkillSystem(deps) {
             state.ringResetTime = Date.now();
             state.shrinkDuration = BASE_SHRINK_MS;
             rs.createTime = Date.now();
+            playQteActivate();
             // 节奏技期间玩家闪避所有攻击，复用闪避星星机制
             if (playerEffects) {
                 playerEffects.dodging = true;

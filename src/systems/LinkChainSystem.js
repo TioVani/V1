@@ -57,6 +57,8 @@ function createLinkChainSystem(deps) {
     var getBeautyFrames = deps.getBeautyFrames || function () { return []; };
     var rhythmSkillSystem = deps.rhythmSkillSystem || null;
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var playLinkStart = deps.playLinkStart || function () {};
+    var playNormal = deps.playNormal || function () {};
 
     // 内部状态
     var state = {
@@ -227,6 +229,7 @@ function createLinkChainSystem(deps) {
     // ── 触发联连窗口（触发灵光作为第一颗） ──
 
     function beginLinkWindow() {
+        playLinkStart();
         var triggerStar = state.triggerStar;
         if (!triggerStar) {
             Logger.warn('[LinkChainSystem] beginLinkWindow: triggerStar is null, consuming link cost');
@@ -344,6 +347,7 @@ function createLinkChainSystem(deps) {
                 state.swipeTargetIndex++;
                 vibrateShort({ type: 'light' });
                 addMessage('联连 ' + ls.index, '#FFD700');
+                playNormal();
                 ls._matchTime = Date.now();
 
                 // 每划过一颗 → 发射流星 + 得分
@@ -401,6 +405,7 @@ function createLinkChainSystem(deps) {
 
         // 全部激活时：每个激活灵光触发 GC + 2倍放大动画
         if (state.judgeResult === 'success') {
+            playLinkStart();
             var now = Date.now();
             for (var i = 0; i < state.linkedStars.length; i++) {
                 if (state.matchedIndices.indexOf(state.linkedStars[i].index) !== -1) {

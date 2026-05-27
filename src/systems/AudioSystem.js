@@ -320,6 +320,50 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playQteActivate() {
+        var el = document.querySelector('audio[data-bgm-id="battleQteActivate"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playFocus() {
+        var el = document.querySelector('audio[data-bgm-id="battleFocus"]');
+        if (!el) return;
+        el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playFocusStage(pitch) {
+        var el = document.querySelector('audio[data-bgm-id="treasureMisc"]');
+        if (!el) return;
+        el.playbackRate = pitch || 1.0;
+        el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playChargeRelease() {
+        var critEl = document.querySelector('audio[data-bgm-id="battleCritical"]');
+        if (critEl) {
+            critEl.playbackRate = 1.25;
+            critEl.volume = 0.6;
+            critEl.currentTime = 0;
+            critEl.play().catch(function() {});
+        }
+        playQuickTap();
+    }
+
+    function playLinkStart() {
+        var el = document.querySelector('audio[data-bgm-id="battleLinkStart"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playMerge() {
         var el = document.querySelector('audio[data-bgm-id="battleOne"]');
         if (!el) return;
@@ -729,6 +773,11 @@ function createAudioSystem(deps) {
         playHitEnemy: playHitEnemy,
         playRainbow: playRainbow,
         playQte: playQte,
+        playQteActivate: playQteActivate,
+        playFocus: playFocus,
+        playFocusStage: playFocusStage,
+        playChargeRelease: playChargeRelease,
+        playLinkStart: playLinkStart,
         playMerge: playMerge,
         playFail: playFail,
         stopFail: stopFail,

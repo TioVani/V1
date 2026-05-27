@@ -2868,7 +2868,10 @@ function init() {
             getDesignOffsetY: getDesignOffsetY,
             getAudioSystem: function() { return audioSystem; },
             calculateTotalAttack: function() { return calculateTotalAttack(); },
-            createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); }
+            createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
+            playFocus: function() { if (audioSystem) audioSystem.playFocus(); },
+            playFocusStage: function(p) { if (audioSystem) audioSystem.playFocusStage(p); },
+            playChargeRelease: function() { if (audioSystem) audioSystem.playChargeRelease(); }
         });
 
         dragSystem = _gameModules.createDragSystem({
@@ -2924,7 +2927,9 @@ function init() {
             getBeautyFrames: function() { return Assets.beautyFrames || []; },
             rhythmSkillSystem: null,  // 后注入
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+            playLinkStart: function() { if (audioSystem) audioSystem.playLinkStart(); },
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); }
         });
         _log('D4 灵光联连系统初始化完成');
 
@@ -2953,7 +2958,8 @@ function init() {
             playerEffects: playerEffects,
             onComplete: function() { linkChainSystem.onRhythmSkillComplete(); },
             playQte: function() { if (audioSystem) audioSystem.playQte(); },
-            playUiSkip: function() { if (audioSystem) audioSystem.playUiSkip(); }
+            playUiSkip: function() { if (audioSystem) audioSystem.playUiSkip(); },
+            playQteActivate: function() { if (audioSystem) audioSystem.playQteActivate(); }
         });
         // 后注入 rhythmSkillSystem 到 linkChainSystem
         linkChainSystem._injectRhythmSkillSystem(rhythmSkillSystem);

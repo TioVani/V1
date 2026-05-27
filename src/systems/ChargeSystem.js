@@ -38,6 +38,10 @@ function createChargeSystem(deps) {
         if (typeof applyDamageToMonster === 'function') applyDamageToMonster(target, dmg);
     };
     var calculateTotalAttack = deps.calculateTotalAttack || function() { return 50; };
+    var playFocus = deps.playFocus || function () {};
+    var playFocusStage = deps.playFocusStage || function () {};
+    var playChargeRelease = deps.playChargeRelease || function () {};
+    var _firedStageSound = { light: false, medium: false, full: false };
 
     var state = {
         phase: 'idle',               // idle|monitoring|charging|autoCast|castEffect
@@ -111,6 +115,8 @@ function createChargeSystem(deps) {
         state.dragBuff = dragBuff;
         state.chargeStar = null; // 没有chargeStar（灵光已全部被拖拽消耗）
         state.moveDistance = 0;
+        playFocus();
+        _firedStageSound = { light: false, medium: false, full: false };
         return true;
     }
 
@@ -118,9 +124,10 @@ function createChargeSystem(deps) {
 
     function checkTransitionToCharging() {
         if (state.phase !== 'monitoring') return false;
-        // 蓄力锁状态：进入后不可取消，不再检测 moveDistance
         state.phase = 'charging';
         state.chargeStartTime = Date.now();
+        playFocus();
+        _firedStageSound = { light: false, medium: false, full: false };
         if (state.monitoredStar) {
             state.chargeStar = state.monitoredStar;
             state.monitoredStar = null;
@@ -315,6 +322,7 @@ function createChargeSystem(deps) {
 
         addMessage('重击! ' + level.label + ' -' + totalDamage, '#FF6600');
         createScreenShake(level.stage === 'full' ? 8 : 4);
+        playChargeRelease();
 
         // 蓄力技得分
         if (level.stage === 'full') addScore(50);
@@ -436,12 +444,14 @@ function createChargeSystem(deps) {
                 fireSingleMeteor(state.chargeCenterX, state.chargeCenterY);
                 addScore(10);  // 达到轻蓄阶段得10分
                 addLinkCharge(8);
+                if (!_firedStageSound.light) { _firedStageSound.light = true; playFocusStage(1.0); }
             }
             if (currentLevel && currentLevel.stage === 'medium' && !state.firedMediumMeteor) {
                 state.firedMediumMeteor = true;
                 fireSingleMeteor(state.chargeCenterX, state.chargeCenterY);
                 addScore(20);  // 达到中蓄阶段得20分
                 addLinkCharge(12);
+                if (!_firedStageSound.medium) { _firedStageSound.medium = true; playFocusStage(1.25); }
             }
 
             // 满蓄检测 → 进入 autoCast
@@ -449,6 +459,7 @@ function createChargeSystem(deps) {
                 state.phase = 'autoCast';
                 state.autoCastStartTime = Date.now();
                 addMessage('蓄力已满! 即刻释放!', '#FF4400');
+                if (!_firedStageSound.full) { _firedStageSound.full = true; playFocusStage(1.5); }
             }
 
             
