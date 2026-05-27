@@ -128,6 +128,11 @@ function createTowerSystem(deps) {
     var getScreenHeight = deps.getScreenHeight;
     var getSeasonStarTypes = deps.getSeasonStarTypes;
     var playCharacterStep = deps.playCharacterStep || function () {};
+    var playTeleport = deps.playTeleport || function () {};
+    var playCombo = deps.playCombo || function () {};
+    var playCritical = deps.playCritical || function () {};
+    var playHit = deps.playHit || function () {};
+    var playHitEnemy = deps.playHitEnemy || function () {};
     var clearTimerInterval = deps.clearTimerInterval;
     var clearMoveInterval = deps.clearMoveInterval;
     var clearMonsterAttackInterval = deps.clearMonsterAttackInterval;
@@ -1016,6 +1021,7 @@ function createTowerSystem(deps) {
                     createHpBarCounterAnimation();
                     var counterDamage = Math.floor(damage * 0.5);
                     combatMonster.hp -= counterDamage;
+                    playHitEnemy();
                     addGameMessage('💫 反击! -' + counterDamage, '#00ff88');
                     createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), counterDamage);
                     Logger.info('闪避反击! 伤害:', counterDamage);
@@ -1055,6 +1061,7 @@ function createTowerSystem(deps) {
                     createPlayerDamageAnimation(damage, false);
                     createTimeDamageAnimation(timeDamage);
                     addGameMessage('-' + damage + ' 灵能', '#ff6b6b');
+                    playHit();
                     try { vibrateShort({ type: 'heavy' }); } catch (e) {}
                 }
 
@@ -1180,6 +1187,7 @@ function createTowerSystem(deps) {
                     createCritAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(241 * scale), damage, 0);
                 }
                 combatMonster.hp -= damage;
+                playHitEnemy();
                 createMonsterDamageAnimation(getScreenWidth() / 2, designOffsetY + Math.floor(271 * scale), damage);
                 addGameMessage(skill.emoji + ' ' + skill.name + '! -' + damage, '#00ccff');
                 if (combatMonster.hp <= 0) defeatMonster();
@@ -1283,6 +1291,7 @@ function createTowerSystem(deps) {
                 }
                 if (poisonDmg > 0) {
                     createPlayerDamageAnimation(poisonDmg, false, true);
+                    playHit();
                 }
                 if (playerHp <= 0) {
                     playerHp = 0;
@@ -1308,6 +1317,7 @@ function createTowerSystem(deps) {
         cleanupCombat();
 
         playerHp -= Math.floor(playerMaxHp * 0.2);
+        playHit();
 
         if (playerHp <= 0) {
             playerDeath();
@@ -1669,6 +1679,7 @@ function createTowerSystem(deps) {
             case 'damage':
                 playerHp -= trap.damage;
                 Logger.info('触发陷阱！受到伤害:', trap.damage);
+                playHit();
                 break;
             case 'fog':
                 blindSteps = 50;
@@ -1694,6 +1705,8 @@ function createTowerSystem(deps) {
 
                 addFloatText('🌀 空间传送！', '#9B59B6');
 
+                playTeleport();
+
                 if (teleportCell) {
                     Logger.info('传送目标格子类型:', teleportCell.type);
                     _tm.setTimeout(function() {
@@ -1707,6 +1720,7 @@ function createTowerSystem(deps) {
             case 'poison':
                 playerHp -= trap.damage;
                 Logger.info('触发状态陷阱！', trap.effect);
+                playHit();
                 break;
         }
 
@@ -1785,6 +1799,7 @@ function createTowerSystem(deps) {
         playerHp = Math.min(playerHp + Math.floor(playerMaxHp * 0.3), playerMaxHp);
 
         Logger.info('进入隐藏之路！跳转到第', targetFloor, '层');
+        playTeleport();
         saveProgress();
     }
 
@@ -1800,6 +1815,7 @@ function createTowerSystem(deps) {
         playerHp = Math.min(playerHp + Math.floor(playerMaxHp * 0.1), playerMaxHp);
 
         addFloatText('🚪 进入第 ' + nextFloor + ' 层', '#00FF00');
+        playTeleport();
         Logger.info('进入下一层！当前层数:', nextFloor);
         saveProgress();
     }

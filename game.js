@@ -1199,6 +1199,12 @@ function init() {
             getScreenHeight: function() { return screenHeight; },
             getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
             playCharacterStep: function() { if (audioSystem) audioSystem.playCharacterStep(); },
+            playTeleport: function() { if (audioSystem) audioSystem.playTeleport(); },
+            playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+            playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+            playHit: function() { if (audioSystem) audioSystem.playHit(); },
+            playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
+            playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
@@ -1282,7 +1288,10 @@ function init() {
                 createTimeDamage: function(d) { createTimeDamageAnimation(d); },
                 createPetDamage: function(x, y, d, e, c) { createPetDamageAnimation(x, y, d, e, c); },
                 addMessage: function(t, c, r) { addGameMessage(t, c, r); },
-                vibrateShort: function(o) { try { $P.vibrateShort(o); } catch(e) {} }
+                vibrateShort: function(o) { try { $P.vibrateShort(o); } catch(e) {} },
+                playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+                playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+                playHit: function() { if (audioSystem) audioSystem.playHit(); }
             },
             combat: {
                 getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
@@ -3506,6 +3515,7 @@ runtimeData.godMode = false;
 
         worldMapSystem = _gameModules.createWorldMapSystem({
             showToast: function(opts) { $P.showToast(opts); },
+            onTeleport: function() { if (audioSystem) audioSystem.playTeleport(); },
             flushData: function() { dataStore.flush(); },
             getSaveData: function() { return saveData; },
             getRuntimeData: function() { return runtimeData; },
@@ -3614,6 +3624,7 @@ runtimeData.godMode = false;
                     }
                     _lastPortalTime = _now;
                     _log('传送到:', result.targetWorld);
+                    if (audioSystem) audioSystem.playTeleport();
                     var fromWorld = worldMapSystem.getWorldId();
                     worldMapSystem.saveProgress();
                     worldMapSystem.loadWorld(result.targetWorld, fromWorld);
@@ -5398,6 +5409,7 @@ function render() {
         // 触发线自动切换地图
         var _tl = worldMapSystem.consumeTriggerLine();
         if (_tl && _tl.targetWorld) {
+            if (audioSystem) audioSystem.playTeleport();
             worldMapSystem.saveProgress();
             worldMapSystem.loadWorld(_tl.targetWorld, worldMapSystem.getWorldId());
         }
