@@ -249,6 +249,7 @@ function createNormalBattleAdapter(deps) {
 
         // 收服灵光
         if (star.isCaptureStar || star.type === 'capture') {
+            playNormal();
             var capSys = getCaptureSystem();
             if (capSys) {
                 var monster2 = getActiveMonster();
