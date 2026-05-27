@@ -3714,7 +3714,11 @@ runtimeData.godMode = false;
                     var fromWorld = worldMapSystem.getWorldId();
                     // world_17 BGM 切换
                     if (fromWorld === 'world_17' && result.targetWorld !== 'world_17') {
-                        if (audioSystem) audioSystem.exitArdeacinerea();
+                        if (audioSystem) {
+                            audioSystem.exitArdeacinerea();
+                            // 退出冥境后恢复大地图默认 BGM
+                            audioSystem.playBgm('shuhanTheme', 0.32);
+                        }
                     }
                     worldMapSystem.saveProgress();
                     worldMapSystem.loadWorld(result.targetWorld, fromWorld);

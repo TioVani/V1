@@ -30,6 +30,7 @@ function createAudioSystem(deps) {
 
     // world_17 Ardeacinerea BGM 状态
     var _ardeacinereaActive = false;
+    var _ardeacinereaStartTimer = null;
     var _ardeacinereaIntroTimer = null;
     var _ardeacinereaLoopTimer = null;
     var _returnToArdeacinerea = false;
@@ -708,13 +709,16 @@ function createAudioSystem(deps) {
         if (_ardeacinereaActive) return;
         _ardeacinereaActive = true;
         stopBgm(500);
-        setTimeout(function() {
+        _ardeacinereaStartTimer = setTimeout(function() {
+            _ardeacinereaStartTimer = null;
             var introEl = document.querySelector('audio[data-bgm-id="ardeacinerea"]');
-            if (!introEl) return;
+            if (!introEl) { _ardeacinereaActive = false; return; }
             introEl.volume = 0.6;
             introEl.currentTime = 0;
-            introEl.play().catch(function() {});
+            introEl.play().catch(function() { _ardeacinereaActive = false; });
             _ardeacinereaIntroTimer = setTimeout(function() {
+                _ardeacinereaIntroTimer = null;
+                if (!_ardeacinereaActive) return;
                 introEl.pause();
                 introEl.currentTime = 0;
                 var loopEl = document.querySelector('audio[data-bgm-id="ardeacinereaLoop"]');
@@ -723,9 +727,9 @@ function createAudioSystem(deps) {
                 loopEl.currentTime = 0;
                 loopEl.play().catch(function() {});
                 _ardeacinereaLoopTimer = setTimeout(function() {
-                    loopEl.currentTime = 0;
-                    loopEl.play().catch(function() {});
+                    if (!_ardeacinereaActive) return;
                     _ardeacinereaLoopTimer = setInterval(function() {
+                        if (!_ardeacinereaActive) { clearInterval(_ardeacinereaLoopTimer); _ardeacinereaLoopTimer = null; return; }
                         loopEl.currentTime = 0;
                         loopEl.play().catch(function() {});
                     }, 87627);
@@ -737,6 +741,7 @@ function createAudioSystem(deps) {
     function exitArdeacinerea() {
         if (!_ardeacinereaActive) return;
         _ardeacinereaActive = false;
+        if (_ardeacinereaStartTimer) { clearTimeout(_ardeacinereaStartTimer); _ardeacinereaStartTimer = null; }
         if (_ardeacinereaIntroTimer) { clearTimeout(_ardeacinereaIntroTimer); _ardeacinereaIntroTimer = null; }
         if (_ardeacinereaLoopTimer) {
             clearTimeout(_ardeacinereaLoopTimer);

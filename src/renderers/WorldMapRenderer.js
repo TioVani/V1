@@ -65,6 +65,7 @@ function createWorldMapRenderer(deps) {
             type: entity.type,
             x: entity.x,
             y: entity.y,
+            interactRadius: entity.interactRadius || 40,
             label: _getInteractLabel(entity.type).replace('按 E ', '')
         };
     }
