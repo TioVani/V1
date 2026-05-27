@@ -3648,6 +3648,7 @@ runtimeData.godMode = false;
                 }
                 if (result.type === 'chest') {
                     _log('开启宝箱:', result.entity.id, '奖励:', JSON.stringify(result.reward));
+                    audioSystem.playTreasureMisc();
                     if (result.reward) {
                         if (result.reward.currency) {
                             saveData.starSource = (saveData.starSource || 0) + result.reward.currency;
