@@ -28,6 +28,12 @@ function createAudioSystem(deps) {
     var _savedTowerBgmId = null;
     var _savedTowerBgmVolume = 0;
 
+    // world_17 Ardeacinerea BGM 状态
+    var _ardeacinereaActive = false;
+    var _ardeacinereaIntroTimer = null;
+    var _ardeacinereaLoopTimer = null;
+    var _returnToArdeacinerea = false;
+
     // 战斗音效状态
     var _comboPitchLevel = 0;
     var _criticalPendingTimer = null;
@@ -543,6 +549,15 @@ function createAudioSystem(deps) {
     // ===== 普通战斗音乐切换 =====
 
     function enterBattle() {
+        if (_ardeacinereaActive) {
+            exitArdeacinerea();
+            _returnToArdeacinerea = true;
+            _savedBgmId = null;
+            _savedBgmVolume = 0;
+            stopBgm(500);
+            _battleMusicPending = true;
+            return;
+        }
         if (_bgmEl) {
             _savedBgmId = _bgmEl.dataset.bgmId;
             _savedBgmVolume = _bgmEl.volume;
@@ -568,6 +583,11 @@ function createAudioSystem(deps) {
         _battleMusicPending = false;
         _comboPitchLevel = 0;
         if (_criticalPendingTimer) { clearTimeout(_criticalPendingTimer); _criticalPendingTimer = null; }
+        if (_returnToArdeacinerea) {
+            enterArdeacinerea();
+            _returnToArdeacinerea = false;
+            return;
+        }
         if (_savedBgmId) {
             playBgm(_savedBgmId, _savedBgmVolume);
             _savedBgmId = null;
@@ -584,6 +604,15 @@ function createAudioSystem(deps) {
     // ===== 塔探索音乐切换 =====
 
     function enterTower() {
+        if (_ardeacinereaActive) {
+            exitArdeacinerea();
+            _returnToArdeacinerea = true;
+            _savedTowerBgmId = null;
+            _savedTowerBgmVolume = 0;
+            stopBgm(500);
+            playBgm('towerExplore', 0.4);
+            return;
+        }
         if (_bgmEl) {
             _savedTowerBgmId = _bgmEl.dataset.bgmId;
             _savedTowerBgmVolume = _bgmEl.volume;
@@ -597,6 +626,11 @@ function createAudioSystem(deps) {
         _savedBgmId = null;
         _savedBgmVolume = 0;
         stopBgm(500);
+        if (_returnToArdeacinerea) {
+            enterArdeacinerea();
+            _returnToArdeacinerea = false;
+            return;
+        }
         if (_savedTowerBgmId) {
             playBgm(_savedTowerBgmId, _savedTowerBgmVolume);
             _savedTowerBgmId = null;
@@ -604,6 +638,51 @@ function createAudioSystem(deps) {
         } else {
             playBgm('shuhanTheme', 0.32);
         }
+    }
+
+    // ===== world_17 赛博埃及·冥境 BGM =====
+
+    function enterArdeacinerea() {
+        if (_ardeacinereaActive) return;
+        _ardeacinereaActive = true;
+        stopBgm(500);
+        setTimeout(function() {
+            var introEl = document.querySelector('audio[data-bgm-id="ardeacinerea"]');
+            if (!introEl) return;
+            introEl.volume = 0.6;
+            introEl.currentTime = 0;
+            introEl.play().catch(function() {});
+            _ardeacinereaIntroTimer = setTimeout(function() {
+                introEl.pause();
+                introEl.currentTime = 0;
+                var loopEl = document.querySelector('audio[data-bgm-id="ardeacinereaLoop"]');
+                if (!loopEl) return;
+                loopEl.volume = 0.6;
+                loopEl.currentTime = 0;
+                loopEl.play().catch(function() {});
+                _ardeacinereaLoopTimer = setTimeout(function() {
+                    loopEl.currentTime = 0;
+                    loopEl.play().catch(function() {});
+                    _ardeacinereaLoopTimer = setInterval(function() {
+                        loopEl.currentTime = 0;
+                        loopEl.play().catch(function() {});
+                    }, 87627);
+                }, 87627);
+            }, 22843);
+        }, 500);
+    }
+
+    function exitArdeacinerea() {
+        if (!_ardeacinereaActive) return;
+        _ardeacinereaActive = false;
+        if (_ardeacinereaIntroTimer) { clearTimeout(_ardeacinereaIntroTimer); _ardeacinereaIntroTimer = null; }
+        if (_ardeacinereaLoopTimer) {
+            clearTimeout(_ardeacinereaLoopTimer);
+            clearInterval(_ardeacinereaLoopTimer);
+            _ardeacinereaLoopTimer = null;
+        }
+        fadeOutAudio('ardeacinerea', 500);
+        fadeOutAudio('ardeacinereaLoop', 500);
     }
 
     function destroy() {
@@ -669,6 +748,8 @@ function createAudioSystem(deps) {
         restartBattle: restartBattle,
         enterTower: enterTower,
         exitTower: exitTower,
+        enterArdeacinerea: enterArdeacinerea,
+        exitArdeacinerea: exitArdeacinerea,
         destroy: destroy
     };
 }

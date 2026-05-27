@@ -3277,7 +3277,7 @@ function init() {
                 godMode = false;
                 runtimeData.godMode = false;
 
-                if (audioSystem) { audioSystem.endBattle(); audioSystem.exitBattle(); }
+                if (audioSystem) { audioSystem.endBattle(); }
                 if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
                 if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
                 if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
@@ -3704,8 +3704,15 @@ runtimeData.godMode = false;
                     _log('传送到:', result.targetWorld);
                     if (audioSystem) audioSystem.playTeleport();
                     var fromWorld = worldMapSystem.getWorldId();
+                    // world_17 BGM 切换
+                    if (fromWorld === 'world_17' && result.targetWorld !== 'world_17') {
+                        if (audioSystem) audioSystem.exitArdeacinerea();
+                    }
                     worldMapSystem.saveProgress();
                     worldMapSystem.loadWorld(result.targetWorld, fromWorld);
+                    if (result.targetWorld === 'world_17') {
+                        if (audioSystem) audioSystem.enterArdeacinerea();
+                    }
                 }
                 if (result.type === 'portal_locked') {
                     _log('传送门未解锁:', result.message);
@@ -5331,7 +5338,7 @@ function handleTouchStart(res) {
 
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
-            if (audioSystem) { audioSystem.stopFail(); audioSystem.exitBattle(); }
+            if (audioSystem) { audioSystem.stopFail(); }
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
         }
 

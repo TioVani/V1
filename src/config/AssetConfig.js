@@ -131,6 +131,8 @@ export var AUDIO_CONFIG = {
         { id: 'treasureBox',    src: 'assets/audio/Treasure_box.ogg',            loop: false },
         { id: 'treasureMisc',   src: 'assets/audio/Treasure_misc.ogg',            loop: false },
         { id: 'uiQuestion',    src: 'assets/audio/UI_Question.ogg',             loop: false },
+        { id: 'ardeacinerea',      src: 'assets/audio/music/04Ardeacinerea.ogg', loop: false },
+        { id: 'ardeacinereaLoop',  src: 'assets/audio/music/04Ardeacinerea_loop.ogg', loop: false },
     ],
 };
 
