@@ -51,9 +51,13 @@ export var IMAGE_GROUPS = {
         { id: 'worldMapBg14',             src: 'assets/images/worldmap/world_14.jpg' },
         { id: 'worldMapBg15',             src: 'assets/images/worldmap/world_15.jpg' },
         { id: 'worldMapBg16',             src: 'assets/images/worldmap/world_16.jpg' },
+        { id: 'worldMapBg17',             src: 'assets/images/worldmap/cyber_egypt_nether_1_20260526_110114.png' },
     ],
     beauty: [
         // 由 AssetManager 根据 BEAUTY_CONFIG 自动生成
+    ],
+    effects: [
+        { id: 'bluelightImg', src: 'assets/images/tmp/Bluelight.png' },
     ],
 };
 

@@ -73,7 +73,7 @@ var WORLDS = {
     },
     world_02: {
         worldId: 'world_02',
-        name: '冥河幽境·埃及',
+        name: '蜀汉城·居民小巷',
         backgroundImage: 'assets/images/worldmap/world_02.jpg',
         width: 1408,
         height: 768,
@@ -83,20 +83,6 @@ var WORLDS = {
         transparencyMaskData: 'world_02_T01',
         collisions: [],
         entities: [
-            {
-                id: 'ferryman',
-                type: 'npc',
-                x: 669, y: 435,
-                discoverRadius: 80,
-                interactRadius: 40,
-                priority: 30,
-                once: false,
-                dialogue: [
-                    { text: '生者啊，冥河的对岸有着不为人知的秘密。', voice: 'voLing001' },
-                    { text: '想要过河？证明你的实力吧——征服那座试炼之塔，我便渡你过去。', voice: 'voLing002', stopVoice: 'voLing001' },
-                    { text: '古灵们留下的试炼之塔就在北面，那是通往彼岸的唯一途径。', voice: 'voLing003', stopVoice: 'voLing002' }
-                ]
-            },
             ],
         triggerLines: []
     },
@@ -563,6 +549,35 @@ var WORLDS = {
                 priority: 40,
                 once: true,
                 reward: { currency: 1000, items: ['legendary_weapon'] }
+            }
+        ],
+        triggerLines: []
+    },
+    // ===== 赛博埃及·冥境 =====
+    world_17: {
+        worldId: 'world_17',
+        name: '赛博埃及·冥境',
+        backgroundImage: 'assets/images/worldmap/cyber_egypt_nether_1_20260526_110114.png',
+        width: 1408,
+        height: 768,
+        hasTutorial: false,
+        entryCutscene: null,
+        collisions: [],
+        entities: [
+            {
+                id: 'ferryman',
+                name: '摆渡人',
+                type: 'npc',
+                x: 669, y: 435,
+                discoverRadius: 80,
+                interactRadius: 40,
+                priority: 30,
+                once: false,
+                dialogue: [
+                    { text: '生者啊，冥河的对岸有着不为人知的秘密。', voice: 'voLing001' },
+                    { text: '想要过河？证明你的实力吧——征服那座试炼之塔，我便渡你过去。', voice: 'voLing002', stopVoice: 'voLing001' },
+                    { text: '古灵们留下的试炼之塔就在北面，那是通往彼岸的唯一途径。', voice: 'voLing003', stopVoice: 'voLing002' }
+                ]
             }
         ],
         triggerLines: []

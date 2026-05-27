@@ -265,7 +265,7 @@ function createWorldMapRenderer(deps) {
                 ctx.font = Math.floor(12 * scale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('灵', sp.x, sp.y);
+                ctx.fillText(e.name || 'NPC', sp.x, sp.y);
             } else if (e.type === 'barrier') {
                 var bResolved = wms.isEntityResolved(e.id);
                 if (!bResolved) {

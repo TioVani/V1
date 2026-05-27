@@ -795,6 +795,7 @@ const Assets = {
     towerIcon: null,        // 无尽塔图标
     bossImage: null,        // Boss战图标
     beautyFrames: [],      // 灵光发光序列帧（16帧）
+    bluelightImg: null,     // Bluelight光线特效图
     characterImages: {      // 角色图片
         starter: null,      // 玉蝉仙
         starterPortrait: null, // 玉蝉仙立绘
@@ -1106,6 +1107,7 @@ function init() {
         Assets.characterImages.warrior = assetManager.get('char_warrior');
         Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
         Assets.beautyFrames = assetManager.getFrames('beauty');
+        Assets.bluelightImg = assetManager.get('bluelightImg');
 
 
         // 初始化偷灵者模块
@@ -1471,7 +1473,9 @@ function init() {
             combatFontConfig: function() { return combatFontConfig; },
             playMeteorSound: function(starType) { if (audioSystem) audioSystem.playMeteor(starType); },
             playDodgeHealSound: function() { if (audioSystem) audioSystem.playDodgeHeal(); },
-            playMeteorImpactSound: function() { if (audioSystem) audioSystem.playMeteorImpact(); }
+            playMeteorImpactSound: function() { if (audioSystem) audioSystem.playMeteorImpact(); },
+            getBeautyFrames: function() { return Assets.beautyFrames || []; },
+            getBluelightImg: function() { return Assets.bluelightImg; }
         });
         createCritAnimation = function(x, y, damage, score, color) { animationSystem.createCritAnimation(x, y, damage, score, color); };
         updateCritAnimations = function() { animationSystem.updateCritAnimations(); };
@@ -1895,8 +1899,10 @@ function init() {
             getGameState: function() { return GAME_STATE; },
             getSeasonScore: function() { return seasonScore; },
             getSeasonBestScore: function() { return seasonBestScore; },
+            getMonstersKilled: function() { return monstersKilled; },
             getSeasonRank: function() { return getSeasonRank(); },
             getSeasonContent: function() { return seasonContent; },
+            getSeasonLeaderboard: function() { return seasonLeaderboard; },
             getSeasonSelection: function() { return seasonSelection; },
             getAdSystem: function() { return adSystem; },
             getTimeLeft: function() { return timeLeft; },
@@ -2821,7 +2827,12 @@ function init() {
             getScreenScale: function() { return getScreenScale(); },
             getStars: function() { return stars; },
             setStars: function(val) { stars = val; },
-            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            getActiveMonsters: function() { 
+                if (state === GAME_STATE.TOWER_COMBAT && towerSystem && towerSystem.combatMonster) {
+                    return towerSystem.combatMonster.active !== false ? [towerSystem.combatMonster] : [];
+                }
+                return monsters.filter(function(m) { return m.active; }); 
+            },
             addMessage: function(msg, color) { addGameMessage(msg, color); },
             createScreenShake: function(i) { createScreenShake(i); },
             applyDamageToMonster: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); },
@@ -2829,7 +2840,9 @@ function init() {
             drawStar: function(starObj, x, y, size, sc) { if (drawStar) drawStar(starObj, x, y, size, sc); },
             addScore: function(pts) { score += pts; },
             addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            calculateTotalAttack: function() { return calculateTotalAttack(); },
+            createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); }
         });
 
         dragSystem = _gameModules.createDragSystem({
@@ -2844,11 +2857,19 @@ function init() {
             addMessage: function(msg, color) { addGameMessage(msg, color); },
             vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
             saturationState: saturationState,
-            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            getActiveMonsters: function() {
+                if (state === GAME_STATE.TOWER_COMBAT && towerSystem && towerSystem.combatMonster) {
+                    return towerSystem.combatMonster.active !== false ? [towerSystem.combatMonster] : [];
+                }
+                return monsters.filter(function(m) { return m.active; });
+            },
             attackMonster: function(dmg, crit, type, target) { attackMonster(dmg, crit, type, target); },
             addScore: function(pts) { score += pts; },
             addLinkCharge: function(pts) { if (linkChainSystem) linkChainSystem.addCharge(pts); },
-            getDesignOffsetY: getDesignOffsetY
+            getDesignOffsetY: getDesignOffsetY,
+            createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
+            getStarImage: function() { return Assets.normalStarImage; },
+            getTotalAttack: function() { return calculateTotalAttack ? calculateTotalAttack() : 0; }
         });
         _log('D3 拖拽聚合系统初始化完成');
 
@@ -2861,7 +2882,12 @@ function init() {
             getScreenScale: function() { return getScreenScale(); },
             getStars: function() { return stars; },
             setStars: function(newStars) { stars = newStars; },
-            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            getActiveMonsters: function() {
+                if (state === GAME_STATE.TOWER_COMBAT && towerSystem && towerSystem.combatMonster) {
+                    return towerSystem.combatMonster.active !== false ? [towerSystem.combatMonster] : [];
+                }
+                return monsters.filter(function(m) { return m.active; });
+            },
             addMessage: function(msg, color, important) { addGameMessage(msg, color, important); },
             createScreenShake: function(i) { createScreenShake(i); },
             vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
@@ -2881,13 +2907,22 @@ function init() {
             getScreenWidth: function() { return screenWidth; },
             getScreenHeight: function() { return screenHeight; },
             getScreenScale: function() { return getScreenScale(); },
-            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            getActiveMonsters: function() {
+                if (state === GAME_STATE.TOWER_COMBAT && towerSystem && towerSystem.combatMonster) {
+                    return towerSystem.combatMonster.active !== false ? [towerSystem.combatMonster] : [];
+                }
+                return monsters.filter(function(m) { return m.active; });
+            },
             addMessage: function(msg, color, important) { addGameMessage(msg, color, important); },
             createScreenShake: function(i) { createScreenShake(i); },
             vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
             addScore: function(pts) { score += pts; },
             saturationState: saturationState,
             getBeautyFrames: function() { return Assets.beautyFrames || []; },
+            getStars: function() { return stars; },
+            applyDamage: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); },
+            createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
+            playerEffects: playerEffects,
             onComplete: function() { linkChainSystem.onRhythmSkillComplete(); }
         });
         // 后注入 rhythmSkillSystem 到 linkChainSystem
@@ -2918,7 +2953,12 @@ function init() {
             setStars: function(val) { stars = val; },
             // 怪物
             getActiveMonster: function() { return monster; },
-            getActiveMonsters: function() { return monsters.filter(function(m) { return m.active; }); },
+            getActiveMonsters: function() {
+                if (state === GAME_STATE.TOWER_COMBAT && towerSystem && towerSystem.combatMonster) {
+                    return towerSystem.combatMonster.active !== false ? [towerSystem.combatMonster] : [];
+                }
+                return monsters.filter(function(m) { return m.active; });
+            },
             getMonsters: function() { return monsters; },
             setMonsters: function(val) { monsters = val; },
             // 战斗系统
@@ -5482,8 +5522,7 @@ function render() {
         // 战斗动画：仅在战斗状态执行，非战斗状态清理残留
         var isCombat = state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED ||
             state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT ||
-            state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING ||
-            state === GAME_STATE.TOWER;
+            state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING;
 
         if (isCombat) {
             // BattleEngine 每帧 tick（处理 pendingDeaths、攻击者、时间倒计时等）
