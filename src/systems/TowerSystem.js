@@ -132,6 +132,7 @@ function createTowerSystem(deps) {
     var playCombo = deps.playCombo || function () {};
     var playCritical = deps.playCritical || function () {};
     var playHit = deps.playHit || function () {};
+    var playPetAttack = deps.playPetAttack || function () {};
     var playHitEnemy = deps.playHitEnemy || function () {};
     var playNormal = deps.playNormal || function () {};
     var playTreasureBox = deps.playTreasureBox || function () {};
@@ -1726,6 +1727,7 @@ function createTowerSystem(deps) {
                 playerHp -= trap.damage;
                 Logger.info('触发状态陷阱！', trap.effect);
                 playHit();
+                if (playPetAttack) playPetAttack();
                 break;
         }
 

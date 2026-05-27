@@ -1210,6 +1210,7 @@ function init() {
             playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
             playTreasureBox: function() { if (audioSystem) audioSystem.playTreasureBox(); },
             playTreasureMisc: function() { if (audioSystem) audioSystem.playTreasureMisc(); },
+            playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
@@ -3116,6 +3117,7 @@ function init() {
             playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
             playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
             playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
+            playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
             // 觉醒系统
             getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
             getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || saveData); },
@@ -3466,6 +3468,10 @@ runtimeData.godMode = false;
                 if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
                     audioSystem.enterTower();
                     _battleMusicTriggered = false;
+                }
+                // 进入任务界面
+                if (state === GAME_STATE.TASKS && prevState !== GAME_STATE.TASKS && audioSystem) {
+                    audioSystem.playMenu2();
                 }
                 // 进入塔战斗：淡出当前BGM，记忆它
                 if (state === GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_COMBAT && audioSystem) {
@@ -4378,6 +4384,7 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击重新开始');
+                if (audioSystem) audioSystem.playMenu1();
                 PauseCoordinator.instance.resume();
                 var rMode = modeLifecycle.getPreviousMode();
                 if (rMode === 'boss') {

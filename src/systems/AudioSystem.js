@@ -235,6 +235,22 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playMenu1() {
+        var el = document.querySelector('audio[data-bgm-id="uiMenu1"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playMenu2() {
+        var el = document.querySelector('audio[data-bgm-id="uiMenu2"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playTreasureMisc() {
         var el = document.querySelector('audio[data-bgm-id="treasureMisc"]');
         if (!el) return;
@@ -572,6 +588,8 @@ function createAudioSystem(deps) {
         playNormal: playNormal,
         playTreasureBox: playTreasureBox,
         playQuestion: playQuestion,
+        playMenu1: playMenu1,
+        playMenu2: playMenu2,
         playAnswer1: playAnswer1,
         playAnswer2: playAnswer2,
         playTreasureMisc: playTreasureMisc,

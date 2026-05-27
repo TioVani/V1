@@ -128,6 +128,7 @@ function createNormalBattleAdapter(deps) {
     var playNormal = deps.playNormal;
     var playQuickTap = deps.playQuickTap;
     var playHitEnemy = deps.playHitEnemy;
+    var playPetAttack = deps.playPetAttack;
 
     // ═══ 净化/掉落 deps ═══
     var getMonsterTypes = deps.getMonsterTypes;
@@ -215,7 +216,8 @@ function createNormalBattleAdapter(deps) {
                 playHit: playHit,
                 playNormal: playNormal,
                 playQuickTap: playQuickTap,
-                playHitEnemy: playHitEnemy
+                playHitEnemy: playHitEnemy,
+                playPetAttack: playPetAttack
             },
             combat: {
                 getSeasonStarTypes: function() { return []; },
@@ -1042,6 +1044,7 @@ function createNormalBattleAdapter(deps) {
         fx.poisonTickTime = Date.now() + 1000;
         addMessage('☠️ 毒灵爆发! -15灵能+中毒!', '#00ff00', true);
         vibrateShort({ type: 'heavy' });
+        if (playPetAttack) playPetAttack();
     }
 
     function handlePuddleStarEffect(star) {
@@ -1069,6 +1072,7 @@ function createNormalBattleAdapter(deps) {
         fx.poisonTickTime = Date.now() + 1000;
         addMessage('☠️ 毒灵爆发! -15灵能+中毒!', '#00ff00', true);
         vibrateShort({ type: 'heavy' });
+        if (playPetAttack) playPetAttack();
     }
 
     // ═══════════════════════════════════════════════════════
