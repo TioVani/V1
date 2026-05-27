@@ -3109,6 +3109,13 @@ function init() {
             createTimeDamageAnimation: function(dmg) { createTimeDamageAnimation(dmg); },
             endGame: function() { endGame(); },
             getIsTutorialBattle: function() { return _tutorial.active; },
+            // 战斗音效
+            playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+            playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+            playHit: function() { if (audioSystem) audioSystem.playHit(); },
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
+            playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
             // 觉醒系统
             getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
             getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || saveData); },
@@ -3474,8 +3481,12 @@ runtimeData.godMode = false;
                 }
                 // 回到大地图：恢复记忆的BGM
                 if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
-                    if (audioSystem && (prevState === GAME_STATE.TOWER || prevState === GAME_STATE.TOWER_COMBAT || prevState === GAME_STATE.TOWER_RESUME || prevState === GAME_STATE.TOWER_RESULT)) {
-                        audioSystem.exitTower();
+                    if (audioSystem) {
+                        if (prevState === GAME_STATE.TOWER || prevState === GAME_STATE.TOWER_COMBAT || prevState === GAME_STATE.TOWER_RESUME || prevState === GAME_STATE.TOWER_RESULT) {
+                            audioSystem.exitTower();
+                        } else if (prevState === GAME_STATE.GAMEOVER || prevState === GAME_STATE.PLAYING || prevState === GAME_STATE.SEASON_PLAYING || prevState === GAME_STATE.STAGE_RESULT || prevState === GAME_STATE.BOSS_BATTLE_RESULT) {
+                            audioSystem.exitBattle();
+                        }
                     }
                     worldMapSystem.markNeedsRespawn();
                     worldMapSystem.restoreReturnPosition();

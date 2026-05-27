@@ -121,6 +121,14 @@ function createNormalBattleAdapter(deps) {
     var removeBossStar = deps.removeBossStar;
     var tipShowTipOnce = deps.tipShowTipOnce;
 
+    // ═══ 战斗音效 ═══
+    var playCombo = deps.playCombo;
+    var playCritical = deps.playCritical;
+    var playHit = deps.playHit;
+    var playNormal = deps.playNormal;
+    var playQuickTap = deps.playQuickTap;
+    var playHitEnemy = deps.playHitEnemy;
+
     // ═══ 净化/掉落 deps ═══
     var getMonsterTypes = deps.getMonsterTypes;
     var getMonstersConfig = deps.getMonstersConfig;
@@ -201,7 +209,13 @@ function createNormalBattleAdapter(deps) {
                 createTimeDamage: function(d) { if (deps.createTimeDamageAnimation) deps.createTimeDamageAnimation(d); },
                 createPetDamage: function() {},
                 addMessage: addMessage,
-                vibrateShort: vibrateShort
+                vibrateShort: vibrateShort,
+                playCombo: playCombo,
+                playCritical: playCritical,
+                playHit: playHit,
+                playNormal: playNormal,
+                playQuickTap: playQuickTap,
+                playHitEnemy: playHitEnemy
             },
             combat: {
                 getSeasonStarTypes: function() { return []; },
