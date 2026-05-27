@@ -30,6 +30,8 @@ function createAnimationSystem(deps) {
     var playMeteorSound = deps.playMeteorSound || function() {};
     var playDodgeHealSound = deps.playDodgeHealSound || function() {};
     var playMeteorImpactSound = deps.playMeteorImpactSound || function() {};
+    var getBeautyFrames = deps.getBeautyFrames || function() { return []; };
+    var getBluelightImg = deps.getBluelightImg || function() { return null; };
 
     // ==================== 虚拟时钟（暂停时冻结动画时间） ====================
     var _pauseAccumulated = 0;
@@ -233,6 +235,7 @@ function createAnimationSystem(deps) {
             size: isCritical ? 36 : 28,  // 暴击流星更大
             color: getStarColor(starType),
             glowColor: getStarGlowColor(starType),
+            heroic: !!(isCritical || (customEnd && customEnd.heroic)),  // 暴击/蓄力/拖拽/节奏技为英雄流星
             completed: false,  // 是否已完成
             hitEffectCreated: false,  // 是否已创建命中效果
             onHit: onHit  // 命中回调
@@ -354,6 +357,10 @@ function createAnimationSystem(deps) {
      */
     function drawMeteorAnimations(scale) {
         var ctx = getCtx();
+        var beautyFrames = getBeautyFrames();
+        var bluelightImg = getBluelightImg();
+        var now = getGameTime();
+
         for (let i = 0; i < meteorAnimations.length; i++) {
             var anim = meteorAnimations[i];
             ctx.save();
@@ -370,10 +377,27 @@ function createAnimationSystem(deps) {
 
             ctx.globalAlpha = 1;
 
-            // 绘制流星主体（发光效果）
             var meteorSize = anim.size * scale;
 
-            // 外发光
+            // 1) GC光圈序列帧 — 主体外围一圈
+            if (beautyFrames && beautyFrames.length > 0) {
+                var gcFrameIdx = Math.floor(now / 60) % beautyFrames.length;
+                var gcImg = beautyFrames[gcFrameIdx];
+                if (gcImg && gcImg.complete) {
+                    var gcRingSize = meteorSize * 3.5;
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.drawImage(
+                        gcImg,
+                        anim.x - gcRingSize / 2,
+                        anim.y - gcRingSize / 2,
+                        gcRingSize,
+                        gcRingSize
+                    );
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            }
+
+            // 2) 流星主体外发光（径向渐变）
             var gradient = ctx.createRadialGradient(
                 anim.x, anim.y, 0,
                 anim.x, anim.y, meteorSize * 2
@@ -386,15 +410,50 @@ function createAnimationSystem(deps) {
             ctx.fillStyle = gradient;
             ctx.fill();
 
-            // 绘制星星形状
+            // 3) 绘制星星形状
             drawMeteorStar(anim.x, anim.y, meteorSize, anim.color, anim.starType, anim.isCritical);
 
-            // 绘制尾焰（弧线拖尾）
+            // 4) Bluelight光线特效 — 仅英雄流星（暴击/蓄力/拖拽/节奏技）
+            if (anim.heroic && bluelightImg && bluelightImg.complete) {
+                ctx.globalCompositeOperation = 'lighter';
+
+                // 第一张（底层）：方形挤压，覆盖整个流星主体
+                var blSize1 = meteorSize * 2.56;
+                ctx.drawImage(
+                    bluelightImg,
+                    anim.x - blSize1 / 2,
+                    anim.y - blSize1 / 2,
+                    blSize1,
+                    blSize1
+                );
+
+                // 第二张（顶层）：水平光线
+                // 前半段 progress 0→0.5 宽度从0拉长到400；后半段保持400±100抖动
+                var baseW2 = 400;
+                if (anim.progress < 0.5) {
+                    baseW2 = (anim.progress / 0.5) * 400;  // 0→400 线性拉长
+                }
+                var blW2 = baseW2 + (Math.random() * 200 - 100);
+                var blH2 = 7;
+                // 前半段透明度也从0→1
+                var baseAlpha = anim.progress < 0.5 ? (anim.progress / 0.5) : 1;
+                ctx.globalAlpha = baseAlpha * (0.5 + Math.random() * 0.5);
+                ctx.drawImage(
+                    bluelightImg,
+                    anim.x - blW2 / 2,
+                    anim.y - blH2 / 2,
+                    blW2,
+                    blH2
+                );
+
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            // 5) 绘制尾焰（弧线拖尾）
             drawMeteorTail(anim.startX, anim.startY, anim.x, anim.y, anim.color, anim.glowColor, scale, anim.pathPoints);
 
             ctx.restore();
 
-            // 如果动画完成，绘制命中效果
             if (anim.completed && !anim.hitEffectCreated) {
                 anim.hitEffectCreated = true;
                 createMeteorHitEffect(anim.endX, anim.endY, anim.damage, anim.isCritical, anim.starType);

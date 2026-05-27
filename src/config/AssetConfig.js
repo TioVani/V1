@@ -30,8 +30,8 @@ export var IMAGE_GROUPS = {
     ],
     character: [
         { id: 'char_starter',             src: 'assets/images/character/YCX_HF.png' },
-        { id: 'char_warrior',             src: 'assets/images/character/XXZS_HF.png' },
-        { id: 'char_warriorPortrait',     src: 'assets/images/character/XXZS.png' },
+        { id: 'char_warrior',             src: 'assets/images/character/DH_HF.png' },
+        { id: 'char_warriorPortrait',     src: 'assets/images/character/DH.png' },
         { id: 'char_starterPortrait',     src: 'assets/images/character/YCX_Portrait.png' },
         { id: 'char_worldMapPlayer',       src: 'assets/images/ui/PLAYER_ALPHA.png' },
     ],

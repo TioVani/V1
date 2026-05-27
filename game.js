@@ -775,6 +775,7 @@ const Assets = {
     worldMapBg14: null,
     worldMapBg15: null,
     worldMapBg16: null,
+    worldMapBg17: null,
     bgPositionCache: null,  // 缓存背景图片位置信息
     fightBgPositionCache: null,  // 缓存战斗背景图片位置信息
     fightBgPositionCache2: null, // 缓存第二张战斗背景图片位置信息
@@ -1102,6 +1103,7 @@ function init() {
         Assets.worldMapBg14 = assetManager.get('worldMapBg14');
         Assets.worldMapBg15 = assetManager.get('worldMapBg15');
         Assets.worldMapBg16 = assetManager.get('worldMapBg16');
+        Assets.worldMapBg17 = assetManager.get('worldMapBg17');
         Assets.characterImages.starter = assetManager.get('char_starter');
         Assets.characterImages.starterPortrait = assetManager.get('char_starterPortrait');
         Assets.characterImages.warrior = assetManager.get('char_warrior');
@@ -2836,6 +2838,7 @@ function init() {
             addMessage: function(msg, color) { addGameMessage(msg, color); },
             createScreenShake: function(i) { createScreenShake(i); },
             applyDamageToMonster: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); },
+            attackMonster: function(dmg, crit, type, target) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, crit, type, target); },
             saturationState: saturationState,
             drawStar: function(starObj, x, y, size, sc) { if (drawStar) drawStar(starObj, x, y, size, sc); },
             addScore: function(pts) { score += pts; },
@@ -3630,7 +3633,9 @@ runtimeData.godMode = false;
                 }
                 if (result.type === 'npc') {
                     _log('NPC对话:', result.entity.id);
+                    console.log('[W17-DBG] NPC interact result, dialogue lines:', result.dialogue ? result.dialogue.length : 0, 'worldMapRenderer:', !!worldMapRenderer);
                     if (worldMapRenderer && result.dialogue && result.dialogue.length > 0) {
+                        console.log('[W17-DBG] Calling showDialogue');
                         worldMapRenderer.showDialogue(result.dialogue);
                         // 检查第一句是否有 voice 标记，播放语音
                         var firstLine = result.dialogue[0];
@@ -3661,7 +3666,7 @@ runtimeData.godMode = false;
             if (key === 'e' && state === GAME_STATE.WORLDMAP && worldMapSystem) {
                 if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
                     var nextLine = worldMapRenderer.advanceDialogue();
-                    if (typeof nextLine === 'object' && nextLine.voice && audioSystem) {
+                    if (nextLine && typeof nextLine === 'object' && nextLine.voice && audioSystem) {
                         if (nextLine.stopVoice) audioSystem.stopVo(nextLine.stopVoice);
                         audioSystem.playVo(nextLine.voice);
                     }
@@ -3815,7 +3820,7 @@ function handleTouchStart(res) {
         // 对话框点击推进
         if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
             var nextLine = worldMapRenderer.advanceDialogue();
-            if (typeof nextLine === 'object' && nextLine.voice && audioSystem) {
+            if (nextLine && typeof nextLine === 'object' && nextLine.voice && audioSystem) {
                 if (nextLine.stopVoice) audioSystem.stopVo(nextLine.stopVoice);
                 audioSystem.playVo(nextLine.voice);
             }
@@ -3912,6 +3917,7 @@ function handleTouchStart(res) {
         }
 
         // 触屏实体交互（二次确认机制）
+        console.log('[W17-DBG] touch x=' + x + ' y=' + y + ' confirmOpen=' + worldMapRenderer.isConfirmOpen());
         if (worldMapRenderer.isConfirmOpen()) {
             if (worldMapRenderer.checkConfirmHit(x, y)) {
                 var cId = worldMapRenderer.getConfirmEntityId();
@@ -3923,9 +3929,11 @@ function handleTouchStart(res) {
             worldMapRenderer.dismissConfirm();
         }
         var nearby = worldMapSystem.getNearbyEntity();
+        console.log('[W17-DBG] nearby=' + (nearby ? nearby.id + ' type=' + nearby.type : 'null'));
         if (nearby) {
             var sp = worldMapRenderer.worldToScreen(nearby.x, nearby.y);
             var ir = (nearby.interactRadius || 40) * scale;
+            console.log('[W17-DBG] sp=' + sp.x + ',' + sp.y + ' ir=' + ir + ' hitTest=' + (x >= sp.x - ir && x <= sp.x + ir && y >= sp.y - ir && y <= sp.y + ir));
             if (x >= sp.x - ir && x <= sp.x + ir && y >= sp.y - ir && y <= sp.y + ir) {
                 _log('触屏弹出确认:', nearby.id);
                 worldMapRenderer.showConfirm(nearby);

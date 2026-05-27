@@ -50,7 +50,7 @@ var TRANSFER_TABLE = [
     { id:'portal_return', world:'world_02', x:116, y:746, sx:null, sy:null, to:'world_01', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_shuhan', world:'world_02', x:12, y:379, sx:null, sy:null, to:'world_03', exp:0, msg:'通往蜀汉的传送门', dr:100, ir:50, pr:90 },
     { id:'portal_world05', world:'world_02', x:660, y:33, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:120, ir:60, pr:90 },
-    { id:'portal_w02_w17', world:'world_02', x:1314, y:353, sx:null, sy:null, to:'world_17', exp:0, msg:null, dr:120, ir:60, pr:90 },
+    { id:'portal_w02_w17', world:'world_02', x:1314, y:353, sx:37, sy:939, to:'world_17', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_return_egypt', world:'world_03', x:114, y:754, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_market', world:'world_03', x:1338, y:384, sx:null, sy:null, to:'world_04', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_alley', world:'world_04', x:70, y:384, sx:null, sy:null, to:'world_03', exp:0, msg:null, dr:100, ir:50, pr:90 },
@@ -80,8 +80,10 @@ var TRANSFER_TABLE = [
     { id:'portal_floor2_w15', world:'world_15', x:704, y:680, sx:null, sy:null, to:'world_14', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_floor4', world:'world_15', x:704, y:88, sx:null, sy:null, to:'world_16', exp:0.8, msg:'击败本层守护者才能继续攀登', dr:100, ir:50, pr:89 },
     { id:'portal_floor3_w16', world:'world_16', x:704, y:680, sx:null, sy:null, to:'world_15', exp:0, msg:null, dr:100, ir:50, pr:90 },
-    { id:'start_world_17', world:'world_17', x:704, y:384 },
-    { id:'portal_w17_w02', world:'world_17', x:704, y:384, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:120, ir:60, pr:90 },
+    { id:'start_world_17', world:'world_17', x:19, y:954 },
+    { id:'portal_w17_w02', world:'world_17', x:19, y:954, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:120, ir:60, pr:90 },
+    { id:'teleport_w17_a2b', world:'world_17', x:200, y:607, tx:616, ty:747, tf:1, dr:40, ir:25, pr:70 },
+    { id:'teleport_w17_b2a', world:'world_17', x:616, y:747, tx:200, ty:607, tf:1, dr:40, ir:25, pr:70 },
 ];
 
 function buildTransferDataForWorld(worldId) {

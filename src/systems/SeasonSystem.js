@@ -217,7 +217,12 @@ function createSeasonSystem(deps) {
                     };
                     saveDataFn();
                 } else {
-                    setSeasonLeaderboard(savedSeason.leaderboard || generateMockSeasonLeaderboard());
+                    // 排行榜每次重新生成（占位角色，无需持久化旧数据）
+                    var newLb = generateMockSeasonLeaderboard();
+                    setSeasonLeaderboard(newLb);
+                    // 同步到存储，避免下次仍读到旧数据
+                    pd.seasonData.leaderboard = newLb;
+                    saveDataFn();
                 }
             } else {
                 setSeasonContent(generateSeasonContent());
@@ -261,27 +266,69 @@ function createSeasonSystem(deps) {
                 generatedAt: Date.now()
             });
             setSeasonBestScore(0);
-            setSeasonLeaderboard([]);
+            setSeasonLeaderboard(generateMockSeasonLeaderboard());
         }
     }
 
     function generateMockSeasonLeaderboard() {
-        var names = ['星耀王者', '传奇猎人', '永恒之星', '阴灵猎手', '光明使者',
-                     '木灵领主', '水灵女王', '烈焰战神', '金雷霸主', '幻影刺客'];
-        var scores = [15000, 12000, 10000, 8500, 7000, 5800, 4500, 3200, 2000, 1000];
-        var sc = getSeasonContent();
+        var seed = getSeasonSeed();
+        var rng = function(offset) {
+            return seededRandom(seed + offset);
+        };
 
+        var names = [
+            '墨渊·暗影帝君', '秋月·流光仙尊', '雷啸·天罚武帝', '霜华·冰魄圣女', '炎刹·焚天龙王',
+            '叶隐·千刃剑圣', '云曦·苍穹祭司', '风语·翠林神巫', '岩守·不灭金刚', '魅影·虚空行者',
+            '紫薇·星象宗师', '凌风·疾影箭皇', '冥歌·魂语先知', '青莲·净世圣使', '血月·夜煞魔尊'
+        ];
+
+        // 25个阶梯分数：从入门到传说级，激发玩家挑战欲望
+        var scoreTiers = [
+            98000,  // 1. 传说门槛 — 遥不可及，激励顶尖玩家
+            85000,  // 2. 至尊之间
+            78000,  // 3. 宗师巅峰
+            72000,  // 4. 大师顶层
+            65000,  // 5. 大师门坎
+            58000,  // 6. 钻石高位
+            52000,  // 7. 钻石中位
+            45000,  // 8. 钻石入门
+            38000,  // 9. 铂金顶层
+            32000,  // 10. 铂金中位
+            28000,  // 11. 铂金入門
+            23000,  // 12. 黄金高位
+            18000,  // 13. 黄金中位
+            12000,  // 14. 黄金入门
+            6500    // 15. 白银之巅 — 普通玩家的第一个追赶目标
+        ];
+
+        var avatars = [
+            '👑', '🏆', '💎', '🔱', '⚔️', '🗡️', '⛪', '🌿', '🛡️', '🌌',
+            '🔮', '🏹', '🎭', '🪷', '🩸'
+        ];
+
+        var sc = getSeasonContent();
+        var character = sc ? sc.character : 'starter';
+        var skills = sc ? sc.skills : [];
+        var pet = (sc && sc.pets) ? sc.pets[0] : 'pet_slime';
+
+        // 为每个占位玩家随机微调分数(+/- 8%)，让榜单看起来更真实
         var result = [];
-        for (let i = 0; i < names.length; i++) {
+        for (var i = 0; i < Math.min(names.length, scoreTiers.length); i++) {
+            var baseScore = scoreTiers[i];
+            var jitter = Math.floor((rng(i * 3 + 1) - 0.5) * 0.16 * baseScore);
+            var finalScore = baseScore + jitter;
+            // 确保不低于最低梯队
+            if (finalScore < 1000) finalScore = 1000;
+
             result.push({
                 rank: i + 1,
                 name: names[i],
-                score: scores[i],
-                avatar: ['👑', '🏆', '🥇', '🥈', '🥉', '⭐', '🌟', '💫', '✨', '🎯'][i],
+                score: finalScore,
+                avatar: avatars[i],
                 selection: {
-                    character: sc ? sc.character : 'starter',
-                    skills: sc ? sc.skills : [],
-                    pet: sc && sc.pets ? sc.pets[0] : 'pet_slime'
+                    character: character,
+                    skills: skills,
+                    pet: pet
                 }
             });
         }

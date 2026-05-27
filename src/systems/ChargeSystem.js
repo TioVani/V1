@@ -12,7 +12,7 @@ var CHARGE_AUTO_ABSORB_RADIUS = 120;
 var CHARGE_AUTO_ABSORB_PROGRESS = 0.08;
 var AUTO_CAST_DELAY = 250;       // 满蓄后250ms自动施法
 var CAST_EFFECT_DURATION = 400;  // 爆裂粒子消散时长
-var METEOR_DURATION = 300;       // 流星飞行时长
+
 
 function createChargeSystem(deps) {
     var getSaveData = deps.getSaveData;
@@ -31,6 +31,10 @@ function createChargeSystem(deps) {
     var addScore = deps.addScore || function () { };
     var addLinkCharge = deps.addLinkCharge || function () { };
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var createMeteorAnimation = deps.createMeteorAnimation || function () { return null; };
+    var attackMonster = deps.attackMonster || function(dmg, crit, type, target) {
+        if (typeof applyDamageToMonster === 'function') applyDamageToMonster(target, dmg);
+    };
 
     var state = {
         phase: 'idle',               // idle|monitoring|charging|autoCast|castEffect
@@ -46,7 +50,7 @@ function createChargeSystem(deps) {
         dragBuff: 0,
         autoCastStartTime: 0,
         castParticles: [],
-        castMeteors: [],
+        absorbedTrails: [],
         firedLightMeteor: false,      // 轻蓄阶段流星已发射
         firedMediumMeteor: false,     // 中蓄阶段流星已发射
         absorbedMeteorCount: 0       // 已因吸收灵光发射的流星数
@@ -175,27 +179,23 @@ function createChargeSystem(deps) {
 
         var pd = getSaveData();
         var baseAtk = pd.totalAttack || 50;
+        var designOffsetY = getDesignOffsetY();
         var scale = getScreenScale ? getScreenScale() : 1;
+        var sw = getScreenWidth ? getScreenWidth() : 375;
 
-        // 随机选一个怪物
         var target = aliveMonsters[Math.floor(Math.random() * aliveMonsters.length)];
-        var dmg = Math.floor(baseAtk * 1.0); // 单颗流星基础伤害
-        if (target.shield && target.shield > 0) {
-            if (dmg <= target.shield) { target.shield -= dmg; dmg = 0; }
-            else { dmg -= target.shield; target.shield = 0; }
-        }
-        target.hp = Math.max(0, target.hp - dmg);
+        var dmg = Math.floor(baseAtk * 1.0);
 
-        var endX = (target.x || cx) * scale;
-        var endY = (target.y || cy - 80 * scale);
-        state.castMeteors.push({
-            startX: cx, startY: cy,
-            endX: endX, endY: endY,
-            startTime: Date.now(),
-            duration: METEOR_DURATION,
-            color: '#FFD700',
-            size: 6 * scale
-        });
+        createMeteorAnimation(
+            cx, cy,
+            dmg, false, 'normal', 0, 1,
+            function() {
+                attackMonster(dmg, false, 'charge', target);
+            },
+            { x: target.x || sw / 2,
+              y: target.y || (designOffsetY + Math.floor(271 * scale)),
+              heroic: true }
+        );
         addMessage('流星 -' + dmg, '#FFD700');
     }
 
@@ -226,22 +226,24 @@ function createChargeSystem(deps) {
         });
     }
 
-    function spawnCastMeteors(cx, cy, targets, level) {
-        var meteorColor = level.stage === 'full' ? '#FF4400' : '#FFD700';
+    function spawnCastMeteors(cx, cy, targets, damages, level) {
         var scale = getScreenScale ? getScreenScale() : 1;
+        var sw = getScreenWidth ? getScreenWidth() : 375;
+        var designOffsetY = getDesignOffsetY();
+        var isFull = level.stage === 'full';
         for (var i = 0; i < targets.length; i++) {
             var m = targets[i];
-            // 怪物位置：用屏幕坐标（x是相对canvas的，y需要估算）
-            var endX = (m.x || cx) * scale;
-            var endY = (m.y || cy - 80 * scale);
-            state.castMeteors.push({
-                startX: cx, startY: cy,
-                endX: endX, endY: endY,
-                startTime: Date.now(),
-                duration: METEOR_DURATION,
-                color: meteorColor,
-                size: (level.stage === 'full' ? 10 : 6) * scale
-            });
+            var dmg = damages[i];
+            (function(target, dmg, isFull) {
+                createMeteorAnimation(
+                    cx, cy,
+                    dmg, isFull, 'normal', 0, 1,
+                    function() { attackMonster(dmg, isFull, 'charge', target); },
+                    { x: m.x || sw / 2,
+                      y: m.y || (designOffsetY + Math.floor(271 * scale)),
+                      heroic: true }
+                );
+            })(m, dmg, isFull);
         }
     }
 
@@ -285,15 +287,11 @@ function createChargeSystem(deps) {
         }
 
         var totalDamage = 0;
+        var damages = [];
         for (var t = 0; t < targets.length; t++) {
             var m = targets[t];
             var dmg = Math.floor(baseAtk * level.damageMult);
-            if (level.breaksShield && m.shield && m.shield > 0) m.shield = 0;
-            if (m.shield && m.shield > 0) {
-                if (dmg <= m.shield) { m.shield -= dmg; dmg = 0; }
-                else { dmg -= m.shield; m.shield = 0; }
-            }
-            m.hp = Math.max(0, m.hp - dmg);
+            damages.push(dmg);
             totalDamage += dmg;
         }
 
@@ -314,7 +312,7 @@ function createChargeSystem(deps) {
         var cx = state.chargeCenterX;
         var cy = state.chargeCenterY;
         spawnCastBurst(cx, cy, level);
-        spawnCastMeteors(cx, cy, targets, level);
+        spawnCastMeteors(cx, cy, targets, damages, level);
 
         if (state.chargeStar) {
             addMessage('蓄力消耗 ' + (state.chargeStar.emoji || '灵光'), '#FFD700');
@@ -372,6 +370,7 @@ function createChargeSystem(deps) {
                 var cx = state.chargeCenterX;
                 var cy = state.chargeCenterY;
                 var removedIndices = [];
+                var removedStars = [];
                 var absorbedCount = 0;
                 for (var i = stars.length - 1; i >= 0; i--) {
                     var s = stars[i];
@@ -382,6 +381,7 @@ function createChargeSystem(deps) {
                     var dy = s.y - cy;
                     if (Math.sqrt(dx * dx + dy * dy) < absorbRadius) {
                         removedIndices.push(i);
+                        removedStars.push({ x: s.x, y: s.y, emoji: s.emoji || '⭐', size: s.size || 48, type: s.type || 'normal', scale: s.scale || 1 });
                         absorbedCount++;
                     }
                 }
@@ -391,6 +391,20 @@ function createChargeSystem(deps) {
                         if (removedIndices.indexOf(j) === -1) newStars.push(stars[j]);
                     }
                     setStars(newStars);
+                    // 吸收动画：飞向中心的灵光轨迹
+                    for (var rt = 0; rt < removedStars.length; rt++) {
+                        var rs = removedStars[rt];
+                        state.absorbedTrails.push({
+                            x: rs.x, y: rs.y,
+                            targetX: cx, targetY: cy,
+                            startTime: Date.now(),
+                            duration: 280,
+                            emoji: rs.emoji,
+                            size: rs.size,
+                            type: rs.type,
+                            scale: rs.scale
+                        });
+                    }
                     state.chargeStartTime -= absorbedCount * CHARGE_AUTO_ABSORB_PROGRESS * CHARGE_FULL_MIN;
                     // 每吸收1颗灵光 → 发射1颗流星
                     for (var am = 0; am < absorbedCount; am++) {
@@ -423,6 +437,13 @@ function createChargeSystem(deps) {
                 state.autoCastStartTime = Date.now();
                 addMessage('蓄力已满! 即刻释放!', '#FF4400');
             }
+
+            // 清理已完成的吸收 trail
+            for (var at = state.absorbedTrails.length - 1; at >= 0; at--) {
+                if (Date.now() - state.absorbedTrails[at].startTime > state.absorbedTrails[at].duration) {
+                    state.absorbedTrails.splice(at, 1);
+                }
+            }
         }
 
         // autoCast: 500ms倒计时后自动施法
@@ -448,13 +469,7 @@ function createChargeSystem(deps) {
                 }
                 if (p.alpha <= 0) state.castParticles.splice(pi, 1);
             }
-            var now = Date.now();
-            for (var mi = state.castMeteors.length - 1; mi >= 0; mi--) {
-                if (now - state.castMeteors[mi].startTime > state.castMeteors[mi].duration) {
-                    state.castMeteors.splice(mi, 1);
-                }
-            }
-            if (state.castParticles.length === 0 && state.castMeteors.length === 0) {
+            if (state.castParticles.length === 0) {
                 state.phase = 'idle';
             }
         }
@@ -580,39 +595,28 @@ function createChargeSystem(deps) {
             ctx.fillRect(barX, barY, barW, barH);
             ctx.fillStyle = 'rgb(' + color.r + ',' + color.g + ',' + color.b + ')';
             ctx.fillRect(barX, barY, barW * progress, barH);
-        }
 
-        // charging/autoCast/castEffect 共享：渲染飞行中的流星
-        if (state.phase === 'charging' || state.phase === 'autoCast' || state.phase === 'castEffect') {
-            var nowM = Date.now();
-            for (var mi3 = 0; mi3 < state.castMeteors.length; mi3++) {
-                var m3 = state.castMeteors[mi3];
-                var mt = Math.min(1, (nowM - m3.startTime) / m3.duration);
-                var mx3 = m3.startX + (m3.endX - m3.startX) * mt;
-                var my3 = m3.startY + (m3.endY - m3.startY) * mt;
-
-                var tailLen3 = 30 * scale * (1 - mt * 0.5);
-                var angle3 = Math.atan2(m3.endY - m3.startY, m3.endX - m3.startX);
-                var tailX3 = mx3 - Math.cos(angle3) * tailLen3;
-                var tailY3 = my3 - Math.sin(angle3) * tailLen3;
-
-                ctx.beginPath();
-                ctx.moveTo(tailX3, tailY3);
-                ctx.lineTo(mx3, my3);
-                ctx.strokeStyle = m3.color === '#FF4400' ? 'rgba(255,68,0,0.6)' : 'rgba(255,215,0,0.6)';
-                ctx.lineWidth = m3.size * 0.6;
-                ctx.stroke();
-
-                ctx.beginPath();
-                ctx.arc(mx3, my3, m3.size, 0, Math.PI * 2);
-                ctx.fillStyle = m3.color === '#FF4400' ? 'rgba(255,68,0,0.9)' : 'rgba(255,215,0,0.9)';
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = m3.color;
-                ctx.fill();
-                ctx.shadowBlur = 0;
-                ctx.shadowColor = 'transparent';
+            // 吸收灵光飞入动画
+            if (state.absorbedTrails.length > 0) {
+                var nowAT = Date.now();
+                for (var ai = 0; ai < state.absorbedTrails.length; ai++) {
+                    var t = state.absorbedTrails[ai];
+                    var ap = Math.min(1, (nowAT - t.startTime) / t.duration);
+                    var tx = t.x + (t.targetX - t.x) * ap;
+                    var ty = t.y + (t.targetY - t.y) * ap;
+                    var alpha = 1 - ap;
+                    var sz = (t.size || 28) * scale * (1 - ap * 0.4);
+                    ctx.globalAlpha = alpha;
+                    ctx.font = sz + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(t.emoji, tx, ty);
+                    ctx.globalAlpha = 1;
+                }
             }
         }
+
+        
         if (state.phase === 'castEffect') {
             // 粒子（流星已在共享渲染块中处理）
             for (var pi2 = 0; pi2 < state.castParticles.length; pi2++) {
@@ -634,7 +638,7 @@ function createChargeSystem(deps) {
         }
     }
 
-    function reset() { cancelCharge(); state.castParticles = []; state.castMeteors = []; }
+    function reset() { cancelCharge(); state.castParticles = []; state.absorbedTrails = []; }
 
     return {
         isUnlocked: isUnlocked,

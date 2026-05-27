@@ -19,7 +19,7 @@ function createWorldMapEntity(deps) {
         _entities = config.entities ? config.entities.slice() : [];
         _entityStates = {};
         for (var i = 0; i < _entities.length; i++) {
-            _entityStates[_entities[i].id] = { discovered: false, resolved: false };
+            _entityStates[_entities[i].id] = { discovered: true, resolved: false };
         }
     }
 

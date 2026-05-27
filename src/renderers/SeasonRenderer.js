@@ -487,7 +487,7 @@ function createSeasonRenderer(deps) {
 
         // 列表背景
         ctx.fillStyle = 'rgba(30, 30, 50, 0.8)';
-        fillRoundRect(ctx, Math.floor(20 * scale), listStartY - Math.floor(10 * scale), screenWidth - Math.floor(40 * scale), itemHeight * 10 + Math.floor(20 * scale), 8);
+        fillRoundRect(ctx, Math.floor(20 * scale), listStartY - Math.floor(10 * scale), screenWidth - Math.floor(40 * scale), itemHeight * displayCount + Math.floor(20 * scale), 8);
 
         // 表头
         ctx.fillStyle = '#aaaaaa';
@@ -501,7 +501,7 @@ function createSeasonRenderer(deps) {
 
         // 排行榜项目
         var leaderboardLen = seasonLeaderboard ? seasonLeaderboard.length : 0;
-        var displayCount = Math.min(leaderboardLen, 10);
+        var displayCount = Math.min(leaderboardLen, 25);   // 最多显示25位，实际占位15位
         for (var li = 0; li < displayCount; li++) {
             var item = seasonLeaderboard[li];
             var lItemY = listStartY + Math.floor(25 * scale) + li * itemHeight;

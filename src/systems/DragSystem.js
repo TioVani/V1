@@ -20,7 +20,6 @@ var MAX_AGGREGATE = 6;          // 本轮聚合上限
 var STACK_ATTACK_BONUS = 0.05;
 var CHARACTER_AREA_RADIUS = 45;  // 角色区域半径（缩放前）
 var IDLE_THRESHOLD = 5;          // 手指停下判定像素阈值
-var METEOR_DURATION = 300;       // 流星飞行时长(ms)
 
 function createDragSystem(deps) {
     var getSaveData = deps.getSaveData;
@@ -38,6 +37,9 @@ function createDragSystem(deps) {
     var addLinkCharge = deps.addLinkCharge || function () { };
     var saturationState = deps.saturationState;
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var createMeteorAnimation = deps.createMeteorAnimation || function () { return null; };
+    var getStarImage = deps.getStarImage || function () { return null; };
+    var getTotalAttack = deps.getTotalAttack || function () { return 0; };
 
     // 内部状态
     var state = {
@@ -55,7 +57,6 @@ function createDragSystem(deps) {
         lastMoveX: 0,
         lastMoveY: 0,
         draggingStars: [],       // 被聚合的灵光对象（_dragging标记）
-        dragMeteors: [],         // 聚合流星 [{x,y,targetX,targetY,startTime,duration,damage}]
         cumulativeMeteorDamage: 0 // 流星累积伤害
     };
 
@@ -173,21 +174,23 @@ function createDragSystem(deps) {
                         addScore(5);
                         addLinkCharge(5);
 
-                        // 有怪物时 → 发射流星
+                        // 有怪物时 → 发射流星（复用AnimationSystem通用流星动画，即时造成基础伤害）
                         var aliveMonsters = getActiveMonsters();
                         if (aliveMonsters && aliveMonsters.length > 0) {
                             var target = aliveMonsters[Math.floor(Math.random() * aliveMonsters.length)];
-                            var baseDamage = 20;
+                            var totalAtk = getTotalAttack();
+                            var baseDamage = Math.floor(totalAtk * 1.5);
                             state.cumulativeMeteorDamage += baseDamage;
-                            state.dragMeteors.push({
-                                startX: x,
-                                startY: y,
-                                targetX: target.x || (getScreenWidth ? getScreenWidth() / 2 : 188),
-                                targetY: target.y || (designOffsetY + Math.floor(271 * (getScreenScale ? getScreenScale() : 1))),
-                                startTime: Date.now(),
-                                duration: METEOR_DURATION,
-                                damage: state.cumulativeMeteorDamage
-                            });
+                            // 流星飞到即造成基础伤害（即时结算）
+                            createMeteorAnimation(
+                                x, y, baseDamage, false, s.type || 'normal', 0, 1,
+                                function() {
+                                    attackMonster(baseDamage, false, 'drag', target);
+                                },
+                                { x: target.x || (getScreenWidth ? getScreenWidth() / 2 : 188),
+                                  y: target.y || (designOffsetY + Math.floor(271 * (getScreenScale ? getScreenScale() : 1))),
+                                  heroic: true }
+                            );
                         }
 
                         addMessage('吸收 ' + (s.emoji || '灵光') + ' 聚合+' + state.currentAggregate, '#ffd700');
@@ -227,16 +230,6 @@ function createDragSystem(deps) {
      * @returns {object|null} transition signal
      */
     function update(dt) {
-        // 清理过期流星
-        var now = Date.now();
-        var activeMeteors = [];
-        for (var m = 0; m < state.dragMeteors.length; m++) {
-            if (now - state.dragMeteors[m].startTime < state.dragMeteors[m].duration) {
-                activeMeteors.push(state.dragMeteors[m]);
-            }
-        }
-        state.dragMeteors = activeMeteors;
-
         if (state.phase !== 'dragging') return null;
         if (state.currentAggregate < 1) return null;
         if (!state.lastMoveTime) return null;
@@ -268,6 +261,30 @@ function createDragSystem(deps) {
     function endDrag() {
         if (state.phase !== 'dragging') return;
 
+        var aggregateCount = state.currentAggregate;
+
+        // 发射聚合本体流星（从手指位置飞向怪物，伤害 = 固定基础 + 攻击力附加，随角色成长）
+        if (aggregateCount > 0) {
+            var aliveMonsters = getActiveMonsters();
+            if (aliveMonsters && aliveMonsters.length > 0) {
+                var target = aliveMonsters[Math.floor(Math.random() * aliveMonsters.length)];
+                var bonus = getAttackBonus();  // 1 + dragStacks * 0.05
+                var totalAtk = getTotalAttack();
+                var aggregateDamage = Math.floor(aggregateCount * totalAtk * 2.0 * bonus);
+                createMeteorAnimation(
+                    state.currentX, state.currentY, aggregateDamage, aggregateCount >= MAX_AGGREGATE,
+                    'normal', aggregateCount * 5, bonus,
+                    function() {
+                        attackMonster(aggregateDamage, aggregateCount >= MAX_AGGREGATE, 'drag', target);
+                    },
+                    { x: target.x || (getScreenWidth ? getScreenWidth() / 2 : 188),
+                      y: target.y || (getDesignOffsetY() + Math.floor(271 * (getScreenScale ? getScreenScale() : 1))),
+                      heroic: true }
+                );
+                addMessage('聚合灵光·' + aggregateCount + '连! ' + aggregateDamage + '伤害!', '#ff8800');
+            }
+        }
+
         // 6颗叠满 → 触发拖拽技（爆发伤害）
         if (state.currentAggregate >= MAX_AGGREGATE) {
             var aliveMonsters = getActiveMonsters();
@@ -295,7 +312,6 @@ function createDragSystem(deps) {
         state.lastMoveTime = 0;
         state.lastMoveX = 0;
         state.lastMoveY = 0;
-        state.dragMeteors = [];
         state.cumulativeMeteorDamage = 0;
 
         // 2秒后解除冷却
@@ -336,20 +352,22 @@ function createDragSystem(deps) {
         ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
         ctx.fill();
 
-        // 被聚合的灵光跟随手指
-        for (var i = 0; i < state.draggingStars.length; i++) {
-            var ds = state.draggingStars[i];
-            var emoji = ds.emoji || '⭐';
-            var sz = (ds.size || 28) * (ds.scale || 1) * scale;
-            // 以手指位置为中心，螺旋排列
-            var angle = i * Math.PI * 2 / Math.max(state.draggingStars.length, 3) + Date.now() / 500;
-            var orbitR = 18 * scale + i * 6 * scale;
-            var sx = state.currentX + Math.cos(angle) * orbitR;
-            var sy = state.currentY + Math.sin(angle) * orbitR;
-            ctx.font = sz + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(emoji, sx, sy);
+        // 被聚合的灵光跟随手指，用 LG.png 图片 + lighter 叠加（黑底透明化）
+        var starImg = getStarImage();
+        if (starImg) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (var i = 0; i < state.draggingStars.length; i++) {
+                var ds = state.draggingStars[i];
+                var sz = (ds.size || 48) * (ds.scale || 1) * scale;
+                var angle = i * Math.PI * 2 / Math.max(state.draggingStars.length, 3) + Date.now() / 500;
+                var orbitR = 18 * scale + i * 6 * scale;
+                var sx = state.currentX + Math.cos(angle) * orbitR - sz / 2;
+                var sy = state.currentY + Math.sin(angle) * orbitR - sz / 2;
+                ctx.drawImage(starImg, sx, sy, sz, sz);
+            }
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.restore();
         }
 
         // 聚合数量标签
@@ -358,38 +376,6 @@ function createDragSystem(deps) {
             ctx.fillStyle = '#FFD700';
             ctx.textAlign = 'center';
             ctx.fillText('聚合×' + state.currentAggregate, state.currentX, state.currentY - 22 * scale);
-        }
-
-        // 流星渲染
-        for (var mi = 0; mi < state.dragMeteors.length; mi++) {
-            var meteor = state.dragMeteors[mi];
-            var elapsed = Date.now() - meteor.startTime;
-            var progress = Math.min(1, elapsed / meteor.duration);
-            var mx = meteor.startX + (meteor.targetX - meteor.startX) * progress;
-            var my = meteor.startY + (meteor.targetY - meteor.startY) * progress;
-            var trailLen = 25 * scale;
-            var dx = meteor.targetX - meteor.startX;
-            var dy = meteor.targetY - meteor.startY;
-            var dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            var nx = dx / dist;
-            var ny = dy / dist;
-
-            // 拖尾渐变线
-            ctx.beginPath();
-            ctx.moveTo(mx, my);
-            ctx.lineTo(mx - nx * trailLen, my - ny * trailLen);
-            var trailGrad = ctx.createLinearGradient(mx, my, mx - nx * trailLen, my - ny * trailLen);
-            trailGrad.addColorStop(0, 'rgba(255,215,0,0.9)');
-            trailGrad.addColorStop(1, 'rgba(255,215,0,0)');
-            ctx.strokeStyle = trailGrad;
-            ctx.lineWidth = 3 * scale;
-            ctx.stroke();
-
-            // 流星头部发光点
-            ctx.beginPath();
-            ctx.arc(mx, my, 4 * scale, 0, Math.PI * 2);
-            ctx.fillStyle = '#FFD700';
-            ctx.fill();
         }
     }
 
@@ -408,7 +394,6 @@ function createDragSystem(deps) {
         state.lastMoveX = 0;
         state.lastMoveY = 0;
         state.draggingStars = [];
-        state.dragMeteors = [];
         state.cumulativeMeteorDamage = 0;
     }
 
@@ -429,7 +414,6 @@ function createDragSystem(deps) {
         getCurrentAggregate: function() { return state.currentAggregate; },
         getCurrentX: function() { return state.currentX; },
         getCurrentY: function() { return state.currentY; },
-        getDragMeteors: function() { return state.dragMeteors; },
         getCumulativeMeteorDamage: function() { return state.cumulativeMeteorDamage; },
         render: render,
         reset: reset

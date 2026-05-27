@@ -558,17 +558,22 @@ var WORLDS = {
         worldId: 'world_17',
         name: '赛博埃及·冥境',
         backgroundImage: 'assets/images/worldmap/cyber_egypt_nether_1_20260526_110114.png',
-        width: 1408,
-        height: 768,
+        width: 922,
+        height: 1152,
         hasTutorial: false,
         entryCutscene: null,
+        collisionMaskData: 'world_017_F01',
+        transparencyMaskData: 'world_017_T01',
         collisions: [],
+        floors: [
+            { id: 1, collisionMaskData: 'world_017_F01', transparencyMaskData: 'world_017_T01', backgroundImage: 'assets/images/worldmap/cyber_egypt_nether_1_20260526_110114.png' }
+        ],
         entities: [
             {
                 id: 'ferryman',
                 name: '摆渡人',
                 type: 'npc',
-                x: 669, y: 435,
+                x: 377, y: 676,
                 discoverRadius: 80,
                 interactRadius: 40,
                 priority: 30,
@@ -578,6 +583,17 @@ var WORLDS = {
                     { text: '想要过河？证明你的实力吧——征服那座试炼之塔，我便渡你过去。', voice: 'voLing002', stopVoice: 'voLing001' },
                     { text: '古灵们留下的试炼之塔就在北面，那是通往彼岸的唯一途径。', voice: 'voLing003', stopVoice: 'voLing002' }
                 ]
+            },
+            {
+                id: 'chest_w17_elite',
+                type: 'chest',
+                x: 423, y: 979,
+                discoverRadius: 60,
+                interactRadius: 30,
+                priority: 40,
+                once: true,
+                chestType: 'normal',
+                reward: { characterExp: 50, spiritStones: 60, equipmentRarityRange: ['N', 'R', 'SR'], equipmentCount: 1 }
             }
         ],
         triggerLines: []

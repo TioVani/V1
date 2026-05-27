@@ -34,8 +34,10 @@ function createMenuRenderer(deps) {
     var getGameState = deps.getGameState;
     var getSeasonScore = deps.getSeasonScore;
     var getSeasonBestScore = deps.getSeasonBestScore;
+    var getMonstersKilled = deps.getMonstersKilled || function() { return 0; };
     var getSeasonRank = deps.getSeasonRank;
     var getSeasonContent = deps.getSeasonContent;
+    var getSeasonLeaderboard = deps.getSeasonLeaderboard || function() { return []; };
     var getSeasonSelection = deps.getSeasonSelection;
     var getAdSystem = deps.getAdSystem;
     var getTimeLeft = deps.getTimeLeft;
@@ -391,6 +393,19 @@ function createMenuRenderer(deps) {
             ctx.stroke();
         }
 
+        // 调试按钮（右上角，始终可见）
+        var _dbSz = Math.floor(32 * scale);
+        var _dbOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
+        var _dbX = screenWidth - Math.floor(50 * scale) + _dbOv.dx * scale;
+        var _dbY = designOffsetY + Math.floor(15 * scale) + _dbOv.dy * scale;
+        ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
+        fillRoundRect(ctx, _dbX, _dbY, _dbSz, _dbSz, 4);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🔧', _dbX + _dbSz / 2, _dbY + _dbSz / 2);
+
         // 角色图标（右下角）
         if (pd.ownedCharacters && pd.ownedCharacters.length > 0 && pd.currentCharacterId) {
             var currentCharId = pd.currentCharacterId;
@@ -402,34 +417,34 @@ function createMenuRenderer(deps) {
                 var baseY = designBottom - Math.floor(92 * scale);
                 var charExp = getCharacterExperience(currentCharId);
                 var expPercent = charExp.exp / charExp.maxExp;
-                var rightX = baseX + 90;
-                var rightY = baseY - 2;
-                var charIconSize = 50;
+                var rightX = baseX + Math.floor(90 * scale);
+                var rightY = baseY - Math.floor(2 * scale);
+                var charIconSize = Math.floor(50 * scale);
 
                 if (Assets.characterImages[mappedCharId] && Assets.characterImages[mappedCharId].complete && Assets.characterImages[mappedCharId].naturalWidth > 0) {
                     ctx.drawImage(Assets.characterImages[mappedCharId], rightX, rightY, charIconSize, charIconSize);
                 } else {
-                    ctx.font = '48px sans-serif';
+                    ctx.font = Math.floor(48 * scale) + 'px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText('👤', rightX + charIconSize / 2, rightY + charIconSize / 2);
                 }
 
                 var expBarWidth = charIconSize;
-                var expBarHeight = 8;
+                var expBarHeight = Math.floor(8 * scale);
                 var expBarX = rightX;
-                var expBarY = rightY + charIconSize + 5;
+                var expBarY = rightY + charIconSize + Math.floor(5 * scale);
 
                 ctx.fillStyle = '#333333';
-                fillRoundRect(ctx, expBarX, expBarY, expBarWidth, expBarHeight, 3);
+                fillRoundRect(ctx, expBarX, expBarY, expBarWidth, expBarHeight, Math.floor(3 * scale));
                 ctx.fillStyle = '#4CAF50';
-                fillRoundRect(ctx, expBarX, expBarY, expBarWidth * expPercent, expBarHeight, 3);
+                fillRoundRect(ctx, expBarX, expBarY, expBarWidth * expPercent, expBarHeight, Math.floor(3 * scale));
 
                 ctx.fillStyle = '#aaaaaa';
-                ctx.font = '10px sans-serif';
+                ctx.font = Math.floor(10 * scale) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
-                ctx.fillText('Lv.' + charExp.level, rightX + expBarWidth / 2, expBarY + expBarHeight + 3);
+                ctx.fillText('Lv.' + charExp.level, rightX + expBarWidth / 2, expBarY + expBarHeight + Math.floor(3 * scale));
             }
         }
     }
@@ -489,10 +504,222 @@ function createMenuRenderer(deps) {
             var listStartY = Math.floor(140 * scale);
             var listH = screenHeight - listStartY;
             ctx.drawImage(leaderboardSharedCanvas, 0, 0, leaderboardSharedCanvas.width, leaderboardSharedCanvas.height, 0, listStartY, screenWidth, listH);
+        } else {
+            // 开发环境：无开放数据域时，使用本地占位榜单
+            renderLocalPlaceholderLeaderboard();
         }
 
         // 返回按钮
         drawBackButton();
+    }
+
+    // ========== 本地占位榜单渲染 ==========
+
+    // 三张榜单各有独立的前五名 + avatar
+    var _placeholderByTab = {
+        best_score: [
+            { name: '探汤', avatar: '👑' },
+            { name: 'Vani', avatar: '🏆' },
+            { name: '月兮', avatar: '💎' },
+            { name: '仁仁', avatar: '🔱' },
+            { name: 'YY',   avatar: '⚔️' },
+            { name: '叶隐·千刃剑圣', avatar: '🗡️' },
+            { name: '云曦·苍穹祭司', avatar: '⛪' },
+            { name: '风语·翠林神巫', avatar: '🌿' },
+            { name: '岩守·不灭金刚', avatar: '🛡️' },
+            { name: '魅影·虚空行者', avatar: '🌌' },
+            { name: '紫薇·星象宗师', avatar: '🔮' },
+            { name: '凌风·疾影箭皇', avatar: '🏹' },
+            { name: '冥歌·魂语先知', avatar: '🎭' },
+            { name: '青莲·净世圣使', avatar: '🪷' },
+            { name: '血月·夜煞魔尊', avatar: '🩸' }
+        ],
+        total_kills: [
+            { name: '仁仁', avatar: '👑' },
+            { name: 'Vani', avatar: '🏆' },
+            { name: '月兮', avatar: '💎' },
+            { name: '探汤', avatar: '🔱' },
+            { name: 'YY',   avatar: '⚔️' },
+            { name: '叶隐·千刃剑圣', avatar: '🗡️' },
+            { name: '云曦·苍穹祭司', avatar: '⛪' },
+            { name: '风语·翠林神巫', avatar: '🌿' },
+            { name: '岩守·不灭金刚', avatar: '🛡️' },
+            { name: '魅影·虚空行者', avatar: '🌌' },
+            { name: '紫薇·星象宗师', avatar: '🔮' },
+            { name: '凌风·疾影箭皇', avatar: '🏹' },
+            { name: '冥歌·魂语先知', avatar: '🎭' },
+            { name: '青莲·净世圣使', avatar: '🪷' },
+            { name: '血月·夜煞魔尊', avatar: '🩸' }
+        ],
+        season_score: [
+            { name: '月兮', avatar: '👑' },
+            { name: 'Vani', avatar: '🏆' },
+            { name: '探汤', avatar: '💎' },
+            { name: '仁仁', avatar: '🔱' },
+            { name: 'YY',   avatar: '⚔️' },
+            { name: '叶隐·千刃剑圣', avatar: '🗡️' },
+            { name: '云曦·苍穹祭司', avatar: '⛪' },
+            { name: '风语·翠林神巫', avatar: '🌿' },
+            { name: '岩守·不灭金刚', avatar: '🛡️' },
+            { name: '魅影·虚空行者', avatar: '🌌' },
+            { name: '紫薇·星象宗师', avatar: '🔮' },
+            { name: '凌风·疾影箭皇', avatar: '🏹' },
+            { name: '冥歌·魂语先知', avatar: '🎭' },
+            { name: '青莲·净世圣使', avatar: '🪷' },
+            { name: '血月·夜煞魔尊', avatar: '🩸' }
+        ]
+    };
+
+    var _bestScoreTiers = [98000, 85000, 78000, 72000, 65000, 58000, 52000, 45000, 38000, 32000, 28000, 23000, 18000, 12000, 6500];
+    var _killsTiers     = [99999, 85000, 72000, 65000, 55000, 48000, 42000, 36000, 30000, 24000, 18000, 13000, 8000,  4500,  1800];
+    var _seasonTiers    = [98000, 85000, 78000, 72000, 65000, 58000, 52000, 45000, 38000, 32000, 28000, 23000, 18000, 12000, 6500];
+
+    function renderLocalPlaceholderLeaderboard() {
+        var ctx = getCtx();
+        var screenWidth = getScreenWidth();
+        var screenHeight = getScreenHeight();
+        var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var currentLeaderboardTab = getCurrentLeaderboardTab();
+        var fillRoundRect = getFillRoundRect();
+
+        var listStartY = designOffsetY + Math.floor(130 * scale);
+        var itemHeight = Math.floor(43 * scale);
+
+        // 列表背景
+        ctx.fillStyle = 'rgba(30, 30, 50, 0.8)';
+        fillRoundRect(ctx, Math.floor(15 * scale), listStartY - Math.floor(8 * scale),
+            screenWidth - Math.floor(30 * scale), itemHeight * 15 + Math.floor(16 * scale), 8);
+
+        // 表头
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = 'bold ' + Math.floor(11 * scale) + 'px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('排名', Math.floor(35 * scale), listStartY + Math.floor(8 * scale));
+        ctx.fillText('唤灵人', Math.floor(85 * scale), listStartY + Math.floor(8 * scale));
+        ctx.textAlign = 'right';
+
+        var headerLabel = '灵辉值';
+        if (currentLeaderboardTab === 'total_kills') headerLabel = '净化数';
+        else if (currentLeaderboardTab === 'season_score') headerLabel = '赛季分';
+        ctx.fillText(headerLabel, screenWidth - Math.floor(30 * scale), listStartY + Math.floor(8 * scale));
+        ctx.textAlign = 'left';
+
+        // 选择对应的分数阶梯 和 名字列表
+        var tiers;
+        var names;
+        if (currentLeaderboardTab === 'total_kills') { tiers = _killsTiers; names = _placeholderByTab.total_kills; }
+        else if (currentLeaderboardTab === 'season_score') { tiers = _seasonTiers; names = _placeholderByTab.season_score; }
+        else { tiers = _bestScoreTiers; names = _placeholderByTab.best_score; }
+
+        // 渲染每一行
+        for (var i = 0; i < names.length; i++) {
+            var item = names[i];
+            var y = listStartY + Math.floor(22 * scale) + i * itemHeight;
+
+            // 背景色
+            var bgColor = 'transparent';
+            if (i === 0) bgColor = 'rgba(255, 215, 0, 0.1)';
+            else if (i === 1) bgColor = 'rgba(192, 192, 192, 0.1)';
+            else if (i === 2) bgColor = 'rgba(205, 127, 50, 0.1)';
+
+            if (bgColor !== 'transparent') {
+                ctx.fillStyle = bgColor;
+                fillRoundRect(ctx, Math.floor(18 * scale), y - Math.floor(16 * scale),
+                    screenWidth - Math.floor(36 * scale), itemHeight - Math.floor(4 * scale), 6);
+            }
+
+            // 排名
+            var rankCenterX = Math.floor(45 * scale);
+            if (i === 0) {
+                uiCore.drawSPText('冠军', rankCenterX, y, 12, scale);
+            } else if (i === 1) {
+                uiCore.drawLRText('亚军', rankCenterX, y, 12, scale);
+            } else if (i === 2) {
+                uiCore.drawURText('季军', rankCenterX, y, 12, scale);
+            } else {
+                ctx.fillStyle = '#aaaaaa';
+                ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('' + (i + 1), rankCenterX, y);
+            }
+
+            // 头像
+            ctx.font = Math.floor(18 * scale) + 'px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.avatar, Math.floor(85 * scale), y);
+
+            // 名字
+            ctx.fillStyle = '#ffffff';
+            ctx.font = Math.floor(13 * scale) + 'px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(item.name, Math.floor(115 * scale), y);
+
+            // 分数
+            var scoreStr = tiers[i].toLocaleString();
+            ctx.font = 'bold ' + Math.floor(13 * scale) + 'px sans-serif';
+            var scoreX = screenWidth - Math.floor(30 * scale);
+            if (i === 0) {
+                // drawSPText 内部 textAlign='center'，需要把坐标从右边缘偏移为文字中心
+                var textW = ctx.measureText(scoreStr).width;
+                uiCore.drawSPText(scoreStr, scoreX - textW / 2, y, 13, scale);
+            } else if (i === 1) {
+                var textW2 = ctx.measureText(scoreStr).width;
+                uiCore.drawLRText(scoreStr, scoreX - textW2 / 2, y, 13, scale);
+            } else if (i === 2) {
+                var textW3 = ctx.measureText(scoreStr).width;
+                uiCore.drawURText(scoreStr, scoreX - textW3 / 2, y, 13, scale);
+            } else {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold ' + Math.floor(13 * scale) + 'px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(scoreStr, scoreX, y);
+            }
+        }
+
+        // ========== 我的排名（底部）==========
+        var myScore = 0;
+        if (currentLeaderboardTab === 'total_kills') {
+            myScore = getMonstersKilled();
+        } else if (currentLeaderboardTab === 'season_score') {
+            myScore = getSeasonBestScore();
+        } else {
+            myScore = getBestScore();
+        }
+
+        if (myScore > 0) {
+            // 计算我的排名
+            var myRank = 1;
+            for (var mr = 0; mr < names.length; mr++) {
+                if (myScore < tiers[mr]) myRank++;
+            }
+
+            var myRankY = listStartY + Math.floor(22 * scale) + names.length * itemHeight + Math.floor(15 * scale);
+
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.2)';
+            fillRoundRect(ctx, Math.floor(18 * scale), myRankY - Math.floor(14 * scale),
+                screenWidth - Math.floor(36 * scale), Math.floor(36 * scale), 6);
+
+            ctx.fillStyle = '#E74C3C';
+            ctx.font = 'bold ' + Math.floor(11 * scale) + 'px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('我的排名', Math.floor(35 * scale), myRankY);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold ' + Math.floor(14 * scale) + 'px sans-serif';
+            ctx.fillText('#' + myRank, Math.floor(85 * scale), myRankY);
+
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold ' + Math.floor(13 * scale) + 'px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(myScore.toLocaleString(), scoreX, myRankY);
+        }
     }
 
     function renderSettings() {

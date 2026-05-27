@@ -128,7 +128,11 @@ function createWorldMapRenderer(deps) {
         var sw = getScreenWidth();
         var sh = getScreenHeight();
         var designOffsetY = getDesignOffsetY();
+        console.log('[W17-DBG-RENDER] renderWorldMap START, wms exists:', !!getWorldMapSystem());
+        _computeMapScale();
+        var scale = _mapScale;
         var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), sh);
+        console.log('[W17-DBG-RENDER] scale=' + scale + ' designBottom=' + designBottom + ' sw=' + sw + ' sh=' + sh);
         var wms = getWorldMapSystem();
         if (!wms) return;
         _computeMapScale();
@@ -206,16 +210,14 @@ function createWorldMapRenderer(deps) {
                 if (!resolved && assets.chestImage && assets.chestImage.complete) {
                     var chestSize = ir * 2;
                     ctx.drawImage(assets.chestImage, sp.x - chestSize / 2, sp.y - chestSize / 2, chestSize, chestSize);
-                } else {
-                    ctx.fillStyle = resolved ? '#555' : '#f0c040';
+                } else if (!resolved) {
+                    ctx.fillStyle = '#f0c040';
                     ctx.fillRect(sp.x - ir / 2, sp.y - ir / 2, ir, ir);
-                    if (!resolved) {
-                        ctx.fillStyle = '#fff';
-                        ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('箱', sp.x, sp.y);
-                    }
+                    ctx.fillStyle = '#fff';
+                    ctx.font = Math.floor(12 * scale) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('箱', sp.x, sp.y);
                 }
             } else if (e.type === 'enemy') {
                 ctx.fillStyle = '#e74c3c';
@@ -456,17 +458,42 @@ function createWorldMapRenderer(deps) {
         ctx.textAlign = 'left';
         ctx.fillText(worldName, Math.floor(15 * scale), designOffsetY + Math.floor(15 * scale));
 
-        // NPC 对话框
+        // NPC 对话框（用屏幕设计比例，不用地图缩放）
+        var uiScale = getScreenScale();
         if (_dialogue && _dialogue.lines.length > 0) {
-            var dlgW = sw - Math.floor(40 * scale);
-            var dlgH = Math.floor(120 * scale);
+            var lineIdx = Math.min(_dialogue.index, _dialogue.lines.length - 1);
+            var line = _dialogue.lines[lineIdx];
+            var lineText = typeof line === 'object' ? line.text : line;
+            var dlgFontSize = Math.floor(15 * uiScale);
+            ctx.font = dlgFontSize + 'px sans-serif';
+
+            // 先计算换行，确定对话框高度
+            var maxTextW = sw - Math.floor(80 * uiScale);
+            var lineH = dlgFontSize + Math.floor(4 * uiScale);
+            var textLines = [];
+            var curLine = '';
+            var chars = lineText.split('');
+            for (var ci = 0; ci < chars.length; ci++) {
+                var testLine = curLine + chars[ci];
+                if (ctx.measureText(testLine).width > maxTextW && curLine.length > 0) {
+                    textLines.push(curLine);
+                    curLine = chars[ci];
+                } else {
+                    curLine = testLine;
+                }
+            }
+            if (curLine) textLines.push(curLine);
+
+            var padding = Math.floor(20 * uiScale);
+            var dlgW = sw - Math.floor(40 * uiScale);
+            var dlgH = padding + textLines.length * lineH + Math.floor(30 * uiScale);
             var dlgX = (sw - dlgW) / 2;
-            var dlgY = designBottom - Math.floor(20 * scale) - dlgH;
+            var dlgY = designBottom - Math.floor(20 * uiScale) - dlgH;
 
             ctx.fillStyle = 'rgba(10,10,21,0.9)';
             ctx.strokeStyle = '#e8d5a3';
-            ctx.lineWidth = Math.floor(1.5 * scale);
-            var dr = Math.floor(8 * scale);
+            ctx.lineWidth = Math.floor(1.5 * uiScale);
+            var dr = Math.floor(8 * uiScale);
             ctx.beginPath();
             ctx.moveTo(dlgX + dr, dlgY);
             ctx.lineTo(dlgX + dlgW - dr, dlgY);
@@ -481,23 +508,25 @@ function createWorldMapRenderer(deps) {
             ctx.fill();
             ctx.stroke();
 
-            var lineIdx = Math.min(_dialogue.index, _dialogue.lines.length - 1);
-            var line = _dialogue.lines[lineIdx];
-            var lineText = typeof line === 'object' ? line.text : line;
-            var dlgFontSize = Math.floor(15 * scale);
+            // 渲染文本（已预计算 textLines）
             ctx.font = dlgFontSize + 'px sans-serif';
             ctx.fillStyle = '#e8d5a3';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.fillText(lineText, dlgX + Math.floor(20 * scale), dlgY + Math.floor(20 * scale), dlgW - Math.floor(40 * scale));
+            var textX = dlgX + padding;
+            var textY = dlgY + padding;
+            for (var ti = 0; ti < textLines.length; ti++) {
+                ctx.fillText(textLines[ti], textX, textY);
+                textY += lineH;
+            }
 
             // 继续提示
-            var hintSize = Math.floor(11 * scale);
+            var hintSize = Math.floor(11 * uiScale);
             ctx.font = hintSize + 'px sans-serif';
             ctx.fillStyle = 'rgba(232,213,163,0.5)';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'bottom';
-            ctx.fillText('点击继续', dlgX + dlgW - Math.floor(15 * scale), dlgY + dlgH - Math.floor(10 * scale));
+            ctx.fillText('点击继续', dlgX + dlgW - Math.floor(15 * uiScale), dlgY + dlgH - Math.floor(10 * uiScale));
         }
 
         // 虚拟摇杆
