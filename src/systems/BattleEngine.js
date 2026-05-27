@@ -624,6 +624,11 @@ function createBattleEngine(deps) {
                 anim.createStarBurst(star.x, star.y, 'dodge');
                 break;
 
+            case 'rainbow':
+                anim.playRainbow();
+                anim.createStarBurst(star.x, star.y, 'rainbow');
+                break;
+
             default:
                 anim.createStarBurst(star.x, star.y, star.type);
                 break;

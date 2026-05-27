@@ -504,6 +504,7 @@ function createStarSystem(deps) {
             } else {
                 doMerge();
             }
+            if (deps.playMerge) deps.playMerge();
 
             return true;
         }

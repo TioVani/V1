@@ -129,6 +129,7 @@ function createNormalBattleAdapter(deps) {
     var playQuickTap = deps.playQuickTap;
     var playHitEnemy = deps.playHitEnemy;
     var playPetAttack = deps.playPetAttack;
+    var playRainbow = deps.playRainbow;
 
     // ═══ 净化/掉落 deps ═══
     var getMonsterTypes = deps.getMonsterTypes;
@@ -217,7 +218,8 @@ function createNormalBattleAdapter(deps) {
                 playNormal: playNormal,
                 playQuickTap: playQuickTap,
                 playHitEnemy: playHitEnemy,
-                playPetAttack: playPetAttack
+                playPetAttack: playPetAttack,
+                playRainbow: playRainbow
             },
             combat: {
                 getSeasonStarTypes: function() { return []; },

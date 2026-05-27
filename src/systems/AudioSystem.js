@@ -35,6 +35,8 @@ function createAudioSystem(deps) {
     var _quickIds = ['battleQuick1', 'battleQuick2', 'battleQuick3', 'battleQuick4', 'battleQuick5', 'battleQuick6'];
     var _lastHitEnemyIdx = -1;
     var _hitEnemyIds = ['battleHitEnemy1', 'battleHitEnemy2', 'battleHitEnemy3', 'battleHitEnemy4', 'battleHitEnemy5'];
+    var _lastRainbowIdx = -1;
+    var _rainbowIds = ['battleRainbow1', 'battleRainbow2', 'battleRainbow3', 'battleRainbow4'];
 
     function init() {
         try {
@@ -197,7 +199,7 @@ function createAudioSystem(deps) {
     function playNormal() {
         var el = document.querySelector('audio[data-bgm-id="battleNormal"]');
         if (!el) return;
-        el.playbackRate = 0.6 + Math.random() * 0.8;
+        el.playbackRate = 0.4 + Math.random() * 1.2;
         el.volume = 0.4;
         el.currentTime = 0;
         el.play().catch(function() {});
@@ -256,6 +258,31 @@ function createAudioSystem(deps) {
         if (!el) return;
         el.playbackRate = 0.85 + Math.random() * 0.3;
         el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playRainbow() {
+        var idx;
+        if (_lastRainbowIdx < 0) {
+            idx = Math.floor(Math.random() * _rainbowIds.length);
+        } else {
+            idx = Math.floor(Math.random() * (_rainbowIds.length - 1));
+            if (idx >= _lastRainbowIdx) idx++;
+        }
+        _lastRainbowIdx = idx;
+        var el = document.querySelector('audio[data-bgm-id="' + _rainbowIds[idx] + '"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playMerge() {
+        var el = document.querySelector('audio[data-bgm-id="battleOne"]');
+        if (!el) return;
+        el.playbackRate = 0.9 + Math.random() * 0.2;
+        el.volume = 0.6;
         el.currentTime = 0;
         el.play().catch(function() {});
     }
@@ -581,6 +608,8 @@ function createAudioSystem(deps) {
         playHit: playHit,
         playQuickTap: playQuickTap,
         playHitEnemy: playHitEnemy,
+        playRainbow: playRainbow,
+        playMerge: playMerge,
         playFail: playFail,
         stopFail: stopFail,
         playSuccess: playSuccess,

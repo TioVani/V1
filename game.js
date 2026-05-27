@@ -1274,7 +1274,8 @@ function init() {
                 playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
                 playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
                 playHit: function() { if (audioSystem) audioSystem.playHit(); },
-                playNormal: function() { if (audioSystem) audioSystem.playNormal(); }
+                playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+                playRainbow: function() { if (audioSystem) audioSystem.playRainbow(); }
             },
             combat: {
                 getSeasonStarTypes: function() { return SEASON_STAR_TYPES; },
@@ -1675,7 +1676,8 @@ function init() {
             },
             combatSpec: _gameModules.COMBAT_SPEC,
             getPauseStartTime: function() { return pauseStartTime; },
-            createMergeAnimation: function(x1,y1,t1,x2,y2,t2,cb) { animationSystem.createMergeAnimation(x1,y1,t1,x2,y2,t2,cb); }
+            createMergeAnimation: function(x1,y1,t1,x2,y2,t2,cb) { animationSystem.createMergeAnimation(x1,y1,t1,x2,y2,t2,cb); },
+            playMerge: function() { if (audioSystem) audioSystem.playMerge(); }
         });
         addNewStar = function() { starSystem.addNewStar(); };
         addRandomStar = function() { starSystem.addRandomStar(); };
@@ -3118,6 +3120,7 @@ function init() {
             playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
             playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
             playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
+            playRainbow: function() { if (audioSystem) audioSystem.playRainbow(); },
             // 觉醒系统
             getPlayerHpScaling: function(pd) { return getPlayerHpScaling(pd || saveData); },
             getPlayerScoreScaling: function(pd) { return getPlayerScoreScaling(pd || saveData); },
@@ -4922,6 +4925,7 @@ function handleTouchStart(res) {
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('切换到引导任务');
             tasksTab = 'guide';
+            if (audioSystem) audioSystem.playUiSkip();
             return;
         }
 
@@ -4931,6 +4935,7 @@ function handleTouchStart(res) {
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('切换到每日任务');
             tasksTab = 'daily';
+            if (audioSystem) audioSystem.playUiSkip();
             return;
         }
 
@@ -4940,6 +4945,7 @@ function handleTouchStart(res) {
             y >= tabY - tabHeight/2 && y <= tabY + tabHeight/2) {
             _log('切换到成就任务');
             tasksTab = 'achievements';
+            if (audioSystem) audioSystem.playUiSkip();
             return;
         }
 
@@ -4966,6 +4972,7 @@ function handleTouchStart(res) {
                 y >= btnY - btnH/2 && y <= btnY + btnH/2) {
                 if (!task.claimed && task.completed) {
                     claimTaskReward(task.id, tasksTab);
+                    if (audioSystem) audioSystem.playTreasureBox();
                 }
             }
         });
@@ -4973,6 +4980,7 @@ function handleTouchStart(res) {
         // 返回按钮
         if (isBackButtonClicked(x, y)) {
             _log('点击任务返回按钮');
+            if (audioSystem) audioSystem.playMenu2();
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
