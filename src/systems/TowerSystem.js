@@ -133,6 +133,9 @@ function createTowerSystem(deps) {
     var playCritical = deps.playCritical || function () {};
     var playHit = deps.playHit || function () {};
     var playHitEnemy = deps.playHitEnemy || function () {};
+    var playNormal = deps.playNormal || function () {};
+    var playTreasureBox = deps.playTreasureBox || function () {};
+    var playTreasureMisc = deps.playTreasureMisc || function () {};
     var clearTimerInterval = deps.clearTimerInterval;
     var clearMoveInterval = deps.clearMoveInterval;
     var clearMonsterAttackInterval = deps.clearMonsterAttackInterval;
@@ -1623,6 +1626,7 @@ function createTowerSystem(deps) {
     function openTreasure(cell) {
         var treasure = cell.treasure;
         treasure.opened = true;
+        playTreasureBox();
 
         var pd = getSaveData();
         pd.gold = (pd.gold || 0) + treasure.gold;
@@ -1648,6 +1652,7 @@ function createTowerSystem(deps) {
     function collectMaterial(cell) {
         var material = cell.material;
         material.collected = true;
+        playTreasureMisc();
 
         var pd = getSaveData();
         if (!pd.materials[material.id]) {

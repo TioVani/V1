@@ -23,6 +23,7 @@ function createBossRenderer(deps) {
     var getBossSelectIsDragging = deps.getBossSelectIsDragging || function() { return false; };
     var setBossSelectScrollY = deps.setBossSelectScrollY || function() {};
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var getAudioSystem = deps.getAudioSystem || function() { return null; };
     var DESIGN_HEIGHT = 812;
 
     function renderBossBattleResult() {
@@ -273,6 +274,9 @@ function createBossRenderer(deps) {
 
         if (isBackButtonClicked(x, y)) {
             var bbm = getBossBattleMode();
+            var _as = getAudioSystem();
+            var _bossRes = bbm.getResult ? bbm.getResult() : null;
+            if (_as) { if (_bossRes && _bossRes.success) _as.stopSuccess(); else _as.stopFail(); }
             bbm.cleanup();
             transitionTo(GAME_STATE.WORLDMAP);
             return true;
@@ -281,6 +285,9 @@ function createBossRenderer(deps) {
         if (x >= getScreenWidth()/2 - btnWidth/2 && x <= getScreenWidth()/2 + btnWidth/2 &&
             y >= btnY && y <= btnY + btnHeight) {
             var bbm2 = getBossBattleMode();
+            var _as2 = getAudioSystem();
+            var _bossRes2 = bbm2.getResult ? bbm2.getResult() : null;
+            if (_as2) { if (_bossRes2 && _bossRes2.success) _as2.stopSuccess(); else _as2.stopFail(); }
             bbm2.cleanup();
             bbm2.init(bbm2.bossLevel);
             bbm2.start();

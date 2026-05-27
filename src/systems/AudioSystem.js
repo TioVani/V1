@@ -170,6 +170,56 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playFail() {
+        var el = document.querySelector('audio[data-bgm-id="battleFail"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function stopFail() {
+        fadeOutAudio('battleFail', 500);
+    }
+
+    function playSuccess() {
+        var el = document.querySelector('audio[data-bgm-id="battleSuccess"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function stopSuccess() {
+        fadeOutAudio('battleSuccess', 500);
+    }
+
+    function playNormal() {
+        var el = document.querySelector('audio[data-bgm-id="battleNormal"]');
+        if (!el) return;
+        el.playbackRate = 0.6 + Math.random() * 0.8;
+        el.volume = 0.4;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playTreasureBox() {
+        var el = document.querySelector('audio[data-bgm-id="treasureBox"]');
+        if (!el) return;
+        el.volume = 0.7;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
+    function playTreasureMisc() {
+        var el = document.querySelector('audio[data-bgm-id="treasureMisc"]');
+        if (!el) return;
+        el.playbackRate = 0.85 + Math.random() * 0.3;
+        el.volume = 0.5;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playQuickTap() {
         var idx;
         if (_lastQuickIdx < 0) {
@@ -491,6 +541,13 @@ function createAudioSystem(deps) {
         playHit: playHit,
         playQuickTap: playQuickTap,
         playHitEnemy: playHitEnemy,
+        playFail: playFail,
+        stopFail: stopFail,
+        playSuccess: playSuccess,
+        stopSuccess: stopSuccess,
+        playNormal: playNormal,
+        playTreasureBox: playTreasureBox,
+        playTreasureMisc: playTreasureMisc,
         playBackpack: playBackpack,
         playMonsterDefeat: playMonsterDefeat,
         playMeteor: playMeteor,

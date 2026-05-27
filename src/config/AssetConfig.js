@@ -115,6 +115,11 @@ export var AUDIO_CONFIG = {
         { id: 'battleHitEnemy3', src: 'assets/audio/battle/Battle_HitEnemy_3.ogg', loop: false },
         { id: 'battleHitEnemy4', src: 'assets/audio/battle/Battle_HitEnemy_4.ogg', loop: false },
         { id: 'battleHitEnemy5', src: 'assets/audio/battle/Battle_HitEnemy_5.ogg', loop: false },
+        { id: 'battleFail',     src: 'assets/audio/battle/Battle_Fail.ogg',     loop: false },
+        { id: 'battleSuccess', src: 'assets/audio/battle/Battle_Success.ogg', loop: false },
+        { id: 'battleNormal',   src: 'assets/audio/battle/Battle_Normal.ogg',   loop: false },
+        { id: 'treasureBox',    src: 'assets/audio/Treasure_box.ogg',            loop: false },
+        { id: 'treasureMisc',   src: 'assets/audio/Treasure_misc.ogg',            loop: false },
     ],
 };
 

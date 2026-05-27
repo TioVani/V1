@@ -843,6 +843,7 @@ function createBattleEngine(deps) {
                     if (S.extensions && S.extensions.onScoreEarned) {
                         S.extensions.onScoreEarned(star, result, 0, false);
                     }
+                    anim.playNormal();
                     return true;
                 }
 
@@ -910,6 +911,7 @@ function createBattleEngine(deps) {
                     result.starScore, result.comboMultiplier, null,
                     { x: targetMonster.x || scr.getWidth() / 2, y: targetMonster.y || scr.getHeight() / 3 }
                 );
+                anim.playNormal();
 
                 if (isCrit) anim.createCrit(star.x, star.y, actualDamage, result.starScore);
 
