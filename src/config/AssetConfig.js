@@ -101,6 +101,7 @@ export var AUDIO_CONFIG = {
         { id: 'uiAnswer2',    src: 'assets/audio/UI_Answer2.ogg', loop: false },
         { id: 'uiMenu1',     src: 'assets/audio/UI_menu1.ogg', loop: false },
         { id: 'uiMenu2',     src: 'assets/audio/UI_menu2.ogg', loop: false },
+        { id: 'uiSpirit',    src: 'assets/audio/UI_Spirit.ogg', loop: false },
         { id: 'voLing001',    src: 'assets/audio/vo/vo_ling_001.ogg', loop: false },
         { id: 'voLing002',    src: 'assets/audio/vo/vo_ling_002.ogg', loop: false },
         { id: 'voLing003',    src: 'assets/audio/vo/vo_ling_003.ogg', loop: false },

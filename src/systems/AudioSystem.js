@@ -253,6 +253,14 @@ function createAudioSystem(deps) {
         el.play().catch(function() {});
     }
 
+    function playSpirit() {
+        var el = document.querySelector('audio[data-bgm-id="uiSpirit"]');
+        if (!el) return;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playTreasureMisc() {
         var el = document.querySelector('audio[data-bgm-id="treasureMisc"]');
         if (!el) return;
@@ -554,6 +562,8 @@ function createAudioSystem(deps) {
             playBgm(_savedBgmId, _savedBgmVolume);
             _savedBgmId = null;
             _savedBgmVolume = 0;
+        } else {
+            playBgm('shuhanTheme', 0.32);
         }
     }
 
@@ -581,6 +591,8 @@ function createAudioSystem(deps) {
             playBgm(_savedTowerBgmId, _savedTowerBgmVolume);
             _savedTowerBgmId = null;
             _savedTowerBgmVolume = 0;
+        } else {
+            playBgm('shuhanTheme', 0.32);
         }
     }
 
@@ -619,6 +631,7 @@ function createAudioSystem(deps) {
         playQuestion: playQuestion,
         playMenu1: playMenu1,
         playMenu2: playMenu2,
+        playSpirit: playSpirit,
         playAnswer1: playAnswer1,
         playAnswer2: playAnswer2,
         playTreasureMisc: playTreasureMisc,

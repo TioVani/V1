@@ -3470,6 +3470,7 @@ runtimeData.godMode = false;
                 // 进入塔探索：保存当前BGM，播放塔音乐
                 if (state === GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER && prevState !== GAME_STATE.TOWER_COMBAT && prevState !== GAME_STATE.TOWER_RESUME && audioSystem) {
                     audioSystem.enterTower();
+                    audioSystem.playUiEnter2();
                     _battleMusicTriggered = false;
                 }
                 // 进入任务界面
@@ -3916,12 +3917,12 @@ function handleTouchStart(res) {
             // 展开菜单项点击
             if (uiScrollState.menuExpanded) {
                 var _menuItems = [
-                    { id: 'backpack', action: function() { if (audioSystem) audioSystem.playBackpack(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
-                    { id: 'shop', action: function() { stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
-                    { id: 'leaderboard', action: function() { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
-                    { id: 'season', action: function() { try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
-                    { id: 'boss', action: function() { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
-                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playTowerClick(); try { if (saveData.infiniteTower && saveData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
+                    { id: 'backpack', action: function() { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
+                    { id: 'shop', action: function() { if (audioSystem) audioSystem.playSpirit(); stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
+                    { id: 'leaderboard', action: function() { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
+                    { id: 'season', action: function() { if (audioSystem) audioSystem.playMenu2(); try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
+                    { id: 'boss', action: function() { if (audioSystem) audioSystem.playMenu2(); bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
+                    { id: 'tower', action: function() { if (audioSystem) audioSystem.playMenu2(); try { if (saveData.infiniteTower && saveData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
                     // { id: 'fusion', action: function() { state = GAME_STATE.FUSION; } },
                     // { id: 'upgrade', action: function() { state = GAME_STATE.UPGRADE; } }
                 ];
@@ -3950,7 +3951,7 @@ function handleTouchStart(res) {
             }
             if (x >= _tbX && x <= _tbX + _tbSize && y >= _tbY && y <= _tbY + _tbSize) {
                 _log('大地图点击展开菜单按钮');
-                if (audioSystem) audioSystem.playMenuClick();
+                if (audioSystem) audioSystem.playAnswer2();
                 uiScrollState.menuExpanded = !uiScrollState.menuExpanded;
                 return;
             }
@@ -4542,10 +4543,10 @@ function handleTouchStart(res) {
             // 展开的菜单项点击检测
             if (uiScrollState.menuExpanded) {
                 var menuItems = [
-                    { id: 'backpack', action: () => { if (audioSystem) audioSystem.playBackpack(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
-                    { id: 'shop', action: () => { stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
-                    { id: 'leaderboard', action: () => { stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
-                    { id: 'season', action: () => { 
+                    { id: 'backpack', action: () => { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.BACKPACK); updateTaskProgress('open_backpack', 1); updateTaskStats('backpackOpened', 1); } },
+                    { id: 'shop', action: () => { if (audioSystem) audioSystem.playSpirit(); stateMachine.transitionTo(GAME_STATE.SHOP); uiScrollState.shopTab = 'materials'; updateTaskProgress('open_shop', 1); updateTaskStats('shopOpened', 1); } },
+                    { id: 'leaderboard', action: () => { if (audioSystem) audioSystem.playMenu2(); stateMachine.transitionTo(GAME_STATE.LEADERBOARD); currentLeaderboardTab = 'best_score'; if (!openDataContext) initOpenDataContext(); currentLeaderboardTab = 'best_score'; sendLeaderboardMessage('show', 'best_score'); } },
+                    { id: 'season', action: () => { if (audioSystem) audioSystem.playMenu2();
                         try {
                             initSeasonContent(); 
                             seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
@@ -4554,9 +4555,9 @@ function handleTouchStart(res) {
                             $P.showToast({ title: '赛季暂不可用', icon: 'none' });
                         }
                     } },
-                    { id: 'boss', action: () => { bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
+                    { id: 'boss', action: () => { if (audioSystem) audioSystem.playMenu2(); bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
                     { id: 'tower', action: () => {
-                        if (audioSystem) audioSystem.playTowerClick();
+                        if (audioSystem) audioSystem.playMenu2();
                         try {
                             // 检查是否有暂停的进度
                             if (saveData.infiniteTower && saveData.infiniteTower.isPaused) {
