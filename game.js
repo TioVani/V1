@@ -96,6 +96,7 @@ var _gameModules = require('./dist/game-modules.js');
 var $P = _gameModules.BrowserAPI;
 var PauseCoordinator = _gameModules.PauseCoordinator;
 var createStarThiefSystem = _gameModules.createStarThiefSystem;
+var createVictoryHealPlugin = _gameModules.createVictoryHealPlugin;
 var createCaptureSystem = _gameModules.createCaptureSystem;
 var CAPTURE_STAR_TYPE = _gameModules.CAPTURE_STAR_TYPE || {};
 var CAPTURE_CONFIG = _gameModules.CAPTURE_CONFIG || {};
@@ -204,6 +205,7 @@ var assetManager = null;
 var upgradeEngine = null;
 var upgradeRenderer = null;
 let starThief = null;
+let victoryHealPlugin = null;
 let audioSystem = null;
 let taskSystem = null;
 let faithSystem = null;
@@ -409,6 +411,7 @@ var useGreedySkill = null;
 var checkGameOver = null;
 var updateMonsterAnimation = null;
 var attackMonster = null;
+var attackMonstersAOE = null;
 var killMonster = null;
 var onMonsterKilled = null;
 var updatePoisonEffect = null;
@@ -1137,6 +1140,13 @@ function init() {
         });
         _log('偷灵者模块初始化完成');
 
+        // 击杀回血插件
+        victoryHealPlugin = createVictoryHealPlugin({
+            addMessage: function(msg, color, isImportant) { addGameMessage(msg, color, isImportant); },
+            getCharacterFullStats: function(id) { return getCharacterFullStats(id); },
+            healPlayerFn: function(amount) { return normalBattleAdapter ? normalBattleAdapter.healPlayer(amount) : 0; }
+        });
+
         // 初始化收服系统模块
         captureSystem = createCaptureSystem({
             getSaveData: function() { return saveData; },
@@ -1245,7 +1255,8 @@ function init() {
             getSkillTypes: function() { return SkillTypes; },
             getPets: function() { return Pets; },
             clearBattleAnimations: function() { animationSystem.clearAllAnimations(); },
-            clearStars: function() { stars = []; }
+            clearStars: function() { stars = []; },
+            getModeLifecycle: function() { return modeLifecycle; }
         });
 
         // 创建 BattleEngine 并回填给 TowerSystem
@@ -2376,7 +2387,8 @@ function init() {
             getBossSelectIsDragging: function() { return bossSelectIsDragging; },
             setBossSelectScrollY: function(v) { bossSelectScrollY = v; },
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+            getModeLifecycle: function() { return modeLifecycle; }
         });
         renderBossBattleResult = function() { bossRenderer.renderBossBattleResult(); };
         renderBossSelect = function() { bossRenderer.renderBossSelect(); };
@@ -2567,6 +2579,9 @@ function init() {
         attackMonster = function(damage, isCritical, starType, targetMonster, skipKill) {
             return normalBattleAdapter.attackMonster(damage, isCritical, starType, targetMonster);
         };
+        attackMonstersAOE = function(damagePlan) {
+            return normalBattleAdapter.attackMonstersAOE(damagePlan);
+        };
         killMonster = function(isElementalCombo, targetMonster) { normalBattleAdapter.killMonster(isElementalCombo, targetMonster); };
         onMonsterKilled = function(targetMonster) { normalBattleAdapter.onMonsterKilled(targetMonster); };
         updatePoisonEffect = function() { normalBattleAdapter.updatePoisonEffect(); };
@@ -2697,7 +2712,7 @@ function init() {
             stageCriticalCount = 0;
             stagePerfectCount = 0;
             stageDamageTaken = 0;
-            stageModeSystem.startStage(stageId);
+            modeLifecycle.transitionTo('stage', { stageId: stageId });
         };
         _log('闯关模式系统模块初始化完成');
 
@@ -2828,8 +2843,18 @@ function init() {
             getMonsterSkillType: function() { return MonsterSkillType; },
             getSkillsConfig: function() { return Skills; },
             getSkillTypes: function() { return SkillTypes; },
+            // BattleEngine 音效依赖
+            playCombo: function() { if (audioSystem) audioSystem.playCombo(); },
+            playCritical: function() { if (audioSystem) audioSystem.playCritical(); },
+            playHit: function() { if (audioSystem) audioSystem.playHit(); },
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            playPoisonClick: function() { if (audioSystem) audioSystem.playPoisonClick(); },
+            playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); },
+            playHitEnemy: function() { if (audioSystem) audioSystem.playHitEnemy(); },
+            playPetAttack: function() { if (audioSystem) audioSystem.playPetAttack(); },
+            playRainbow: function(p) { if (audioSystem) audioSystem.playRainbow(p); },
             // NormalBattleAdapter 统一点击路径
-            initBossEngineFn: function(engine, config) { normalBattleAdapter.initBossEngine(engine, config); },
+            initBossEngineFn: function(engine, config, afterDamageHook) { normalBattleAdapter.initBossEngine(engine, config, afterDamageHook); },
             releaseBossEngineFn: function() { normalBattleAdapter.releaseEngine(); },
             updateStarSpawnInterval: function() { updateStarSpawnInterval(); }
         });
@@ -2928,6 +2953,7 @@ function init() {
             createScreenShake: function(i) { createScreenShake(i); },
             vibrateShort: function(type) { try { $P.vibrateShort({ type: type }); } catch(e) {} },
             attackMonster: function(dmg, crit, type, target) { attackMonster(dmg, crit, type, target); },
+            attackMonstersAOE: function(plan) { attackMonstersAOE(plan); },
             addScore: function(pts) { score += pts; },
             saturationState: saturationState,
             getBeautyFrames: function() { return Assets.beautyFrames || []; },
@@ -2935,7 +2961,9 @@ function init() {
             getDesignOffsetY: getDesignOffsetY,
             getAudioSystem: function() { return audioSystem; },
             playLinkStart: function() { if (audioSystem) audioSystem.playLinkStart(); },
-            playNormal: function() { if (audioSystem) audioSystem.playNormal(); }
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
+            createMonsterDamageAnimation: function(obj, dmg) { animationSystem.createMonsterDamageAnimation(obj, dmg); },
+            createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); }
         });
         _log('D4 灵光联连系统初始化完成');
 
@@ -2960,6 +2988,8 @@ function init() {
             getBeautyFrames: function() { return Assets.beautyFrames || []; },
             getStars: function() { return stars; },
             applyDamage: function(m, dmg) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, false, 'charge', m); },
+            attackMonster: function(dmg, crit, type, target) { if (normalBattleAdapter) normalBattleAdapter.attackMonster(dmg, crit, type, target); },
+            attackMonstersAOE: function(plan) { if (normalBattleAdapter) normalBattleAdapter.attackMonstersAOE(plan); },
             createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
             playerEffects: playerEffects,
             onComplete: function() { linkChainSystem.onRhythmSkillComplete(); },
@@ -2967,7 +2997,8 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
             playUiSkip: function() { if (audioSystem) audioSystem.playUiSkip(); },
             playQteActivate: function() { if (audioSystem) audioSystem.playQteActivate(); },
             calculateStarScore: function(t) { return calculateStarScore(t); },
-            calculateTotalAttack: function() { return calculateTotalAttack(); }
+            calculateTotalAttack: function() { return calculateTotalAttack(); },
+            createMonsterDamageAnimation: function(obj, dmg) { animationSystem.createMonsterDamageAnimation(obj, dmg); }
         });
         // 后注入 rhythmSkillSystem 到 linkChainSystem
         linkChainSystem._injectRhythmSkillSystem(rhythmSkillSystem);
@@ -3154,7 +3185,8 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                 }
             },
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+            victoryHealPlugin: victoryHealPlugin
         });
         _log('普通战斗适配器模块初始化完成');
 
@@ -3277,13 +3309,7 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
             onTutorialFail: function() { if (onTutorialFail) onTutorialFail(); }
         });
         startGame = function() {
-            if (rhythmSystem) rhythmSystem.reset();
-            if (chargeSystem) chargeSystem.reset();
-            if (dragSystem) dragSystem.reset();
-            if (linkChainSystem) linkChainSystem.reset();
-            if (touchGestureSystem) touchGestureSystem.reset();
-            _battleMusicTriggered = false;
-            gameLifecycleSystem.startGame();
+            modeLifecycle.transitionTo('normal');
         };
         endGame = function() {
             if (_tutorial.ending) return;
@@ -3331,6 +3357,9 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                         if (!saveData.currentCharacterId) {
                             saveData.currentCharacterId = 'char_001';
                         }
+                        // 强制重置初始角色经验数据，确保等级与属性面板一致
+                        saveData.characterExperience = saveData.characterExperience || {};
+                        saveData.characterExperience['char_001'] = { level: 1, exp: 0, maxExp: 100 };
                         dataStore.flush();
                         state = GAME_STATE.WORLDMAP;
                     }
@@ -3380,20 +3409,10 @@ runtimeData.godMode = false;
             _tutorial.ending = false;
         };
         restartGame = function() {
-            if (rhythmSystem) rhythmSystem.reset();
-            if (chargeSystem) chargeSystem.reset();
-            if (dragSystem) dragSystem.reset();
-            if (linkChainSystem) linkChainSystem.reset();
-            if (touchGestureSystem) touchGestureSystem.reset();
-            gameLifecycleSystem.restartGame();
+            modeLifecycle.transitionTo('normal');
         };
         startSeasonGame = function() {
-            if (rhythmSystem) rhythmSystem.reset();
-            if (chargeSystem) chargeSystem.reset();
-            if (dragSystem) dragSystem.reset();
-            if (linkChainSystem) linkChainSystem.reset();
-            if (touchGestureSystem) touchGestureSystem.reset();
-            gameLifecycleSystem.startSeasonGame();
+            modeLifecycle.transitionTo('season');
         };
         endSeasonGame = function() { gameLifecycleSystem.endSeasonGame(); };
         _log('游戏生命周期系统模块初始化完成');
@@ -3408,46 +3427,105 @@ runtimeData.godMode = false;
 
         // 注册 5 个战斗模式
         modeLifecycle.registerMode('normal', {
-            enter: function(ctx) { if (ctx && ctx.startGame) gameLifecycleSystem.startGame(); },
+            enter: function(ctx) {
+                if (rhythmSystem) rhythmSystem.reset();
+                if (chargeSystem) chargeSystem.reset();
+                if (dragSystem) dragSystem.reset();
+                if (linkChainSystem) linkChainSystem.reset();
+                if (touchGestureSystem) touchGestureSystem.reset();
+                _battleMusicTriggered = false;
+                gameLifecycleSystem.startGame();
+            },
             pause: function() {},
             resume: function(ctx) { gameLifecycleSystem.resumeNormalTimers(); },
-            cleanup: function() {
+            cleanup: function(ctx) {
                 if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
                 if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
                 if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                if (normalBattleAdapter) normalBattleAdapter.destroy();
                 saveBestScore();
+                if (audioSystem) audioSystem.endBattle();
+                if (ctx && ctx.fullExit) endGame();
+            },
+            restart: function(ctx) {
+                if (rhythmSystem) rhythmSystem.reset();
+                if (chargeSystem) chargeSystem.reset();
+                if (dragSystem) dragSystem.reset();
+                if (linkChainSystem) linkChainSystem.reset();
+                if (touchGestureSystem) touchGestureSystem.reset();
+                _battleMusicTriggered = false;
+                gameLifecycleSystem.startGame();
             }
         }, GAME_STATE.PLAYING);
 
         modeLifecycle.registerMode('boss', {
-            enter: function(ctx) {},
+            enter: function(ctx) {
+                if (ctx && ctx.level) BossBattleMode.init(ctx.level);
+                BossBattleMode.start();
+            },
             pause: function() {},
             resume: function(ctx) {},
-            cleanup: function() {
+            cleanup: function(ctx) {
                 if (BossBattleMode) BossBattleMode.cleanup();
                 saveBestScore();
+                if (audioSystem) audioSystem.endBattle();
+                if (ctx && ctx.fullExit) stateMachine.transitionTo(GAME_STATE.WORLDMAP);
+            },
+            restart: function(ctx) {
+                BossBattleMode.cleanup();
+                BossBattleMode.init(BossBattleMode.bossLevel);
+                BossBattleMode.start();
             }
         }, GAME_STATE.BOSS_BATTLE);
 
         modeLifecycle.registerMode('tower', {
-            enter: function(ctx) { if (audioSystem) audioSystem.enterBattle(); },
+            enter: function(ctx) {},
             pause: function() {},
             resume: function(ctx) {},
-            cleanup: function() { if (towerSystem) towerSystem.pauseTower(); }
+            cleanup: function(ctx) {
+                if (towerSystem) towerSystem.pauseTower();
+            },
+            restart: function(ctx) {
+                if (towerSystem) towerSystem.restartCurrentCombat();
+            }
         }, GAME_STATE.TOWER_COMBAT);
 
         modeLifecycle.registerMode('stage', {
-            enter: function(ctx) {},
+            enter: function(ctx) {
+                if (ctx && ctx.stageId) stageModeSystem.startStage(ctx.stageId);
+            },
             pause: function() {},
             resume: function(ctx) { stageModeSystem.resumeTimers(); },
-            cleanup: function() { if (stageModeSystem) stageModeSystem.end(false); }
+            cleanup: function(ctx) {
+                if (stageModeSystem) stageModeSystem.end(false);
+            },
+            restart: function(ctx) {
+                if (stageModeSystem) stageModeSystem.end(false);
+                startStage(StageMode.currentStage);
+            }
         }, GAME_STATE.STAGE_PLAYING);
 
         modeLifecycle.registerMode('season', {
-            enter: function(ctx) { if (ctx && ctx.start) gameLifecycleSystem.startSeasonGame(); },
+            enter: function(ctx) {
+                if (rhythmSystem) rhythmSystem.reset();
+                if (chargeSystem) chargeSystem.reset();
+                if (dragSystem) dragSystem.reset();
+                if (linkChainSystem) linkChainSystem.reset();
+                if (touchGestureSystem) touchGestureSystem.reset();
+                gameLifecycleSystem.startSeasonGame();
+            },
             pause: function() {},
             resume: function(ctx) { gameLifecycleSystem.resumeNormalTimers(); },
-            cleanup: function() { gameLifecycleSystem.endSeasonGame(); }
+            cleanup: function(ctx) { gameLifecycleSystem.endSeasonGame(); },
+            restart: function(ctx) {
+                if (rhythmSystem) rhythmSystem.reset();
+                if (chargeSystem) chargeSystem.reset();
+                if (dragSystem) dragSystem.reset();
+                if (linkChainSystem) linkChainSystem.reset();
+                if (touchGestureSystem) touchGestureSystem.reset();
+                gameLifecycleSystem.startSeasonGame();
+            }
         }, GAME_STATE.SEASON_PLAYING);
 
         _log('ModeLifecycleManager 初始化完成，已注册 5 个战斗模式');
@@ -4431,33 +4509,13 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单');
-                var exitMode = modeLifecycle.getPreviousMode() || modeLifecycle.getActiveMode();
-                // 不调 resume()，原因：resume → resumeNormalTimers → setGameState(PLAYING)
-                // → 覆盖 prevState → endSeasonGame 中 setGameState(GAMEOVER) 不被识别为赛季结束
-                // → endBattle 不触发 → 战斗音乐残留
-                if (exitMode === 'season') {
-                    endSeasonGame();
-                } else if (exitMode === 'stage') {
-                    stageModeSystem.end(false);
-                } else if (exitMode === 'boss') {
-                    BossBattleMode.cleanup();
-                } else if (exitMode === 'tower') {
-                    if (towerSystem && towerSystem.endCombat) towerSystem.endCombat();
-                    endGame();
+                var exitMode = modeLifecycle.getActiveMode();
+                if (exitMode) {
+                    modeLifecycle.cleanupMode(exitMode);
                 } else {
                     endGame();
                 }
-                // 兜底清理全局定时器（endSeasonGame 已清，双保险）
-                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-                if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
-                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
-                if (stopPetAttackTimer) stopPetAttackTimer();
-                if (normalBattleAdapter) normalBattleAdapter.destroy();
-                // 停止战斗音乐（直接调，绕过 prevState 依赖）
-                if (audioSystem) audioSystem.endBattle();
-                // 清除暂停标志（直接设内部字段，不触发 subscriber 重建定时器）
-                PauseCoordinator.instance._paused = false;
-                PauseCoordinator.instance._pauseStartTime = 0;
+                PauseCoordinator.instance.forceResetPaused();
                 return;
             }
 
@@ -4467,19 +4525,10 @@ function handleTouchStart(res) {
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击重新开始');
                 if (audioSystem) audioSystem.playMenu1();
-                PauseCoordinator.instance.resume();
-                var rMode = modeLifecycle.getPreviousMode();
-                if (rMode === 'boss') {
-                    BossBattleMode.cleanup();
-                    BossBattleMode.init(BossBattleMode.bossLevel);
-                    BossBattleMode.start();
-                } else if (rMode === 'stage') {
-                    stageModeSystem.end(false);
-                    startStage(StageMode.currentStage);
-                } else if (rMode === 'tower') {
-                    towerSystem.restartCurrentCombat();
-                } else if (rMode === 'season') {
-                    startSeasonGame();
+                PauseCoordinator.instance.forceResetPaused();
+                var rMode = modeLifecycle.getActiveMode();
+                if (rMode) {
+                    modeLifecycle.restartMode(rMode);
                 } else {
                     startGame();
                 }
@@ -5338,10 +5387,9 @@ function handleTouchStart(res) {
         }
         // 返回按钮和其他按钮已在前面处理
     } else if (state === GAME_STATE.GAMEOVER) {
-        // 判断是否是赛季模式
-        const isSeasonMode = seasonSelection.character !== null;
-        
-        if (isSeasonMode) {
+        var endedMode = modeLifecycle.getActiveMode() || 'normal';
+
+        if (endedMode === 'season') {
             // ===== 赛季模式结束按钮 =====
             const btnWidth = Math.floor(160 * scale);
             const btnHeight = Math.floor(50 * scale);
@@ -5352,17 +5400,16 @@ function handleTouchStart(res) {
                 y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
                 _log('点击再来一局按钮');
                 if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
-                startSeasonGame();
+                modeLifecycle.restartMode('season');
                 return;
             }
-            
+
             // 查看排行榜按钮
             const leaderboardBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.76 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
                 _log('点击查看排行榜按钮');
                 if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
-                // 记录赛季配置（排行榜展示用），但清空赛季选择防止后续误判
                 var _seasonSelectionSnapshot = Object.assign({}, seasonSelection);
                 seasonSelection = { character: null, skills: [], pet: null };
                 if (saveData.seasonData && saveData.seasonData.selection) {
@@ -5375,7 +5422,7 @@ function handleTouchStart(res) {
                 sendLeaderboardMessage('show', 'season_score');
                 return;
             }
-            
+
             // 返回菜单按钮
             const menuBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.84 * getScreenScale());
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
@@ -5399,7 +5446,7 @@ function handleTouchStart(res) {
             if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
                 _log('点击重新开始按钮');
                 if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer1(); audioSystem.restartBattle(); }
-                startGame();
+                modeLifecycle.restartMode('normal');
             }
 
             // 返回菜单按钮
@@ -5408,7 +5455,6 @@ function handleTouchStart(res) {
         if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
             _log('点击返回菜单按钮');
             if (audioSystem) { audioSystem.stopFail(); }
-            // 清空赛季残留，防止后续 GAMEOVER 误判
             seasonSelection = { character: null, skills: [], pet: null };
             if (saveData.seasonData && saveData.seasonData.selection) {
                 saveData.seasonData.selection = null;

@@ -52,6 +52,7 @@ function createLinkChainSystem(deps) {
     var createScreenShake = deps.createScreenShake || function () { };
     var vibrateShort = deps.vibrateShort || function () { };
     var attackMonster = deps.attackMonster || function () { };
+    var attackMonstersAOE = deps.attackMonstersAOE || function () { };
     var addScore = deps.addScore || function () { };
     var saturationState = deps.saturationState;
     var getBeautyFrames = deps.getBeautyFrames || function () { return []; };
@@ -59,6 +60,8 @@ function createLinkChainSystem(deps) {
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
     var playLinkStart = deps.playLinkStart || function () {};
     var playNormal = deps.playNormal || function () {};
+    var createMonsterDamageAnimation = deps.createMonsterDamageAnimation || function () {};
+    var createMeteor = deps.createMeteor || function () {};
 
     // 内部状态
     var state = {
@@ -86,7 +89,11 @@ function createLinkChainSystem(deps) {
         swipeActive: false,
         resultCallback: null,        // 异步结果回调
         linkMeteors: [],             // 联连流星 [{startX,startY,targetX,targetY,startTime,duration}]
-        cumulativeLinkDamage: 0      // 灵光流星累积伤害
+        cumulativeLinkDamage: 0,     // 灵光流星累积伤害
+        screenFlash: null,           // 全屏闪白 { startTime, duration, peakAlpha }
+        shockwaveRings: [],           // 全屏冲击波环 [{ startTime, duration, color, startRadius, endRadius }]
+        shockwaveOrigin: null,        // 冲击波扩散中心（触发灵光位置）
+        pendingMeteors: []            // 联连灵光流星雨调度 [{ star, delayMs, launched }]
     };
 
     function isUnlocked() {
@@ -403,10 +410,50 @@ function createLinkChainSystem(deps) {
         state.judgeResult = result || (state.matchedIndices.length >= MIN_MATCHED ? 'success' : 'fail');
         state.swipeActive = false;
 
-        // 全部激活时：每个激活灵光触发 GC + 2倍放大动画
         if (state.judgeResult === 'success') {
             playLinkStart();
             var now = Date.now();
+            var isEnhanced = state.matchedIndices.length > 3;
+            var screenW = getScreenWidth ? getScreenWidth() : 375;
+            var screenH = getScreenHeight ? getScreenHeight() : 667;
+            var maxDimension = Math.max(screenW, screenH);
+
+            state.screenFlash = { startTime: now, duration: 300, peakAlpha: isEnhanced ? 0.6 : 0.4 };
+            state.shockwaveOrigin = { x: state.linkedStars[0].x, y: state.linkedStars[0].y };
+            state.shockwaveRings = [{
+                startTime: now, duration: 600,
+                color: '#FFD700', startRadius: 0, endRadius: maxDimension * 1.2
+            }];
+            if (isEnhanced) {
+                state.shockwaveRings.push({
+                    startTime: now + 100, duration: 500,
+                    color: '#FF8C00', startRadius: 0, endRadius: maxDimension * 1.2
+                });
+            }
+
+            // ── 联连灵光流星雨调度 ──
+            // 收集所有匹配成功的联连灵光，按冲击波进度分配发射延迟
+            var matchedLs = [];
+            for (var i = 0; i < state.linkedStars.length; i++) {
+                if (state.matchedIndices.indexOf(state.linkedStars[i].index) !== -1) {
+                    matchedLs.push(state.linkedStars[i]);
+                }
+            }
+            var ringDur = state.shockwaveRings[0].duration || 600;
+            var totalCount = matchedLs.length;
+            if (totalCount > 0) {
+                var firstDelay = 0.20;  // 第一颗在进展 20%
+                var remaining = totalCount > 1 ? (0.95 - firstDelay) / (totalCount - 1) : 0;
+                for (var j = 0; j < totalCount; j++) {
+                    var fraction = j === 0 ? firstDelay : firstDelay + remaining * j;
+                    state.pendingMeteors.push({
+                        star: matchedLs[j].star,
+                        delayMs: fraction * ringDur,
+                        launched: false
+                    });
+                }
+            }
+
             for (var i = 0; i < state.linkedStars.length; i++) {
                 if (state.matchedIndices.indexOf(state.linkedStars[i].index) !== -1) {
                     state.linkedStars[i]._allMatchedTime = now;
@@ -428,19 +475,23 @@ function createLinkChainSystem(deps) {
             var monsters = getActiveMonsters();
             var pd = getSaveData();
             var baseAtk = pd.totalAttack || 50;
-            var totalDamage = 0;
 
+            // 伤害飞字 + 受击闪烁（先创建飞字动画，再走统一伤害管线）
+            var dmgPerTarget = Math.floor(baseAtk * multiplier);
             for (var m = 0; m < monsters.length; m++) {
                 var mon = monsters[m];
                 if (mon.hp <= 0 || !mon.active) continue;
-                var dmg = Math.floor(baseAtk * multiplier);
-                if (mon.shield && mon.shield > 0) {
-                    if (dmg <= mon.shield) { mon.shield -= dmg; dmg = 0; }
-                    else { dmg -= mon.shield; mon.shield = 0; }
-                }
-                mon.hp = Math.max(0, mon.hp - dmg);
-                totalDamage += dmg;
+                createMonsterDamageAnimation({ x: mon.x, y: mon.y }, dmgPerTarget);
+                mon._hitFlashUntil = Date.now() + 200;
             }
+
+            var aoeResult = attackMonstersAOE({
+                raw: dmgPerTarget,
+                starType: 'normal',
+                targets: monsters
+            });
+
+            var totalDamage = dmgPerTarget * monsters.filter(function(m) { return m.active; }).length;
 
             var label = isEnhanced ? '强化联连技' : '联连技';
             addMessage(label + '! ' + matchedCount + '连 ×' + multiplier + ' -' + totalDamage, '#FFD700', true);
@@ -498,6 +549,7 @@ function createLinkChainSystem(deps) {
         state.idleSinceTime = 0;
         state.linkMeteors = [];
         state.cumulativeLinkDamage = 0;
+        // screenFlash/shockwaveRings/shockwaveOrigin keep rendering during idle phase, expire naturally
         state.phase = 'idle';
         state.lastLinkEndTime = Date.now();
 
@@ -510,6 +562,86 @@ function createLinkChainSystem(deps) {
         return result;
     }
 
+    // ── 冲击波扫过灵光 → 引爆为流星 ──
+
+    function triggerStarMeteor(star) {
+        var monsters = getActiveMonsters();
+        if (!monsters || monsters.length === 0) return;
+
+        // 找最近怪物
+        var nearest = null;
+        var nearestDist = Infinity;
+        for (var m = 0; m < monsters.length; m++) {
+            var mon = monsters[m];
+            if (mon.hp <= 0 || !mon.active) continue;
+            var mdx = (mon.x || 0) - star.x;
+            var mdy = (mon.y || 0) - star.y;
+            var dist = mdx * mdx + mdy * mdy;
+            if (dist < nearestDist) { nearestDist = dist; nearest = mon; }
+        }
+
+        if (!nearest || !createMeteor) return;
+
+        var sw = getScreenWidth ? getScreenWidth() : 375;
+        var sh = getScreenHeight ? getScreenHeight() : 667;
+        var pd = getSaveData();
+        var baseAtk = pd.totalAttack || 50;
+        var dmg = Math.floor(baseAtk * 0.5);
+
+        createMeteor(
+            star.x, star.y,
+            dmg, false,
+            star.type || 'normal',
+            0, 1,
+            function() {
+                if (nearest && nearest.hp > 0) {
+                    var applied = dmg;
+                    if (nearest.shield && nearest.shield > 0) {
+                        if (applied <= nearest.shield) { nearest.shield -= applied; }
+                        else { applied -= nearest.shield; nearest.shield = 0; nearest.hp = Math.max(0, nearest.hp - applied); }
+                    } else {
+                        nearest.hp = Math.max(0, nearest.hp - applied);
+                    }
+                    addMessage('冲击波流星 -' + applied, '#FF8C00');
+                }
+            },
+            { x: nearest.x || sw / 2, y: nearest.y || sh / 3, heroic: true }
+        );
+
+        // 标记灵光消失
+        star.disappearTime = Date.now() - 1;
+    }
+
+    function detectShockwaveStarHits(now) {
+        for (var ri = 0; ri < state.shockwaveRings.length; ri++) {
+            var ring = state.shockwaveRings[ri];
+            var ringElapsed = now - ring.startTime;
+            if (ringElapsed < 0 || ringElapsed >= ring.duration) continue;
+
+            var ringProgress = ringElapsed / ring.duration;
+            var ringRadius = ring.startRadius + (ring.endRadius - ring.startRadius) * ringProgress;
+
+            var ox = state.shockwaveOrigin ? state.shockwaveOrigin.x : (getScreenWidth ? getScreenWidth() / 2 : 188);
+            var oy = state.shockwaveOrigin ? state.shockwaveOrigin.y : (getScreenHeight ? getScreenHeight() / 3 : 271);
+
+            var stars = getStars();
+            for (var si = 0; si < stars.length; si++) {
+                var s = stars[si];
+                if (s._linking || s._charging || s._dragging || s._rhythm) continue;
+                if (s._shockwaveTriggered) continue;
+
+                var dx = s.x - ox;
+                var dy = s.y - oy;
+                var dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist <= ringRadius) {
+                    s._shockwaveTriggered = true;
+                    triggerStarMeteor(s);
+                }
+            }
+        }
+    }
+
     // ── 联连超时失效（仅用于waiting阶段超时） ──
 
     function failLink() {
@@ -519,8 +651,34 @@ function createLinkChainSystem(deps) {
     // ── 每帧更新 ──
 
     function update(dt) {
-        // 清理过期流星
         var now = Date.now();
+
+        // 清理过期特效
+        if (state.screenFlash && now - state.screenFlash.startTime >= state.screenFlash.duration) {
+            state.screenFlash = null;
+        }
+
+        // 冲击波碰撞检测：扫过灵光引爆为流星
+        if (state.shockwaveRings.length > 0) {
+            detectShockwaveStarHits(now);
+        }
+
+        // ── 联连灵光流星雨：按冲击波延迟发射 ──
+        if (state.pendingMeteors.length > 0 && state.shockwaveRings.length > 0) {
+            var ringStartTime = state.shockwaveRings[0].startTime;
+            var ringDuration = state.shockwaveRings[0].duration || 600;
+            var ringElapsed = now - ringStartTime;
+            for (var mi = state.pendingMeteors.length - 1; mi >= 0; mi--) {
+                var pm = state.pendingMeteors[mi];
+                if (!pm.launched && ringElapsed >= pm.delayMs) {
+                    pm.launched = true;
+                    triggerStarMeteor(pm.star);
+                    state.pendingMeteors.splice(mi, 1);
+                }
+            }
+        }
+
+        // 清理过期流星
         var activeMeteors = [];
         for (var m = 0; m < state.linkMeteors.length; m++) {
             if (now - state.linkMeteors[m].startTime < state.linkMeteors[m].duration) {
@@ -688,7 +846,7 @@ function createLinkChainSystem(deps) {
         // 节奏阶段：不渲染联连相关内容（节奏灵光由 RhythmSkillSystem 渲染）
         if (state.phase === 'rhythm_ready') return;
 
-        if (state.phase === 'idle') return;
+        if (state.phase === 'idle' && !state.screenFlash && state.shockwaveRings.length === 0) return;
 
         // ready 阶段：触发灵光（跳动 + GC发光，在灵光原位）
         if (state.phase === 'ready') {
@@ -749,9 +907,63 @@ function createLinkChainSystem(deps) {
             return;
         }
 
-        // 慢动作遮罩
-        ctx.fillStyle = 'rgba(0, 0, 50, 0.15)';
-        ctx.fillRect(0, 0, screenW, screenH);
+        // 慢动作遮罩（仅慢动作期间）
+        if (state.isSlowMotion) {
+            ctx.fillStyle = 'rgba(0, 0, 50, 0.15)';
+            ctx.fillRect(0, 0, screenW, screenH);
+        }
+
+        // ── 全屏闪白 ──
+        var nowFx = Date.now();
+        if (state.screenFlash) {
+            var flashElapsed = nowFx - state.screenFlash.startTime;
+            if (flashElapsed < state.screenFlash.duration) {
+                var flashAlpha = state.screenFlash.peakAlpha * (1 - flashElapsed / state.screenFlash.duration);
+                ctx.fillStyle = 'rgba(255,255,255,' + flashAlpha.toFixed(3) + ')';
+                ctx.fillRect(0, 0, screenW, screenH);
+            } else {
+                state.screenFlash = null;
+            }
+        }
+
+        // ── 全屏冲击波环 ──
+        var activeRings = [];
+        for (var ri = 0; ri < state.shockwaveRings.length; ri++) {
+            var ring = state.shockwaveRings[ri];
+            var ringElapsed = nowFx - ring.startTime;
+            if (ringElapsed >= 0 && ringElapsed < ring.duration) {
+                var ringProgress = ringElapsed / ring.duration;
+                var ringRadius = ring.startRadius + (ring.endRadius - ring.startRadius) * ringProgress;
+                var ringAlpha = 1 - ringProgress;
+                var ringWidth = 3 + ringProgress * 9;
+
+                var ringCx = state.shockwaveOrigin ? state.shockwaveOrigin.x : screenW / 2;
+                var ringCy = state.shockwaveOrigin ? state.shockwaveOrigin.y : screenH / 3;
+
+                ctx.beginPath();
+                ctx.arc(ringCx, ringCy, ringRadius, 0, Math.PI * 2);
+                // Parse hex color to rgba
+                var rHex = parseInt(ring.color.slice(1, 3), 16);
+                var gHex = parseInt(ring.color.slice(3, 5), 16);
+                var bHex = parseInt(ring.color.slice(5, 7), 16);
+                ctx.strokeStyle = 'rgba(' + rHex + ',' + gHex + ',' + bHex + ',' + ringAlpha.toFixed(3) + ')';
+                ctx.lineWidth = ringWidth * scale;
+                ctx.stroke();
+
+                // 金色光晕：环内区域淡金色填充
+                var innerAlpha = 0.10 + 0.05 * Math.sin(nowFx / 120);
+                ctx.fillStyle = 'rgba(255, 215, 0, ' + innerAlpha.toFixed(3) + ')';
+                ctx.beginPath();
+                ctx.arc(ringCx, ringCy, ringRadius * 0.85, 0, Math.PI * 2);
+                ctx.fill();
+
+                activeRings.push(ring);
+            } else if (ringElapsed < 0) {
+                // Ring hasn't started yet (delayed ring)
+                activeRings.push(ring);
+            }
+        }
+        state.shockwaveRings = activeRings;
 
         var linked = state.linkedStars;
         if (linked.length < 2) return;
@@ -1009,6 +1221,17 @@ function createLinkChainSystem(deps) {
         state.resultCallback = null;
         state.linkMeteors = [];
         state.cumulativeLinkDamage = 0;
+        state.screenFlash = null;
+        state.shockwaveRings = [];
+        state.shockwaveOrigin = null;
+        state.pendingMeteors = [];
+
+        // 清理灵光上的冲击波触发标记
+        var resetStars = getStars();
+        for (var ri = 0; ri < resetStars.length; ri++) {
+            delete resetStars[ri]._shockwaveTriggered;
+        }
+
         if (rhythmSkillSystem) rhythmSkillSystem.reset();
     }
 

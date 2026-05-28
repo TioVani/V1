@@ -9,6 +9,7 @@
  * 2. 在此文件中 import 并添加到 GameModules 对象
  */
 import { createStarThiefSystem } from './systems/StarThiefSystem.js';
+import { createVictoryHealPlugin } from './systems/VictoryHealPlugin.js';
 import { createTaskSystem, GUIDE_TASKS, DAILY_TASKS, ACHIEVEMENT_TASKS } from './systems/TaskSystem.js';
 import { createFaithSystem, FAITH_CONFIG } from './systems/FaithSystem.js';
 import { createTowerSystem, TOWER_CONFIG } from './systems/TowerSystem.js';
@@ -134,6 +135,7 @@ import { createAssetManager } from './systems/AssetManager.js';
 
 var GameModules = {
     createStarThiefSystem: createStarThiefSystem,
+    createVictoryHealPlugin: createVictoryHealPlugin,
     createTaskSystem: createTaskSystem,
     GUIDE_TASKS: GUIDE_TASKS,
     DAILY_TASKS: DAILY_TASKS,

@@ -142,6 +142,7 @@ function createTowerSystem(deps) {
     var clearMonsterAttackInterval = deps.clearMonsterAttackInterval;
     var setGameState = deps.setGameState;
     var getGameState = deps.getGameState;
+    var getModeLifecycle = deps.getModeLifecycle || null;
     var showToast = deps.showToast;
     var createStarBurstAnimation = deps.createStarBurstAnimation;
     var createScreenShake = deps.createScreenShake;
@@ -190,6 +191,7 @@ function createTowerSystem(deps) {
     var _inCleanupDefend = false; // 旧方案B遗留，保留兼容
     var inDeathPending = false;
     var deathPendingTimer = null;
+    var _deathCalled = false;
     var deathPendingStartTime = 0;
     var DEATH_DELAY_MS = 1000;
     var isHiddenPathBoss = false;
@@ -998,6 +1000,7 @@ function createTowerSystem(deps) {
 
         combatTime = currentFloor <= 20 ? 40 : 25;
         setGameState('TOWER_COMBAT');
+        if (getModeLifecycle) getModeLifecycle().setActiveMode('tower');
 
         // 启动 StarSystem 星星生成（统一星星机制和动画）
         if (updateStarSpawnIntervalFn) updateStarSpawnIntervalFn();
@@ -1829,6 +1832,7 @@ function createTowerSystem(deps) {
         Logger.info('遭遇隐藏之路守卫:', combatMonster.name, 'HP:', combatMonster.hp);
 
         setGameState('TOWER_COMBAT');
+        if (getModeLifecycle) getModeLifecycle().setActiveMode('tower');
         // 启动怪物攻击定时器
         var attackInterval = combatMonster.attackInterval || 2000;
         combatMonsterAttackTimer = _tm.setInterval(function() {
@@ -1891,6 +1895,8 @@ function createTowerSystem(deps) {
     }
 
     function playerDeath() {
+        if (_deathCalled) return;
+        _deathCalled = true;
         // 清理死亡等待（玩家死亡优先，怪物死亡不再结算）
         inDeathPending = false;
         if (deathPendingTimer) {
@@ -1947,6 +1953,7 @@ function createTowerSystem(deps) {
     }
 
     function restartTower() {
+        _deathCalled = false;
         currentFloor = 1;
         playerHp = playerMaxHp;
         exploredCells = [];
@@ -2150,6 +2157,7 @@ function createTowerSystem(deps) {
         },
 
         startNew: function() {
+            _deathCalled = false;
             currentFloor = 1;
             playerHp = calculateMaxHp();
             playerMaxHp = calculateMaxHp();

@@ -24,6 +24,7 @@ function createBossRenderer(deps) {
     var setBossSelectScrollY = deps.setBossSelectScrollY || function() {};
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
     var getAudioSystem = deps.getAudioSystem || function() { return null; };
+    var getModeLifecycle = deps.getModeLifecycle || null;
     var DESIGN_HEIGHT = 812;
 
     function renderBossBattleResult() {
@@ -329,8 +330,12 @@ function createBossRenderer(deps) {
 
             if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
                 var boss = BOSS_LIST[i];
-                bbm.init(boss.level);
-                bbm.start();
+                if (getModeLifecycle) {
+                    getModeLifecycle().transitionTo('boss', { level: boss.level });
+                } else {
+                    bbm.init(boss.level);
+                    bbm.start();
+                }
                 return true;
             }
         }

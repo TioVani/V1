@@ -150,7 +150,7 @@ var MODE_UNLOCK = {
     leaderboard: { condition: 'none' },
     stage:       { condition: 'none' },
     season:      { condition: 'bestScore', value: 200, hint: '最高分达到200解锁' },
-    boss:        { condition: 'stageChapter', value: 3, hint: '通过第3章解锁' },
+    boss:        { condition: 'bestScore', value: 2000, hint: '最高分达到2000解锁' },
     tower:       { condition: 'bestScore', value: 3000, hint: '最高分达到3000解锁' }
 };
 

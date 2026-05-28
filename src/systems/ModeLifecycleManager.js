@@ -2,12 +2,15 @@
  * ModeLifecycleManager — 统一战斗模式生命周期管理
  *
  * 每个战斗模式注册一个 handler：
- *   { enter(ctx), pause(), resume(ctx), cleanup() }
+ *   { enter(ctx), pause(), resume(ctx), cleanup(ctx), restart(ctx) }
  *
  * 管理器提供：
  *   - transitionTo(modeName, ctx) — cleanup 当前 → enter 目标
+ *   - cleanupMode(modeName, ctx) — 退出模式（ctx.fullExit=true 时做状态转移）
+ *   - restartMode(modeName, ctx) — 重启模式
  *   - pauseActive() / resumeActive(ctx) — 委托给当前模式
  *   - setModeTimer(fn, ms) — 注册定时器到当前模式，pause/cleanup 自动清理
+ *   - detectModeForState(gameState) — 反查 GAME_STATE 对应的 mode 名
  *
  * 新增战斗模式只需注册 handler，不需要修改暂停菜单 if/else 链。
  */
@@ -64,7 +67,7 @@ function createModeLifecycleManager(deps) {
     /**
      * 注册模式
      * @param {string} modeName - 模式标识（如 'normal', 'boss', 'tower'）
-     * @param {object} handler - { enter, pause, resume, cleanup }
+     * @param {object} handler - { enter, pause, resume, cleanup, restart }
      * @param {string} gameState - 对应的 GAME_STATE 值
      */
     function registerMode(modeName, handler, gameState) {
@@ -85,13 +88,28 @@ function createModeLifecycleManager(deps) {
     }
 
     /**
-     * 同步活跃模式（每帧或关键操作时调用）
+     * 根据 GAME_STATE 值反查 mode 名
      */
-    function syncActiveMode() {
+    function detectModeForState(gameState) {
+        return stateToMode[gameState] || null;
+    }
+
+    /**
+     * 强制同步 activeMode 为当前 state 对应的 mode
+     */
+    function forceResetActive() {
         var detected = detectActiveMode();
-        if (detected !== activeMode) {
-            activeMode = detected;
-        }
+        previousMode = activeMode;
+        activeMode = detected;
+    }
+
+    /**
+     * 直接设置活跃模式名（不触发 cleanup/enter）
+     * 用于内部启动场景（如塔战斗从探索状态内部启动）
+     */
+    function setActiveMode(modeName) {
+        previousMode = activeMode;
+        activeMode = modeName;
     }
 
     /**
@@ -158,38 +176,51 @@ function createModeLifecycleManager(deps) {
 
     /**
      * 切换到目标模式
-     * 自动 cleanup 当前模式 → enter 目标模式
+     * 自动 cleanup 当前模式（仅资源清理，不做状态转移）→ enter 目标模式
+     * enter handler 内部调 setGameState 做状态转移
      */
     function transitionTo(modeName, ctx) {
-        // cleanup 当前模式
+        // cleanup 当前模式（仅资源清理，不做状态转移 — ctx.fullExit 默认 false）
         if (activeMode && handlers[activeMode] && handlers[activeMode].cleanup) {
-            // 清理定时器
             if (modeTimers[activeMode]) {
                 modeTimers[activeMode].clearAll();
             }
-            handlers[activeMode].cleanup();
+            handlers[activeMode].cleanup(ctx || {});
             Logger.info('ModeLifecycle: cleanup 模式', activeMode);
         }
 
         previousMode = activeMode;
         activeMode = modeName;
 
-        // enter 目标模式
+        // enter 目标模式（enter handler 内部调 setGameState）
         if (modeName && handlers[modeName] && handlers[modeName].enter) {
             handlers[modeName].enter(ctx);
             Logger.info('ModeLifecycle: enter 模式', modeName);
         }
+    }
 
-        // 更新游戏状态
-        if (modeToState[modeName]) {
-            setGameState(modeToState[modeName]);
+    /**
+     * 重启指定模式
+     * 如果 handler 有 restart 方法则调 restart，否则 cleanup 再 enter
+     */
+    function restartMode(modeName, ctx) {
+        if (!modeName || !handlers[modeName]) return;
+        if (handlers[modeName].restart) {
+            handlers[modeName].restart(ctx);
+            Logger.info('ModeLifecycle: restart 模式', modeName);
+        } else {
+            // 兜底：cleanup 再 enter
+            if (handlers[modeName].cleanup) handlers[modeName].cleanup(ctx || {});
+            handlers[modeName].enter(ctx);
+            Logger.info('ModeLifecycle: fallback restart 模式', modeName);
         }
     }
 
     /**
-     * 清理指定模式的所有资源
+     * 清理指定模式的所有资源 + 状态转移（ctx.fullExit=true）
+     * 用于"返回菜单"等完整退出场景
      */
-    function cleanupMode(modeName) {
+    function cleanupMode(modeName, ctx) {
         if (!modeName) return;
 
         if (modeTimers[modeName]) {
@@ -197,13 +228,19 @@ function createModeLifecycleManager(deps) {
         }
 
         if (handlers[modeName] && handlers[modeName].cleanup) {
-            handlers[modeName].cleanup();
+            handlers[modeName].cleanup(ctx || { fullExit: true });
         }
 
         // 统一存储触发 — 模式退出时自动保存
         if (saveDataFn) {
             saveDataFn();
             Logger.info('ModeLifecycle: 自动保存（模式', modeName, '退出）');
+        }
+
+        // 清零 activeMode（仅在当前模式就是退出模式时）
+        if (activeMode === modeName) {
+            previousMode = activeMode;
+            activeMode = null;
         }
 
         Logger.info('ModeLifecycle: 清理模式', modeName);
@@ -226,10 +263,13 @@ function createModeLifecycleManager(deps) {
     return {
         registerMode: registerMode,
         transitionTo: transitionTo,
+        restartMode: restartMode,
+        cleanupMode: cleanupMode,
         pauseActive: pauseActive,
         resumeActive: resumeActive,
-        cleanupMode: cleanupMode,
-        syncActiveMode: syncActiveMode,
+        setActiveMode: setActiveMode,
+        detectModeForState: detectModeForState,
+        forceResetActive: forceResetActive,
         getActiveMode: getActiveMode,
         getPreviousMode: getPreviousMode,
         setModeTimer: setModeTimer,

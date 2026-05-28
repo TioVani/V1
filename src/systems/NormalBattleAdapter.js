@@ -167,6 +167,7 @@ function createNormalBattleAdapter(deps) {
     var monsterAttackPlayerFn = deps.monsterAttackPlayer;
     var getPassiveSkillBonusesFn = deps.getPassiveSkillBonuses;
     var addTimeLeft = deps.addTimeLeft;
+    var victoryHealPlugin = deps.victoryHealPlugin;
 
     // ═══ 觉醒系统 ═══
     var getPlayerHpScalingFn = deps.getPlayerHpScaling;
@@ -663,8 +664,8 @@ function createNormalBattleAdapter(deps) {
             // 狂暴
             triggerMonsterSkillFn(m, MonsterSkillType.RAGE);
 
-            // 碎瓷聚合体碎片溅射
-            if (m.hp > 0 && !m.hasPoisonSplit) {
+            // 碎瓷聚合体碎片溅射（Boss模式由BossBattleAdapter处理，跳过）
+            if (m.hp > 0 && !m.hasPoisonSplit && state !== GAME_STATE.BOSS_BATTLE) {
                 var poisonSplitSkill = null;
                 if (m.skills) {
                     for (var psi = 0; psi < m.skills.length; psi++) {
@@ -1105,9 +1106,9 @@ function createNormalBattleAdapter(deps) {
         var monsterType = MonsterTypes[m.type];
         var wasBoss = (monsterType && monsterType.isBoss) || m.type === 'boss';
 
-        // ===== 怪物分裂检查 =====
+        // ===== 怪物分裂检查（Boss模式由BossBattleAdapter处理，跳过） =====
         var splitSkill = null;
-        if (m.skills) {
+        if (m.skills && state !== GAME_STATE.BOSS_BATTLE) {
             for (var ssi = 0; ssi < m.skills.length; ssi++) {
                 if (m.skills[ssi].type === MonsterSkillType.SPLIT) {
                     splitSkill = m.skills[ssi];
@@ -1206,6 +1207,7 @@ function createNormalBattleAdapter(deps) {
                 dropMaterialFn();
                 updateTaskProgress('kill_boss', 1);
                 updateTaskProgress('kill_monsters', 1);
+                victoryHealPlugin.onKill(playerData);
                 savePlayerDataFn();
                 return;
             }
@@ -1300,7 +1302,8 @@ function createNormalBattleAdapter(deps) {
             handleStarDevourerDrops(m, monsterType, playerData);
         }
 
-        if (monsterType && monsterType.id === 'slime_king') {
+        // Boss模式死亡毒液由BossBattleAdapter处理，跳过
+        if (monsterType && monsterType.id === 'slime_king' && state !== GAME_STATE.BOSS_BATTLE) {
             handleSlimeKingDeathPoison(m, monsterType, playerData);
         }
 
@@ -1316,6 +1319,7 @@ function createNormalBattleAdapter(deps) {
             updateTaskProgress('kill_boss', 1);
         }
 
+        victoryHealPlugin.onKill(playerData);
         savePlayerDataFn();
         Logger.info('净化邪灵:', (monsterType ? monsterType.name : ''), '累积:', playerData.bossKillCount);
     }
@@ -1453,6 +1457,38 @@ function createNormalBattleAdapter(deps) {
         return { isCritical: isCritical, critDamageMult: isCritical ? baseCritDamage : 1.0 };
     }
 
+    function healPlayer(amount) {
+        var pd = getSaveData();
+        var maxHp = (function() {
+            var stats = getCharacterFullStats(pd.currentCharacterId);
+            return stats ? stats.hp : 100;
+        })();
+        var capped = Math.min(amount, maxHp - pd.playerHp);
+        if (capped <= 0) return 0;
+        pd.playerHp += capped;
+        if (battleEngine) {
+            var es = battleEngine.getState();
+            battleEngine.setPlayerState(Math.min(es.playerHp + capped, maxHp));
+        }
+        return capped;
+    }
+
+    function damagePlayer(amount) {
+        var pd = getSaveData();
+        if (pd.playerShield > 0) {
+            var absorbed = Math.min(pd.playerShield, amount);
+            pd.playerShield -= absorbed;
+            amount -= absorbed;
+        }
+        if (amount <= 0) return 0;
+        pd.playerHp = Math.max(0, pd.playerHp - amount);
+        if (battleEngine) {
+            var es = battleEngine.getState();
+            battleEngine.setPlayerState(Math.max(0, es.playerHp - amount));
+        }
+        return amount;
+    }
+
     function handleThiefCrownCrit(playerData) {
         var equippedSetId = playerData.equipments && playerData.equipments.equipped ? playerData.equipments.equipped.set : null;
         if (!equippedSetId || !playerData.equipments || !playerData.equipments.owned) return;
@@ -1467,12 +1503,10 @@ function createNormalBattleAdapter(deps) {
         }
         if (setDefId === 'thief_crown') {
             var healAmt = 5;
-            var maxHp = getCharacterFullStats(playerData.currentCharacterId);
-            maxHp = maxHp ? maxHp.hp : 100;
-            var newHp = Math.min(playerData.playerHp + healAmt, maxHp);
-            playerData.playerHp = newHp;
-            if (battleEngine) battleEngine.setPlayerState(newHp);
-            addMessage('窃灵冠 会心回复 +' + healAmt + '灵能', '#00ff88', true);
+            var actualHeal = healPlayer(healAmt);
+            if (actualHeal > 0) {
+                addMessage('窃灵冠 会心回复 +' + actualHeal + '灵能', '#00ff88', true);
+            }
         }
     }
 
@@ -1716,114 +1750,115 @@ function createNormalBattleAdapter(deps) {
         }
     }
 
-    function attackMonsterInternal(damage, isCritical, starType, targetMonster) {
-        var m = targetMonster || getActiveMonster();
-        if (!m || !m.active) {
-            return { success: false, isElementalCombo: false, comboMultiplier: 1, dodged: false, reflected: 0 };
-        }
+    // ── 三段式伤害管线 ──
 
-        var starThief = getStarThief();
-        if (m.type === 'star_thief' && starThief && !starThief.isBrokenState()) {
-            return { success: false, isElementalCombo: false, comboMultiplier: 1, dodged: false, reflected: 0 };
-        }
+    // 阶段1：解析伤害元数据
+    function resolveDamage(rawDamage, starType) {
+        return { rawDamage: rawDamage, starType: starType };
+    }
 
+    // 阶段2：计算最终伤害（纯计算，无副作用）
+    function calculateFinalDamage(meta, monster) {
+        var dmg = meta.rawDamage;
+        var result = { finalDamage: 0, isAbsorbed: false, isDodged: false, reflected: 0, comboMultiplier: 1, isElementalCombo: false };
         var MonsterSkillType = getMonsterSkillType();
-        var isElementalCombo = false;
-        var comboMultiplier = 1;
-        var isAbsorbed = false;
-        var isDodged = false;
-        var reflectedDamage = 0;
         var now = Date.now();
 
-        if (m.absorbType) {
-            var shouldAbsorb = m.absorbType === 'all' || m.absorbType === starType;
+        // 吸收检查
+        if (monster.absorbType) {
+            var shouldAbsorb = monster.absorbType === 'all' || monster.absorbType === meta.starType;
             if (shouldAbsorb) {
-                var absorbRatio = m.absorbRatio || 0.2;
+                var absorbRatio = monster.absorbRatio || 0.2;
                 if (Math.random() < absorbRatio) {
-                    isAbsorbed = true;
-                    m.empowered = true;
-                    m.empowerType = starType;
-                    var healAmount = Math.floor(damage * (m.healRate || 0.5));
-                    m.hp = Math.min(m.hp + healAmount, m.maxHp);
-                    addMonsterSkillAnimationFn(m, 'absorb', '+' + healAmount + ' 灵能');
+                    result.isAbsorbed = true;
+                    var healAmount = Math.floor(dmg * (monster.healRate || 0.5));
+                    monster.hp = Math.min(monster.hp + healAmount, monster.maxHp);
+                    monster.empowered = true;
+                    monster.empowerType = meta.starType;
+                    addMonsterSkillAnimationFn(monster, 'absorb', '+' + healAmount + ' 灵能');
                     addMessage('邪灵吸收! +' + healAmount + '灵能', '#ff6b6b');
                     vibrateShort({ type: 'heavy' });
-                    return { success: true, isElementalCombo: false, comboMultiplier: 0, isAbsorbed: true, dodged: false, reflected: 0 };
+                    return result;
                 }
             }
         }
 
-        if (m.skills) {
-            for (var di = 0; di < m.skills.length; di++) {
-                if (m.skills[di].type === MonsterSkillType.DODGE) {
-                    if (Math.random() < (m.skills[di].chance || 0)) {
-                        isDodged = true;
-                        m._dodgeAnimTime = Date.now();
-                        addMonsterSkillAnimationFn(m, 'dodge', '闪避!');
+        // 闪避检查
+        if (monster.skills) {
+            for (var di = 0; di < monster.skills.length; di++) {
+                if (monster.skills[di].type === MonsterSkillType.DODGE) {
+                    if (Math.random() < (monster.skills[di].chance || 0)) {
+                        result.isDodged = true;
+                        monster._dodgeAnimTime = Date.now();
+                        addMonsterSkillAnimationFn(monster, 'dodge', '闪避!');
                         addMessage('邪灵闪避了灵光冲击!', '#ff6b6b');
-                        onMonsterDodgeFn(m);
-                        return { success: true, isElementalCombo: false, comboMultiplier: 0, isAbsorbed: false, dodged: true, reflected: 0 };
+                        onMonsterDodgeFn(monster);
+                        return result;
                     }
                     break;
                 }
             }
         }
 
-        if (starType === 'ice' || starType === 'fire') {
-            if (m.comboCooldown <= now) {
-                if (starType === 'ice') m.lastIceAttackTime = now;
-                else m.lastFireAttackTime = now;
-                var iceTime = m.lastIceAttackTime;
-                var fireTime = m.lastFireAttackTime;
+        // 元素汽伤
+        if (meta.starType === 'ice' || meta.starType === 'fire') {
+            if (monster.comboCooldown <= now) {
+                if (meta.starType === 'ice') monster.lastIceAttackTime = now;
+                else monster.lastFireAttackTime = now;
+                var iceTime = monster.lastIceAttackTime;
+                var fireTime = monster.lastFireAttackTime;
                 if (iceTime > 0 && fireTime > 0 && Math.abs(iceTime - fireTime) <= 2000) {
-                    isElementalCombo = true;
-                    comboMultiplier = 2;
-                    m.comboCooldown = now + 2000;
-                    m.lastIceAttackTime = 0;
-                    m.lastFireAttackTime = 0;
+                    result.isElementalCombo = true;
+                    result.comboMultiplier = 2;
+                    monster.comboCooldown = now + 2000;
+                    monster.lastIceAttackTime = 0;
+                    monster.lastFireAttackTime = 0;
                     setElementalComboStateFn(true, now);
                     vibrateShort({ type: 'heavy' });
                 }
             }
         }
 
-        var finalDamage = damage * comboMultiplier;
+        dmg *= result.comboMultiplier;
 
-        if (m.skills) {
-            for (var ai = 0; ai < m.skills.length; ai++) {
-                if (m.skills[ai].type === MonsterSkillType.ARMOR) {
-                    finalDamage = Math.floor(finalDamage * (1 - m.skills[ai].reduction));
+        // 护甲减免
+        if (monster.skills) {
+            for (var ai = 0; ai < monster.skills.length; ai++) {
+                if (monster.skills[ai].type === MonsterSkillType.ARMOR) {
+                    dmg = Math.floor(dmg * (1 - monster.skills[ai].reduction));
                     break;
                 }
             }
         }
-        if (m.armor > 0) {
-            finalDamage = Math.max(1, finalDamage - m.armor);
+        if (monster.armor > 0) {
+            dmg = Math.max(1, dmg - monster.armor);
         }
 
-        if (m.shield > 0) {
-            var shieldAbsorb = Math.min(m.shield, finalDamage);
-            m.shield -= shieldAbsorb;
-            finalDamage -= shieldAbsorb;
-            if (shieldAbsorb > 0) addMonsterSkillAnimationFn(m, 'shield', '护盾-' + shieldAbsorb);
+        // 护盾吸收
+        if (monster.shield > 0) {
+            var shieldAbsorb = Math.min(monster.shield, dmg);
+            monster.shield -= shieldAbsorb;
+            dmg -= shieldAbsorb;
+            if (shieldAbsorb > 0) addMonsterSkillAnimationFn(monster, 'shield', '护盾-' + shieldAbsorb);
         }
 
-        if (m.skills) {
-            for (var ri = 0; ri < m.skills.length; ri++) {
-                if (m.skills[ri].type === MonsterSkillType.REFLECT) {
-                    if (damage > 0) {
-                        reflectedDamage = Math.floor(damage * m.skills[ri].ratio);
-                        if (reflectedDamage > 0) {
+        // 反弹
+        if (monster.skills) {
+            for (var ri = 0; ri < monster.skills.length; ri++) {
+                if (monster.skills[ri].type === MonsterSkillType.REFLECT) {
+                    if (meta.rawDamage > 0) {
+                        result.reflected = Math.floor(meta.rawDamage * monster.skills[ri].ratio);
+                        if (result.reflected > 0) {
                             var pd = getSaveData();
                             if (pd.playerShield > 0) {
-                                var pAbsorb = Math.min(pd.playerShield, reflectedDamage);
+                                var pAbsorb = Math.min(pd.playerShield, result.reflected);
                                 pd.playerShield -= pAbsorb;
-                                reflectedDamage -= pAbsorb;
+                                result.reflected -= pAbsorb;
                             }
                             var _oldHp9 = pd.playerHp;
-                            pd.playerHp = Math.max(0, pd.playerHp - reflectedDamage);
-                            Logger.info('[HP] reflect_internal | -' + reflectedDamage + ' | ' + _oldHp9 + ' → ' + pd.playerHp + ' | ' + m.type);
-                            addMonsterSkillAnimationFn(m, 'reflect', '反弹' + reflectedDamage);
+                            pd.playerHp = Math.max(0, pd.playerHp - result.reflected);
+                            Logger.info('[HP] reflect_internal | -' + result.reflected + ' | ' + _oldHp9 + ' → ' + pd.playerHp + ' | ' + monster.type);
+                            addMonsterSkillAnimationFn(monster, 'reflect', '反弹' + result.reflected);
                         }
                     }
                     break;
@@ -1831,29 +1866,36 @@ function createNormalBattleAdapter(deps) {
             }
         }
 
+        result.finalDamage = Math.max(0, dmg);
+        return result;
+    }
+
+    // 阶段3：执行伤害（有副作用，修改怪物状态）
+    function executeMonsterDamage(monster, finalDamage, comboMultiplier) {
         if (finalDamage > 0) {
-            m.hp -= finalDamage;
-            onMonsterHit(m);
+            monster.hp -= finalDamage;
+            onMonsterHit(monster);
         }
 
-        m.scale = 0.9;
-        m.animationFrame = 5;
-        if (!isElementalCombo) vibrateShort({ type: 'medium' });
+        monster.scale = 0.9;
+        monster.animationFrame = 5;
+        if (comboMultiplier <= 1) vibrateShort({ type: 'medium' });
 
-        triggerMonsterSkillFn(m, MonsterSkillType.RAGE);
+        triggerMonsterSkillFn(monster, getMonsterSkillType().RAGE);
 
-        if (m.hp > 0 && !m.hasPoisonSplit) {
+        // 碎瓷聚合体碎片溅射（Boss模式由BossBattleAdapter处理，跳过）
+        if (monster.hp > 0 && !monster.hasPoisonSplit && getGameState() !== getGameConst().BOSS_BATTLE) {
             var poisonSplitSkill = null;
-            if (m.skills) {
-                for (var psi = 0; psi < m.skills.length; psi++) {
-                    if (m.skills[psi].type === MonsterSkillType.POISON_SPLIT) {
-                        poisonSplitSkill = m.skills[psi];
+            if (monster.skills) {
+                for (var psi = 0; psi < monster.skills.length; psi++) {
+                    if (monster.skills[psi].type === getMonsterSkillType().POISON_SPLIT) {
+                        poisonSplitSkill = monster.skills[psi];
                         break;
                     }
                 }
             }
-            if (poisonSplitSkill && m.hp <= m.maxHp * poisonSplitSkill.hpThreshold) {
-                m.hasPoisonSplit = true;
+            if (poisonSplitSkill && monster.hp <= monster.maxHp * poisonSplitSkill.hpThreshold) {
+                monster.hasPoisonSplit = true;
                 var pd2 = getSaveData();
                 var poisonDmg = poisonSplitSkill.damage || 20;
                 if (pd2.playerShield > 0) {
@@ -1867,34 +1909,91 @@ function createNormalBattleAdapter(deps) {
                 fx.poisonEndTime = Date.now() + (poisonSplitSkill.poisonDuration || 5) * 1000;
                 fx.poisonDamage = poisonSplitSkill.poisonDamage || 8;
                 fx.poisonTickTime = Date.now() + 1000;
-                addMonsterSkillAnimationFn(m, 'poison_split', '毒液飞溅!');
+                addMonsterSkillAnimationFn(monster, 'poison_split', '毒液飞溅!');
                 addMessage('☠️ 聚合邪灵溅射碎片! -' + (poisonSplitSkill.damage || 20) + '灵能', '#00ff00', true);
-                if (spawnPoisonPuddlesFn) spawnPoisonPuddlesFn(m.x, m.y, poisonSplitSkill);
+                if (spawnPoisonPuddlesFn) spawnPoisonPuddlesFn(monster.x, monster.y, poisonSplitSkill);
                 vibrateShort({ type: 'heavy' });
             }
         }
 
+        // 吞噬者逃跑
         var starDevourerEscaped = getStarDevourerEscaped();
-        if (m.id === 'star_devourer' && !starDevourerEscaped && m.hp > 0 && m.hp <= m.maxHp * getStarDevourerEscapeHpRatio()) {
+        if (monster.id === 'star_devourer' && !starDevourerEscaped && monster.hp > 0 && monster.hp <= monster.maxHp * getStarDevourerEscapeHpRatio()) {
             setStarDevourerEscaped(true);
             var monsters = getMonsters();
             for (var ei = 0; ei < monsters.length; ei++) {
-                if (monsters[ei].id === m.id) { monsters.splice(ei, 1); break; }
+                if (monsters[ei].id === monster.id) { monsters.splice(ei, 1); break; }
             }
             var pd3 = getSaveData();
             pd3.bossKillCount = 0;
             resetBossStarMechanicFn();
-            addMonsterSkillAnimationFn(m, 'escape', '遁入灵隙!');
+            addMonsterSkillAnimationFn(monster, 'escape', '遁入灵隙!');
             addMessage('🌀 灵脉吞噬者遁入灵隙，逃离了战斗！', '#ff6b6b');
             vibrateShort({ type: 'heavy' });
-            return { success: true, isElementalCombo: isElementalCombo, comboMultiplier: comboMultiplier, isAbsorbed: false, dodged: false, reflected: reflectedDamage, escaped: true };
+            // 逃跑不算死亡，返回 false（不死）
+            return false;
         }
 
         if (_afterDamageHook) {
-            _afterDamageHook(m, finalDamage);
+            _afterDamageHook(monster, finalDamage);
         }
 
-        return { success: true, isElementalCombo: isElementalCombo, comboMultiplier: comboMultiplier, isAbsorbed: false, dodged: false, reflected: reflectedDamage };
+        return monster.hp <= 0;
+    }
+
+    // ── 公共 API ──
+
+    // 单目标攻击（蓄力技、拖拽技、节奏技流星等）
+    function attackMonster(damage, isCritical, starType, targetMonster) {
+        var m = targetMonster || getActiveMonster();
+        if (!m || !m.active) {
+            return { success: false, isElementalCombo: false, comboMultiplier: 1, dodged: false, reflected: 0 };
+        }
+
+        var starThief = getStarThief();
+        if (m.type === 'star_thief' && starThief && !starThief.isBrokenState()) {
+            return { success: false, isElementalCombo: false, comboMultiplier: 1, dodged: false, reflected: 0 };
+        }
+
+        var meta = resolveDamage(damage, starType);
+        var calc = calculateFinalDamage(meta, m);
+        if (calc.isAbsorbed || calc.isDodged) {
+            return { success: true, isElementalCombo: calc.isElementalCombo, comboMultiplier: calc.comboMultiplier, isAbsorbed: calc.isAbsorbed, dodged: calc.isDodged, reflected: calc.reflected };
+        }
+        if (calc.finalDamage <= 0 && !calc.reflected) {
+            return { success: true, isElementalCombo: calc.isElementalCombo, comboMultiplier: calc.comboMultiplier, isAbsorbed: false, dodged: false, reflected: calc.reflected };
+        }
+
+        var isDead = executeMonsterDamage(m, calc.finalDamage, calc.comboMultiplier);
+        if (isDead) onMonsterKilled(m);
+
+        return { success: true, isElementalCombo: calc.isElementalCombo, comboMultiplier: calc.comboMultiplier, isAbsorbed: calc.isAbsorbed, dodged: calc.isDodged, reflected: calc.reflected };
+    }
+
+    // AOE 批量攻击（联连技、节奏技 settle 等）
+    // damagePlan = { raw: number, starType: string, targets: Monster[], breakShield: boolean }
+    function attackMonstersAOE(damagePlan) {
+        var meta = resolveDamage(damagePlan.raw, damagePlan.starType || 'normal');
+        var deadList = [];
+
+        for (var i = 0; i < damagePlan.targets.length; i++) {
+            var t = damagePlan.targets[i];
+            if (!t || !t.active || t.hp <= 0) continue;
+
+            if (damagePlan.breakShield && t.shield > 0) t.shield = 0;
+
+            var calc = calculateFinalDamage(meta, t);
+            if (calc.isAbsorbed || calc.isDodged) continue;
+
+            var isDead = executeMonsterDamage(t, calc.finalDamage, calc.comboMultiplier);
+            if (isDead) deadList.push(t);
+        }
+
+        for (var j = 0; j < deadList.length; j++) {
+            onMonsterKilled(deadList[j]);
+        }
+
+        return { deadCount: deadList.length };
     }
 
     function useGreedySkill(greedySkillUnlocked) {
@@ -1999,7 +2098,9 @@ function createNormalBattleAdapter(deps) {
         active = true;
         battleEngine = engine;
         _afterDamageHook = afterDamageHook || null;
-        bossConfig.extensions = {
+        // 合并 Boss 扩展（保留 BossBattleAdapter 的 splitEnabled/poisonPuddles/onBattleUpdate/onBattleEnd）
+        var bossExtensions = bossConfig.extensions || {};
+        bossConfig.extensions = Object.assign({}, bossExtensions, {
             onBeforeStarClick: onBeforeStarClickHook,
             getAttackTarget: getAttackTargetHook,
             calculateDamageOverride: calculateDamageOverrideHook,
@@ -2008,7 +2109,7 @@ function createNormalBattleAdapter(deps) {
             onStarConsumed: onStarConsumedHook,
             onAfterSpecialStar: onAfterSpecialStarHook,
             preventFinish: true
-        };
+        });
         engine.init(bossConfig);
         if (onEngineReady) onEngineReady(engine);
         Logger.info('[NormalBattleAdapter] initBossEngine — Boss 模式统一路径');
@@ -2019,7 +2120,8 @@ function createNormalBattleAdapter(deps) {
         destroy: destroy,
         update: update,
         handleStarClick: handleStarClick,
-        attackMonster: attackMonsterInternal,
+        attackMonster: attackMonster,
+        attackMonstersAOE: attackMonstersAOE,
         singleMonsterAttack: singleMonsterAttack,
         monsterAttackPlayer: monsterAttackPlayer,
         updateMonsterAnimation: updateMonsterAnimation,
@@ -2035,6 +2137,8 @@ function createNormalBattleAdapter(deps) {
         initBossEngine: initBossEngine,
         releaseEngine: releaseEngine,
         getBattleEngine: function() { return battleEngine; },
+        healPlayer: healPlayer,
+        damagePlayer: damagePlayer,
         calculateCrit: calculateCrit,
         cancelPendingVictory: function() {
             if (_pendingVictoryTimeout) {

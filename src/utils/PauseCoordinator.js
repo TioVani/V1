@@ -69,6 +69,11 @@ export class PauseCoordinator {
     });
   }
 
+  forceResetPaused() {
+    this._paused = false;
+    this._pauseStartTime = 0;
+  }
+
   getPauseDuration() {
     return this._paused ? Date.now() - this._pauseStartTime : 0;
   }

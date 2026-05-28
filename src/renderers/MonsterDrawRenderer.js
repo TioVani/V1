@@ -112,7 +112,18 @@ function createMonsterDrawRenderer(deps) {
         ctx.font = scaledSize + 'px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+
+        // 受击闪烁：联连技/节奏技击中时短暂变亮
+        var hitFlashing = m._hitFlashUntil && Date.now() < m._hitFlashUntil;
+        if (hitFlashing) {
+            ctx.globalCompositeOperation = 'lighter';
+        }
+
         ctx.fillText(monsterType.emoji, m.x, drawY);
+
+        if (hitFlashing) {
+            ctx.globalCompositeOperation = 'source-over';
+        }
 
         var isStarThief = m.type === 'star_thief';
         var designOffsetY = getDesignOffsetY();

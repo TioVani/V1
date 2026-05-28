@@ -157,7 +157,16 @@ function createBossBattleAdapter(deps) {
                 createTimeDamage: function(d) { createTimeDamageAnimation(d); },
                 createPetDamage: function(x, y, d, e, c) { if (deps.createPetDamageAnimation) deps.createPetDamageAnimation(x, y, d, e, c); },
                 addMessage: addMessage,
-                vibrateShort: vibrateShort
+                vibrateShort: vibrateShort,
+                playCombo: deps.playCombo || function() {},
+                playCritical: deps.playCritical || function() {},
+                playHit: deps.playHit || function() {},
+                playNormal: deps.playNormal || function() {},
+                playPoisonClick: deps.playPoisonClick || function() {},
+                playQuickTap: deps.playQuickTap || function() {},
+                playHitEnemy: deps.playHitEnemy || function() {},
+                playPetAttack: deps.playPetAttack || function() {},
+                playRainbow: deps.playRainbow || function() {}
             },
             combat: {
                 getSeasonStarTypes: function() { return deps.getSeasonStarTypes ? deps.getSeasonStarTypes() : []; },
@@ -226,18 +235,20 @@ function createBossBattleAdapter(deps) {
     }
 
     function onMonsterDeathHandler(ctx) {
+        var currentMonsters = getMonsters();
+        var aliveCount = 0;
+        for (var ai = 0; ai < currentMonsters.length; ai++) {
+            if (currentMonsters[ai].hp > 0) aliveCount++;
+        }
+        Logger.info('[BossDelay] onMonsterDeathHandler | hasSplit:', hasSplit, 'aliveCount:', aliveCount, 'monstersLen:', currentMonsters.length, 'ctx.monster:', ctx.monster ? ctx.monster.type : null);
         if (hasSplit) {
-            // 分裂模式：检查是否所有小怪都已消散
-            var currentMonsters = getMonsters();
-            var aliveCount = 0;
-            for (var ai = 0; ai < currentMonsters.length; ai++) {
-                if (currentMonsters[ai].hp > 0) aliveCount++;
+            if (aliveCount > 0) {
+                Logger.info('[BossDelay] 分裂小怪未全灭，等待剩余:', aliveCount);
+                return;
             }
-            if (aliveCount > 0) return;
-            // 所有小怪消散 → 结算
             Logger.info('[BossDelay] 分裂小怪全部消散 → end(true)');
         } else {
-            Logger.info('[BossDelay] onMonsterDeathHandler 被调用 → end(true)');
+            Logger.info('[BossDelay] onMonsterDeathHandler 非分裂 → end(true)');
         }
         setMonsters([]);
         engineActive = false;
@@ -285,7 +296,15 @@ function createBossBattleAdapter(deps) {
 
     function triggerSplit() {
         var splitSkill = findBossSkill('split');
-        if (!splitSkill || !getMonstersConfig || !getMonsterTypes || !calculateMonsterPositions) return;
+        Logger.info('[BossAdapter] triggerSplit | splitSkill:', splitSkill ? splitSkill.type : null,
+            'currentBoss:', currentBoss ? currentBoss.id : null,
+            'getMonstersConfig:', !!getMonstersConfig,
+            'getMonsterTypes:', !!getMonsterTypes,
+            'calculateMonsterPositions:', !!calculateMonsterPositions);
+        if (!splitSkill || !getMonstersConfig || !getMonsterTypes || !calculateMonsterPositions) {
+            Logger.warn('[BossAdapter] triggerSplit ABORTED — missing dependency');
+            return;
+        }
 
         hasSplit = true;
         var MonstersConfig = getMonstersConfig();
@@ -294,7 +313,10 @@ function createBossBattleAdapter(deps) {
         var splitMonsterType = MonsterTypes[splitSkill.splitInto];
         var splitCount = splitSkill.count || 3;
 
-        if (!splitMonsterConfig) return;
+        if (!splitMonsterConfig) {
+            Logger.warn('[BossAdapter] triggerSplit ABORTED — no config for:', splitSkill.splitInto);
+            return;
+        }
 
         var positions = calculateMonsterPositions(splitCount, getScreenHeight() / 3);
         var monsters = getMonsters();
@@ -665,6 +687,7 @@ function createBossBattleAdapter(deps) {
     }
 
     function end(success) {
+        Logger.info('[BossAdapter] end(' + success + ') called | hasSplit:', hasSplit, 'battleEngine:', !!battleEngine, 'currentBoss:', currentBoss ? currentBoss.id : null);
         // 分裂后安全检查
         if (success && hasSplit) {
             var currentMonsters = getMonsters();
@@ -673,7 +696,7 @@ function createBossBattleAdapter(deps) {
                 if (currentMonsters[i].hp > 0) aliveCount++;
             }
             if (aliveCount > 0) {
-                Logger.info('[BossAdapter] end(true) blocked! ' + aliveCount + ' monsters still alive');
+                Logger.warn('[BossAdapter] end(true) BLOCKED! ' + aliveCount + ' monsters still alive');
                 return;
             }
         }
@@ -704,7 +727,7 @@ function createBossBattleAdapter(deps) {
         };
 
         setGameState(GAME_STATE.BOSS_BATTLE_RESULT);
-        Logger.info('BossAdapter 战斗结束! 成功:', success);
+        Logger.info('[BossAdapter] setGameState → BOSS_BATTLE_RESULT | success:', success, 'bossName:', currentBoss ? currentBoss.name : null);
     }
 
     function cleanup() {
@@ -945,6 +968,7 @@ function createBossBattleAdapter(deps) {
         calculateRewards: calculateRewards,
         getStarBaseScore: getStarBaseScore,
         updateMaxCombo: updateMaxCombo,
+        applyBossSkills: function(damage, monster) { onDamageDealtHandler({ monster: monster, damage: damage }); },
         // Getters
         getCurrentBoss: getCurrentBoss,
         getBossHp: getBossHp,

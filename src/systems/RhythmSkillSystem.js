@@ -103,6 +103,9 @@ var playQte = deps.playQte || function () {};
     var playQteActivate = deps.playQteActivate || function () {};
     var calculateStarScore = deps.calculateStarScore || function () { return 0; };
     var calculateTotalAttack = deps.calculateTotalAttack || function () { return 0; };
+    var createMonsterDamageAnimation = deps.createMonsterDamageAnimation || function () {};
+    var attackMonster = deps.attackMonster || function () {};
+    var attackMonstersAOE = deps.attackMonstersAOE || function () {};
 
     var state = {
         phase: 'idle',
@@ -112,7 +115,9 @@ var playQte = deps.playQte || function () {};
         pendingStartTime: 0,
         respawnTimer: 0,
         shockwaveTime: 0,
-        shrinkDuration: BASE_SHRINK_MS  // 当前圈的实际缩圈时长
+        shrinkDuration: BASE_SHRINK_MS,  // 当前圈的实际缩圈时长
+        settleFlash: null,               // 结算全屏闪白 { startTime, duration, peakAlpha }
+        settleShockwaveRings: []         // 结算冲击波环 [{ startTime, duration, color, startRadius, endRadius }]
     };
 
     function enter() {
@@ -145,6 +150,8 @@ var playQte = deps.playQte || function () {};
         state.pendingStartTime = Date.now();
         state.respawnTimer = 0;
         state.shockwaveTime = 0;
+        state.settleFlash = null;
+        state.settleShockwaveRings = [];
 
         // 节奏灵光出现即施加闪避buff（全程覆盖，标记对抗一次性清除）
         if (playerEffects) {
@@ -295,16 +302,10 @@ playQteActivate();
                         dmgCopy, false,     // 伤害, 非暴击
                         starType,           // 灵光类型
                         0, 1,               // score, comboMultiplier
-                        function() {        // 命中回调：流星到达时造成伤害
+                        function() {        // 命中回调：走统一伤害管线
                             if (targetCopy && targetCopy.hp > 0) {
-                                var applied = dmgCopy;  // 记录实际造成伤害
-                                if (targetCopy.shield > 0) {
-                                    if (dmgCopy <= targetCopy.shield) { targetCopy.shield -= dmgCopy; applied = dmgCopy; }
-                                    else { applied = dmgCopy; var leftover = dmgCopy - targetCopy.shield; targetCopy.shield = 0; targetCopy.hp = Math.max(0, targetCopy.hp - leftover); }
-                                } else {
-                                    targetCopy.hp = Math.max(0, targetCopy.hp - dmgCopy);
-                                }
-                                addMessage('灵光流星 -' + applied, '#FFD700');
+                                attackMonster(dmgCopy, false, starType, targetCopy);
+                                addMessage('灵光流星 -' + dmgCopy, '#FFD700');
                             }
                         },
                         endPos  // 终点：怪物位置 + fallback + 英雄流星标记
@@ -349,19 +350,53 @@ playQteActivate();
         var totalDamage = 0;
 
         if (skill && count >= 1) {
+            var sw = getScreenWidth ? getScreenWidth() : 375;
+            var sh = getScreenHeight ? getScreenHeight() : 667;
+            var maxDim = Math.max(sw, sh);
+            var now = Date.now();
+
+            // 结算特效：全屏闪白 + 冲击波环
+            state.settleFlash = { startTime: now, duration: 300, peakAlpha: 0.4 };
+            state.settleShockwaveRings = [];
+
+            // 冲击波层级规则
+            if (count >= 24) {
+                // 3层：金 + 青 + 紫
+                state.settleShockwaveRings.push(
+                    { startTime: now, duration: 600, color: '#FFD700', startRadius: 0, endRadius: maxDim * 1.2 },
+                    { startTime: now + 80, duration: 500, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 1.2 },
+                    { startTime: now + 160, duration: 400, color: '#FF00FF', startRadius: 0, endRadius: maxDim * 1.2 }
+                );
+                state.settleFlash.peakAlpha = 0.6;
+            } else if (count >= 12) {
+                // 2层：金 + 青
+                state.settleShockwaveRings.push(
+                    { startTime: now, duration: 600, color: '#FFD700', startRadius: 0, endRadius: maxDim * 1.2 },
+                    { startTime: now + 80, duration: 500, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 1.2 }
+                );
+            } else {
+                // 1层：青色
+                state.settleShockwaveRings.push(
+                    { startTime: now, duration: 600, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 1.2 }
+                );
+            }
+
             if (skill.aoe) {
+                // 伤害飞字 + 受击闪烁（先创建飞字，再走统一管线）
+                var dmgAOE = Math.floor(baseAtk * skill.mult);
                 for (var m = 0; m < monsters.length; m++) {
                     var mon = monsters[m];
                     if (mon.hp <= 0 || !mon.active) continue;
-                    var dmg = Math.floor(baseAtk * skill.mult);
-                    if (skill.breakShield && mon.shield && mon.shield > 0) mon.shield = 0;
-                    if (mon.shield && mon.shield > 0) {
-                        if (dmg <= mon.shield) { mon.shield -= dmg; dmg = 0; }
-                        else { dmg -= mon.shield; mon.shield = 0; }
-                    }
-                    mon.hp = Math.max(0, mon.hp - dmg);
-                    totalDamage += dmg;
+                    createMonsterDamageAnimation({ x: mon.x, y: mon.y }, dmgAOE);
+                    mon._hitFlashUntil = Date.now() + 200;
                 }
+                var aoeResult = attackMonstersAOE({
+                    raw: dmgAOE,
+                    starType: 'normal',
+                    targets: monsters,
+                    breakShield: skill.breakShield
+                });
+                totalDamage = dmgAOE * monsters.filter(function(m) { return m.active; }).length;
             } else {
                 var target = null;
                 for (var t = 0; t < monsters.length; t++) {
@@ -369,11 +404,9 @@ playQteActivate();
                 }
                 if (target) {
                     var dmgSingle = Math.floor(baseAtk * skill.mult);
-                    if (target.shield && target.shield > 0) {
-                        if (dmgSingle <= target.shield) { target.shield -= dmgSingle; dmgSingle = 0; }
-                        else { dmgSingle -= target.shield; target.shield = 0; }
-                    }
-                    target.hp = Math.max(0, target.hp - dmgSingle);
+                    createMonsterDamageAnimation({ x: target.x, y: target.y }, dmgSingle);
+                    target._hitFlashUntil = Date.now() + 200;
+                    attackMonster(dmgSingle, false, 'normal', target);
                     totalDamage = dmgSingle;
                 }
             }
@@ -397,6 +430,7 @@ playQteActivate();
         state.pendingStartTime = 0;
         state.respawnTimer = 0;
         state.shockwaveTime = 0;
+        // settleFlash/settleShockwaveRings keep rendering during idle phase, expire naturally
 
         // 节奏技结束：清除闪避状态
         if (playerEffects) {
@@ -409,6 +443,11 @@ playQteActivate();
     }
 
     function update(dt) {
+        // 清理过期结算特效
+        if (state.settleFlash && Date.now() - state.settleFlash.startTime >= state.settleFlash.duration) {
+            state.settleFlash = null;
+        }
+
         if (state.phase === 'idle') {
             if (state.respawnTimer > 0 && Date.now() >= state.respawnTimer) {
                 state.respawnTimer = 0;
@@ -445,8 +484,57 @@ playQteActivate();
     }
 
     function render(ctx, screenW, screenH, scale) {
+        // ── 结算特效（即使 rhythmStar 为 null 也要渲染） ──
+        var nowFx = Date.now();
+        if (state.settleFlash || state.settleShockwaveRings.length > 0) {
+            var swFx = getScreenWidth ? getScreenWidth() : screenW;
+            var shFx = getScreenHeight ? getScreenHeight() : screenH;
+
+            // 全屏闪白
+            if (state.settleFlash) {
+                var flashElapsed = nowFx - state.settleFlash.startTime;
+                if (flashElapsed < state.settleFlash.duration) {
+                    var flashAlpha = state.settleFlash.peakAlpha * (1 - flashElapsed / state.settleFlash.duration);
+                    ctx.fillStyle = 'rgba(255,255,255,' + flashAlpha.toFixed(3) + ')';
+                    ctx.fillRect(0, 0, swFx, shFx);
+                } else {
+                    state.settleFlash = null;
+                }
+            }
+
+            // 冲击波环
+            var activeRings = [];
+            for (var ri = 0; ri < state.settleShockwaveRings.length; ri++) {
+                var ring = state.settleShockwaveRings[ri];
+                var ringElapsed = nowFx - ring.startTime;
+                if (ringElapsed >= 0 && ringElapsed < ring.duration) {
+                    var ringProgress = ringElapsed / ring.duration;
+                    var ringRadius = ring.startRadius + (ring.endRadius - ring.startRadius) * ringProgress;
+                    var ringAlpha = 1 - ringProgress;
+                    var ringWidth = 3 + ringProgress * 9;
+
+                    var ringCx = swFx / 2;
+                    var ringCy = shFx / 3;
+
+                    ctx.beginPath();
+                    ctx.arc(ringCx, ringCy, ringRadius, 0, Math.PI * 2);
+                    var rHex = parseInt(ring.color.slice(1, 3), 16);
+                    var gHex = parseInt(ring.color.slice(3, 5), 16);
+                    var bHex = parseInt(ring.color.slice(5, 7), 16);
+                    ctx.strokeStyle = 'rgba(' + rHex + ',' + gHex + ',' + bHex + ',' + ringAlpha.toFixed(3) + ')';
+                    ctx.lineWidth = ringWidth * scale;
+                    ctx.stroke();
+
+                    activeRings.push(ring);
+                } else if (ringElapsed < 0) {
+                    activeRings.push(ring);
+                }
+            }
+            state.settleShockwaveRings = activeRings;
+        }
+
         var rs = state.rhythmStar;
-        if (!rs) return;
+        if (!rs && !state.settleFlash && state.settleShockwaveRings.length === 0) return;
 
         var now = Date.now();
         var sw = getScreenWidth ? getScreenWidth() : screenW;
@@ -697,6 +785,8 @@ playQteActivate();
         state.pendingStartTime = 0;
         state.respawnTimer = 0;
         state.shockwaveTime = 0;
+        state.settleFlash = null;
+        state.settleShockwaveRings = [];
     }
 
     function vibShort(type) {

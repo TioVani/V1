@@ -190,9 +190,9 @@ function createDebugSystem(deps) {
                     return { id: id, level: 1, instanceId: id + '_2_' + idx };
                 });
                 pd.pets.owned = pd.pets.owned.concat(petDupes);
-                // 解锁所有模式：最高分设为 5000（解锁赛季+爬塔）
+                // 解锁所有模式：最高分设为 5000（解锁赛季+Boss+爬塔）
                 if (setBestScore) setBestScore(5000);
-                // 解锁 Boss 模式：设置通关第 3 章
+                // 关卡进度仍设置（用于关卡模式自身解锁）
                 pd.stageProgress = {
                     stage_1_1: { stars: 3, bestScore: 100 },
                     stage_1_2: { stars: 3, bestScore: 100 },
