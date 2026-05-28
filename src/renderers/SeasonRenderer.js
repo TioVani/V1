@@ -28,6 +28,20 @@ function createSeasonRenderer(deps) {
     var getSaveData = deps.getSaveData;
     var getLog = deps.getLog || function() {};
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    // 交互委托 deps（参考 SquadRenderer 模式）
+    var isBackButtonClicked = deps.isBackButtonClicked;
+    var transitionTo = deps.transitionTo;
+    var getGameConst = deps.getGameConst;
+    var showToast = deps.showToast;
+    var savePlayerData = deps.savePlayerData;
+    var getAudioSystem = deps.getAudioSystem;
+    var startSeasonGame = deps.startSeasonGame;
+    var initOpenDataContext = deps.initOpenDataContext;
+    var sendLeaderboardMessage = deps.sendLeaderboardMessage;
+    var getCurrentLeaderboardTab = deps.getCurrentLeaderboardTab;
+    var setCurrentLeaderboardTab = deps.setCurrentLeaderboardTab;
+    var getOpenDataContext = deps.getOpenDataContext;
+    var getDataStore = deps.getDataStore;
     var DESIGN_HEIGHT = 812;
 
     // shorthand for uiCore methods
@@ -664,12 +678,198 @@ function createSeasonRenderer(deps) {
         if (uiScrollState.seasonSelectScrollY > maxScroll) uiScrollState.seasonSelectScrollY = maxScroll;
     }
 
+    function handleClick(x, y, currentState) {
+        var GAME_STATE = getGameConst();
+        var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var screenWidth = getScreenWidth();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var log = getLog();
+
+        // --- SEASON_MENU ---
+        if (currentState === GAME_STATE.SEASON_MENU) {
+            var btnWidth = Math.floor(140 * scale);
+            var btnHeight = Math.floor(45 * scale);
+
+            // 返回按钮（总是最先检测）
+            if (isBackButtonClicked && isBackButtonClicked(x, y)) {
+                log('点击返回按钮');
+                transitionTo(GAME_STATE.WORLDMAP);
+                return true;
+            }
+
+            // 开始赛季按钮（与 renderSeasonMenu 中 drawButton 的 Y 坐标完全一致）
+            var startBtnY = designBottom - Math.floor(203 * scale);
+            if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+                y >= startBtnY - btnHeight / 2 && y <= startBtnY + btnHeight / 2) {
+                log('点击开始赛季按钮');
+                transitionTo(GAME_STATE.SEASON_SELECT);
+                restoreSeasonSelection();
+                return true;
+            }
+
+            // 赛季排行榜按钮（与 renderSeasonMenu 中 drawButton 的 Y 坐标完全一致）
+            var leaderboardBtnY = designBottom - Math.floor(134 * scale);
+            if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+                y >= leaderboardBtnY - btnHeight / 2 && y <= leaderboardBtnY + btnHeight / 2) {
+                log('点击赛季排行榜按钮');
+                var clt = getCurrentLeaderboardTab ? getCurrentLeaderboardTab() : null;
+                if (setCurrentLeaderboardTab) setCurrentLeaderboardTab('season_score');
+                if (initOpenDataContext) initOpenDataContext();
+                if (setCurrentLeaderboardTab) setCurrentLeaderboardTab('season_score');
+                if (sendLeaderboardMessage) sendLeaderboardMessage('show', 'season_score');
+                transitionTo(GAME_STATE.LEADERBOARD);
+                return true;
+            }
+
+            return false;
+        }
+
+        // --- SEASON_SELECT ---
+        if (currentState === GAME_STATE.SEASON_SELECT) {
+            var uiScrollState = getUiScrollState();
+
+            // 拖拽中忽略点击
+            if (uiScrollState.seasonSelectIsDragging) {
+                log('赛季选择拖拽中，忽略点击');
+                uiScrollState.seasonSelectIsDragging = false;
+                return true;
+            }
+
+            // 返回按钮（最先检测）
+            if (isBackButtonClicked && isBackButtonClicked(x, y)) {
+                log('点击返回按钮');
+                transitionTo(GAME_STATE.SEASON_MENU);
+                return true;
+            }
+
+            // 底部按钮区域
+            var btnY = designBottom - Math.floor(70 * scale);
+            var selBtnWidth = Math.floor(100 * scale);
+            var selBtnHeight = Math.floor(40 * scale);
+
+            // 重置按钮
+            if (x >= screenWidth / 2 + Math.floor(130 * scale) - selBtnWidth / 2 &&
+                x <= screenWidth / 2 + Math.floor(130 * scale) + selBtnWidth / 2 &&
+                y >= btnY - selBtnHeight / 2 && y <= btnY + selBtnHeight / 2) {
+                log('点击重置按钮');
+                var seasonSelection = getSeasonSelection();
+                setSeasonSelection({ character: null, skills: [], pet: null, starTypes: [] });
+                var dataStore = getDataStore ? getDataStore() : null;
+                var saveData = getSaveData();
+                if (saveData && saveData.seasonData) {
+                    saveData.seasonData.selection = { character: null, skills: [], pet: null, starTypes: [] };
+                    if (dataStore && dataStore.flush) dataStore.flush();
+                }
+                return true;
+            }
+
+            // 开始游戏按钮
+            var seasonSelection2 = getSeasonSelection();
+            var canStart = seasonSelection2.character && seasonSelection2.skills && seasonSelection2.skills.length > 0 &&
+                seasonSelection2.starTypes && seasonSelection2.starTypes.length > 0;
+            if (canStart && x >= screenWidth / 2 - Math.floor(60 * scale) &&
+                x <= screenWidth / 2 + Math.floor(60 * scale) &&
+                y >= btnY - selBtnHeight / 2 && y <= btnY + selBtnHeight / 2) {
+                log('开始赛季游戏');
+                if (startSeasonGame) startSeasonGame();
+                return true;
+            }
+
+            // 内容区域点击（与 renderSeasonSelect 中的 currentY 累加逻辑完全一致）
+            var seasonContent = getSeasonContent();
+            var seasonSelection3 = getSeasonSelection();
+            var currentY = designOffsetY + Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;
+            var charItemX = Math.floor(30 * scale);
+            var charItemWidth = screenWidth - Math.floor(60 * scale);
+
+            // 角色选择
+            currentY += Math.floor(25 * scale);
+            var charItemHeight = Math.floor(60 * scale);
+            if (x >= charItemX && x <= charItemX + charItemWidth &&
+                y >= currentY && y <= currentY + charItemHeight) {
+                seasonSelection3.character = seasonContent.character;
+                setSeasonSelection(seasonSelection3);
+                log('选择角色:', seasonContent.character);
+                return true;
+            }
+            currentY += Math.floor(75 * scale);
+
+            // 技能选择
+            currentY += Math.floor(25 * scale);
+            for (var i = 0; i < seasonContent.skills.length; i++) {
+                var skillId = seasonContent.skills[i];
+                var itemHeight = Math.floor(50 * scale);
+                var itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
+                if (x >= charItemX && x <= charItemX + charItemWidth &&
+                    y >= itemY && y <= itemY + itemHeight) {
+                    var idx = seasonSelection3.skills.indexOf(skillId);
+                    if (idx !== -1) {
+                        seasonSelection3.skills.splice(idx, 1);
+                        log('取消选择技能:', skillId);
+                    } else if (seasonSelection3.skills.length < 2) {
+                        seasonSelection3.skills.push(skillId);
+                        log('选择技能:', skillId);
+                    }
+                    setSeasonSelection(seasonSelection3);
+                    return true;
+                }
+            }
+            currentY += Math.floor(180 * scale);
+
+            // 宠物选择
+            currentY += Math.floor(25 * scale);
+            for (var j = 0; j < seasonContent.pets.length; j++) {
+                var petId = seasonContent.pets[j];
+                var petItemHeight = Math.floor(50 * scale);
+                var petItemY = currentY + j * (petItemHeight + Math.floor(5 * scale));
+                if (x >= charItemX && x <= charItemX + charItemWidth &&
+                    y >= petItemY && y <= petItemY + petItemHeight) {
+                    seasonSelection3.pet = seasonSelection3.pet === petId ? null : petId;
+                    setSeasonSelection(seasonSelection3);
+                    log(seasonSelection3.pet ? '选择宠物:' : '取消选择宠物:', petId);
+                    return true;
+                }
+            }
+            currentY += Math.floor(180 * scale);
+
+            // 灵韵类型选择
+            currentY += Math.floor(25 * scale);
+            for (var k = 0; k < seasonContent.starTypes.length; k++) {
+                var starTypeId = seasonContent.starTypes[k];
+                var starItemHeight = Math.floor(45 * scale);
+                var starItemY = currentY + k * (starItemHeight + Math.floor(5 * scale));
+                if (x >= charItemX && x <= charItemX + charItemWidth &&
+                    y >= starItemY && y <= starItemY + starItemHeight) {
+                    var sidx = seasonSelection3.starTypes.indexOf(starTypeId);
+                    if (sidx !== -1) {
+                        seasonSelection3.starTypes.splice(sidx, 1);
+                        log('取消选择灵韵类型:', starTypeId);
+                    } else if (seasonSelection3.starTypes.length < 3) {
+                        seasonSelection3.starTypes.push(starTypeId);
+                        log('选择灵韵类型:', starTypeId);
+                    } else {
+                        if (showToast) showToast({ title: '最多选择3个灵韵', icon: 'none', duration: 1000 });
+                    }
+                    setSeasonSelection(seasonSelection3);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
     return {
         renderSeasonMenu: renderSeasonMenu,
         renderSeasonSelect: renderSeasonSelect,
         renderSeasonLeaderboard: renderSeasonLeaderboard,
         restoreSeasonSelection: restoreSeasonSelection,
-        clampSeasonSelectScroll: clampSeasonSelectScroll
+        clampSeasonSelectScroll: clampSeasonSelectScroll,
+        handleClick: handleClick
     };
 }
 

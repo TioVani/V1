@@ -5,7 +5,7 @@ import { SATURATION_COSTS } from './SaturationState.js';
  * 闭包工厂 + 依赖注入模式
  *
  * 生命周期: idle → ready → revealing → waiting → swiping → judging → idle
- *          idle → ready → rhythm_ready → idle (双阶段充能)
+ *          idle → ready → rhythm_ready → idle
  * - 逐个揭示灵光（每颗300ms发光+链线延伸）
  * - 揭示完毕等500ms → 超时则闪烁200ms失效
  * - 玩家滑动匹配灵光（≥2颗有效）
@@ -24,6 +24,14 @@ var READY_HIT_RADIUS = 40;      // 触发灵光触摸判定半径
 var WAIT_TIMEOUT_MS = 2000;
 var IDLE_TIMEOUT_MS = 500;
 var FLASH_DURATION_MS = 1000;
+var CHARGE_PHASES = [
+    { phase: 'ready',         threshold: 100, enter: 'enterReady',        priority: 1 },
+    { phase: 'ready',         threshold: 150, enter: 'enterReady',        priority: 1 },
+    { phase: 'rhythm_ready',  threshold: 200, enter: 'enterRhythmReady',  priority: 2 },
+];
+
+var CHARGE_BLOCKED_PHASES = ['revealing', 'waiting', 'swiping', 'judging', 'rhythm_ready'];
+
 var LINK_THRESHOLD = 100;
 var SECOND_READY_THRESHOLD = 150;  // 第二次联连窗口触发阈值
 var RHYTHM_THRESHOLD = 200;
@@ -67,7 +75,7 @@ function createLinkChainSystem(deps) {
 
     // 内部状态
     var state = {
-        phase: 'idle',               // idle|ready|revealing|waiting|swiping|judging
+        phase: 'idle',               // idle|ready|revealing|waiting|swiping|judging|rhythm_ready
         charge: 0,
         linkedStars: [],
         matchedIndices: [],
@@ -107,7 +115,7 @@ function createLinkChainSystem(deps) {
         return charExp[pd.currentCharacterId].level >= D4_UNLOCK_LEVEL;
     }
 
-    function isActive() { return state.phase !== 'idle' && state.phase !== 'rhythm_ready' && state.phase !== 'ready_closed'; }
+    function isActive() { return state.phase !== 'idle' && state.phase !== 'rhythm_ready'; }
     function isReady() { return state.phase === 'ready'; }
     function isRhythmReady() { return state.phase === 'rhythm_ready'; }
     function getTriggerX() { return state.triggerX; }
@@ -127,36 +135,75 @@ function createLinkChainSystem(deps) {
         state.charge = Math.max(0, state.charge - RHYTHM_COST);
     }
 
+    // ── 充能辅助 ──
+
+    function canCharge() {
+        if (!isUnlocked()) return false;
+        if (CHARGE_BLOCKED_PHASES.indexOf(state.phase) !== -1) return false;
+        if (rhythmSkillSystem && rhythmSkillSystem.isActive()) return false;
+        return true;
+    }
+
+    function resolveChargePhase(prev, next) {
+        for (var i = 0; i < CHARGE_PHASES.length; i++) {
+            var def = CHARGE_PHASES[i];
+            if (prev < def.threshold && next >= def.threshold) {
+                return def;
+            }
+        }
+        return null;
+    }
+
+    function cancelReady(reason) {
+        if (state.triggerStar) {
+            state.triggerStar._linking = false;
+            state.triggerStar.disappearTime = state.triggerStar._linkingOriginalDisappearTime || Date.now() + 5000;
+            state.triggerStar = null;
+        }
+        addMessage(reason || '联连超时，继续充能...', '#ffaa00');
+        state.phase = 'idle';
+    }
+
+    function enterPhase(phaseName) {
+        switch (phaseName) {
+            case 'ready':
+                return enterReady();
+            case 'rhythm_ready':
+                return enterRhythmReady();
+            default:
+                Logger.warn('[LinkChainSystem] enterPhase: unknown phase', phaseName);
+        }
+    }
+
     // ── 充能 ──
 
     function addCharge(amount) {
-        if (!isUnlocked()) return;
-        // 充能封锁阶段：联连流程、节奏阶段、联连窗口已关闭阶段
-        if (state.phase === 'revealing' || state.phase === 'waiting' ||
-            state.phase === 'swiping'   || state.phase === 'judging' ||
-            state.phase === 'rhythm_ready') return;
-        // 节奏灵光在场时也不充能
-        if (rhythmSkillSystem && rhythmSkillSystem.isActive()) return;
+        if (!canCharge()) return;
 
-        state.charge = Math.min(RHYTHM_THRESHOLD, state.charge + amount);
+        var prev = state.charge;
+        state.charge = Math.min(RHYTHM_THRESHOLD, prev + amount);
 
-        // idle → ready at 100 (第一次联连窗口)
-        if (state.phase === 'idle' && state.charge >= LINK_THRESHOLD) {
-            enterReady();
-            return;
+        var triggered = resolveChargePhase(prev, state.charge);
+        if (!triggered) return;
+
+        if (state.phase === 'ready' && triggered.phase === 'rhythm_ready') {
+            cancelReady('充能满溢! 联连窗口已跳过!');
         }
-        // idle → ready at 150 (第二次联连窗口，最后一次)
-        if (state.phase === 'idle' && state.charge >= SECOND_READY_THRESHOLD) {
-            enterReady();
-            return;
-        }
-        // ready_closed 阶段：联连窗口已关闭，只充能不弹窗，直到200触发节奏技
-        if (state.phase === 'ready_closed' && state.charge >= RHYTHM_THRESHOLD) {
-            enterRhythmReady();
-        }
-        // ready → rhythm_ready at 200
-        if (state.phase === 'ready' && state.charge >= RHYTHM_THRESHOLD) {
-            enterRhythmReady();
+
+        enterPhase(triggered.phase);
+
+        var safety = 0;
+        while (safety < 10) {
+            var next = resolveChargePhase(prev, state.charge);
+            if (!next || next === triggered) break;
+            triggered = next;
+
+            if (state.phase === 'ready' && triggered.phase === 'rhythm_ready') {
+                cancelReady('充能满溢! 联连窗口已跳过!');
+            }
+
+            enterPhase(triggered.phase);
+            safety++;
         }
     }
 
@@ -696,22 +743,7 @@ function createLinkChainSystem(deps) {
         // ready: 触发灵光等待玩家触摸（2000ms超时）
         if (state.phase === 'ready') {
             if (Date.now() - state.readyStartTime >= READY_TIMEOUT_MS) {
-                // 超时 → 恢复触发灵光
-                if (state.triggerStar) {
-                    state.triggerStar._linking = false;
-                    state.triggerStar.disappearTime = state.triggerStar._linkingOriginalDisappearTime || Date.now() + 5000;
-                }
-                state.triggerStar = null;
-                // 根据充能量决定后续阶段
-                if (state.charge >= SECOND_READY_THRESHOLD) {
-                    // 第二次窗口超时 → 联连窗口永久关闭，继续向200推进
-                    state.phase = 'ready_closed';
-                    addMessage('联连窗口已关闭，继续充能...', '#ffaa00');
-                } else {
-                    // 第一次窗口超时 → 可等待第二次窗口
-                    state.phase = 'idle';
-                    addMessage('联连超时，继续充能...', '#ffaa00');
-                }
+                cancelReady('联连超时，继续充能...');
             }
             return;
         }
@@ -788,7 +820,7 @@ function createLinkChainSystem(deps) {
     function render(ctx, screenW, screenH, scale) {
         var designOffsetY = getDesignOffsetY();
         var designBottom = Math.min(designOffsetY + Math.floor(812 * scale), screenH);
-        // 充能条：双阶段渲染，idle/ready/rhythm_ready 都显示
+        // 充能条：idle/ready/rhythm_ready 阶段显示
         var showBar = isUnlocked() && (state.phase === 'idle' ||
             state.phase === 'ready' || state.phase === 'rhythm_ready');
         if (showBar) {

@@ -13,19 +13,20 @@ function createDebugRenderer(deps) {
     var DESIGN_HEIGHT = 812;
 
     var DEBUG_BUTTONS = [
-        { id: 'unlock_chars', label: '🔓 解锁所有角色', color: '#4CAF50' },
-        { id: 'unlock_stars', label: '⭐ 解锁所有灵光', color: '#2196F3' },
-        { id: 'add_gold', label: '💰 +10000灵币', color: '#FFD700' },
-        { id: 'add_materials', label: '📦 满材料', color: '#9C27B0' },
-        { id: 'add_starSource', label: '💎 +1000灵石', color: '#00BCD4' },
-        { id: 'max_level', label: '📈 角色满级', color: '#FF9800' },
-        { id: 'unlock_equips', label: '⚔️ 解锁所有装备', color: '#795548' },
-        { id: 'unlock_skills', label: '🔮 解锁所有技能', color: '#607D8B' },
-        { id: 'unlock_pets', label: '🐾 解锁所有宠物', color: '#E91E63' },
-        { id: 'unlock_all', label: '🌟 解锁所有功能', color: '#FF5722' },
-        { id: 'dev_battle', label: '⚔ 战斗调参', color: '#FF69B4' },
+        { id: 'unlock_chars', label: '解锁所有角色', color: '#4CAF50' },
+        { id: 'unlock_stars', label: '解锁所有灵光', color: '#2196F3' },
+        { id: 'add_gold', label: '+10000灵币', color: '#FFD700' },
+        { id: 'add_materials', label: '满材料', color: '#9C27B0' },
+        { id: 'add_starSource', label: '+1000灵石', color: '#00BCD4' },
+        { id: 'max_level', label: '角色满级', color: '#FF9800' },
+        { id: 'unlock_equips', label: '解锁所有装备', color: '#795548' },
+        { id: 'unlock_skills', label: '解锁所有技能', color: '#607D8B' },
+        { id: 'unlock_pets', label: '解锁所有宠物', color: '#E91E63' },
+        { id: 'unlock_all', label: '解锁所有功能', color: '#FF5722' },
+        { id: 'reset_save', label: '重置存档', color: '#F44336' },
+        { id: 'dev_battle', label: '战斗调参', color: '#FF69B4' },
         { id: 'ui_editor', label: 'UI编辑器', color: '#9370DB' },
-        { id: 'god_mode', label: '🛡️ 无敌模式', color: '#00E676' }
+        { id: 'god_mode', label: '无敌模式', color: '#00E676' }
     ];
 
     function getLayout(scale) {

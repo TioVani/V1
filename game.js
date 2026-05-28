@@ -2,7 +2,7 @@
 // 包含：游戏循环、数据持久化、广告（移除音效以保证兼容性）
 
 // 调试日志开关 - 生产环境自动关闭
-const _isDev = true;
+const _isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : true;
 const _log = _isDev ? console.log.bind(console) : function() {};
 const _warn = _isDev ? console.warn.bind(console) : function() {};
 
@@ -977,7 +977,7 @@ function init() {
         dataStore.onLoad(function() {
             var pd = dataStore.save;
             var rt = dataStore.runtime;
-            if (rt.tutorialCompleted || pd.tutorialCompleted) {
+            if (rt.tutorialCompleted) {
                 _tutorial.completed = true;
                 rt.tutorialCompleted = true;
             }
@@ -1024,6 +1024,14 @@ function init() {
                 godMode = !godMode;
                 runtimeData.godMode = godMode;
                 $P.showToast({ title: godMode ? '无敌模式 ON' : '无敌模式 OFF', icon: 'none', duration: 1500 });
+            },
+            resetSaveData: function() { dataStore.reset(); },
+            onResetComplete: function() {
+                bestScore = 0;
+                _tutorial.completed = false;
+                _tutorial.active = false;
+                _tutorial.ending = false;
+                _tutorial.victoryPopup = null;
             }
         });
         executeDebugAction = function(actionId) { debugSystem.executeDebugAction(actionId); };
@@ -1992,7 +2000,20 @@ function init() {
             getRuntimeData: function() { return runtimeData; },
             getLog: function() { return _log; },
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+            // 交互委托 deps
+            isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
+            transitionTo: function(s) { stateMachine.transitionTo(s); },
+            getGameConst: function() { return GAME_STATE; },
+            showToast: function(opts) { $P.showToast(opts); },
+            savePlayerData: function() {},
+            startSeasonGame: function() { startSeasonGame(); },
+            initOpenDataContext: function() { initOpenDataContext(); },
+            sendLeaderboardMessage: function(key, value) { sendLeaderboardMessage(key, value); },
+            getCurrentLeaderboardTab: function() { return currentLeaderboardTab; },
+            setCurrentLeaderboardTab: function(v) { currentLeaderboardTab = v; },
+            getOpenDataContext: function() { return openDataContext; },
+            getDataStore: function() { return dataStore; }
         });
         renderSeasonMenu = function() { seasonRenderer.renderSeasonMenu(); };
         renderSeasonSelect = function() { seasonRenderer.renderSeasonSelect(); };
@@ -2331,7 +2352,13 @@ function init() {
             getStageModeSystem: function() { return stageModeSystem; },
             getMaterials: function() { return Materials; },
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+            // 交互委托 deps
+            isBackButtonClicked: function(x, y) { return isBackButtonClicked(x, y); },
+            transitionTo: function(s) { stateMachine.transitionTo(s); },
+            showToast: function(opts) { $P.showToast(opts); },
+            startStage: function(stageId) { startStage(stageId); },
+            getStageModeCurrent: function() { return StageMode.currentStage; }
         });
         renderStageSelect = function() { stageRenderer.renderStageSelect(); };
         renderStageResult = function() { stageRenderer.renderStageResult(); };
@@ -3377,7 +3404,6 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                         _tutorial.entityId = null;
                         _tutorial.completed = true;
                         runtimeData.tutorialCompleted = true;
-                        saveData.tutorialCompleted = true;
                         // 确保初始角色在 ownedCharacters 中（否则菜单栏不会渲染）
                         if (!saveData.ownedCharacters || saveData.ownedCharacters.length === 0) {
                             saveData.ownedCharacters = ['char_001'];
@@ -5334,117 +5360,18 @@ function handleTouchStart(res) {
             stateMachine.transitionTo(GAME_STATE.WORLDMAP);
             return;
         }
-    } else if (state === GAME_STATE.STAGE_SELECT) {
-        // ===== 闯关模式选择界面点击处理 =====
-        const scale = getScreenScale();
-        const btnWidth = Math.floor(100 * scale);
-        const btnHeight = Math.floor(40 * scale);
-        
-        // 返回按钮
-        if (isBackButtonClicked(x, y)) {
-            _log('点击返回按钮');
-            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
-            return;
-        }
-
-        // 章节切换
-        var leftBtnX = Math.floor(30 * scale);
-        var rightBtnX = screenWidth - Math.floor(70 * scale);
-        var btnY = getDesignOffsetY() + Math.floor(85 * scale);
-        var navBtnSize = Math.floor(40 * scale);
-        
-        if (selectedChapter > 1 && x >= leftBtnX && x <= leftBtnX + navBtnSize && y >= btnY && y <= btnY + Math.floor(40 * scale)) {
-            selectedChapter--;
-            _log('切换到章节:', selectedChapter);
-            return;
-        }
-        if (selectedChapter < Object.keys(CHAPTERS).length && x >= rightBtnX && x <= rightBtnX + navBtnSize && y >= btnY && y <= btnY + Math.floor(40 * scale)) {
-            selectedChapter++;
-            _log('切换到章节:', selectedChapter);
-            return;
-        }
-        
-        // 关卡点击
-        var chapter = CHAPTERS[selectedChapter];
-        var startY = getDesignOffsetY() + Math.floor(150 * scale);
-        var stageHeight = Math.floor(120 * scale);
-        var padding = Math.floor(15 * scale);
-        
-        for (let i = 0; i < chapter.stages.length; i++) {
-            var stageId = chapter.stages[i];
-            var itemY = startY + i * (stageHeight + padding);
-            
-            if (x >= Math.floor(20 * scale) && x <= screenWidth - Math.floor(20 * scale) &&
-                y >= itemY && y <= itemY + stageHeight) {
-                if (isStageUnlocked(stageId)) {
-                    _log('选择关卡:', stageId);
-                    startStage(stageId);
-                } else {
-                    $P.showToast({ title: '关卡未解锁', icon: 'none' });
-                }
-                return;
-            }
-        }
-    } else if (state === GAME_STATE.STAGE_RESULT) {
-        // ===== 闯关结算界面点击处理 =====
-        const scale = getScreenScale();
-        var designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * scale), screenHeight);
-        var btnWidth = Math.floor(120 * scale);
-        var btnHeight = Math.floor(45 * scale);
-        var btnY = designBottom - Math.floor(100 * scale);
-
-        // 重试按钮（居中）
-        if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
-            _log('点击重试按钮');
-            if (audioSystem) { var sr = stageModeSystem.getResult(); if (sr && sr.success) audioSystem.stopSuccess(); else audioSystem.stopFail(); }
-            startStage(StageMode.currentStage);
-            return;
-        }
-
-        // 返回按钮
-        if (isBackButtonClicked(x, y)) {
-            _log('点击返回按钮');
-            if (audioSystem) { var sr = stageModeSystem.getResult(); if (sr && sr.success) audioSystem.stopSuccess(); else audioSystem.stopFail(); }
-            stateMachine.transitionTo(GAME_STATE.STAGE_SELECT);
-            return;
-        }
     } else if (state === GAME_STATE.SEASON_MENU) {
-        // ===== 赛季模式入口点击处理 =====
-        const scale = getScreenScale();
-        const btnWidth = Math.floor(140 * scale);
-        const btnHeight = Math.floor(45 * scale);
-        
-        // 开始赛季按钮
-        const startBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.75 * getScreenScale());
-        if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-            y >= startBtnY - btnHeight/2 && y <= startBtnY + btnHeight/2) {
-            _log('点击开始赛季按钮');
-            stateMachine.transitionTo(GAME_STATE.SEASON_SELECT);
-            // 恢复上次选择的入局方案
-            seasonRenderer.restoreSeasonSelection();
-            return;
-        }
-        
-        // 赛季排行榜按钮
-        const leaderboardBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.84 * getScreenScale());
-        if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-            y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
-            _log('点击赛季排行榜按钮');
-            stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
-            currentLeaderboardTab = 'season_score';
-            if (!openDataContext) initOpenDataContext();
-            currentLeaderboardTab = 'season_score';
-            sendLeaderboardMessage('show', 'season_score');
-            return;
-        }
-        
-        // 返回按钮
-        if (isBackButtonClicked(x, y)) {
-            _log('点击返回按钮');
-            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
-            return;
-        }
+        // ===== 赛季模式入口点击处理 ===== 已委托至 seasonRenderer.handleClick
+        if (seasonRenderer && seasonRenderer.handleClick(x, y, state)) return;
+    } else if (state === GAME_STATE.SEASON_SELECT) {
+        // ===== 赛季选择界面点击处理 ===== 已委托至 seasonRenderer.handleClick
+        if (seasonRenderer && seasonRenderer.handleClick(x, y, state)) return;
+    } else if (state === GAME_STATE.STAGE_SELECT) {
+        // ===== 闯关模式选择界面点击处理 ===== 已委托至 stageRenderer.handleClick
+        if (stageRenderer && stageRenderer.handleClick(x, y, state)) return;
+    } else if (state === GAME_STATE.STAGE_RESULT) {
+        // ===== 闯关结算界面点击处理 ===== 已委托至 stageRenderer.handleClick
+        if (stageRenderer && stageRenderer.handleClick(x, y, state)) return;
     } else if (state === GAME_STATE.SQUAD) {
         // ===== 编队系统点击处理 =====
         squadRenderer.handleClick(x, y);
@@ -5471,138 +5398,6 @@ function handleTouchStart(res) {
         // ===== 爬塔继续/放弃选择界面点击处理 =====
         towerRenderer.handleTowerResumeTouch(x, y);
         return;
-    } else if (state === GAME_STATE.SEASON_SELECT) {
-        // ===== 赛季选择界面点击处理 =====
-        // 如果正在拖拽，不处理点击
-        if (uiScrollState.seasonSelectIsDragging) {
-            _log('赛季选择拖拽中，忽略点击');
-            uiScrollState.seasonSelectIsDragging = false;
-            return;
-        }
-        
-        const scale = getScreenScale();
-        var designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * scale), screenHeight);
-
-        // ===== 返回按钮检测（最高优先级）=====
-        if (isBackButtonClicked(x, y)) {
-            _log('点击返回按钮');
-            stateMachine.transitionTo(GAME_STATE.SEASON_MENU);
-            return;
-        }
-        
-        // ===== 底部按钮检测（第二优先级）=====
-        const btnY = designBottom - Math.floor(70 * scale);
-        const btnWidth = Math.floor(100 * scale);
-        const btnHeight = Math.floor(40 * scale);
-        
-        // 重置按钮
-        if (x >= screenWidth/2 + Math.floor(130 * scale) - btnWidth/2 && 
-            x <= screenWidth/2 + Math.floor(130 * scale) + btnWidth/2 &&
-            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
-            _log('点击重置按钮');
-            seasonSelection = { character: null, skills: [], pet: null, starTypes: [] };
-            // 同步清除持久化记忆
-            if (saveData && saveData.seasonData) {
-                saveData.seasonData.selection = { character: null, skills: [], pet: null, starTypes: [] };
-                dataStore.flush();
-            }
-            return;
-        }
-        
-        // 开始游戏按钮
-        const canStart = seasonSelection.character && seasonSelection.skills.length > 0 && seasonSelection.starTypes.length > 0;
-        if (canStart && x >= screenWidth/2 - Math.floor(60 * scale) && 
-            x <= screenWidth/2 + Math.floor(60 * scale) &&
-            y >= btnY - btnHeight/2 && y <= btnY + btnHeight/2) {
-            _log('开始赛季游戏');
-            startSeasonGame();
-            return;
-        }
-        
-        // ===== 内容区域点击检测 =====
-        let currentY = getDesignOffsetY() + Math.floor(80 * scale) - uiScrollState.seasonSelectScrollY;  // 添加滚动偏移，与渲染函数一致
-        
-        // 角色选择
-        currentY += Math.floor(25 * scale);
-        const charItemX = Math.floor(30 * scale);
-        const charItemWidth = screenWidth - Math.floor(60 * scale);
-        const charItemHeight = Math.floor(60 * scale);
-        
-        if (x >= charItemX && x <= charItemX + charItemWidth &&
-            y >= currentY && y <= currentY + charItemHeight) {
-            seasonSelection.character = seasonContent.character;
-            _log('选择角色:', seasonContent.character);
-            return;
-        }
-        currentY += Math.floor(75 * scale);
-        
-        // 技能选择（使用 for 循环以便正确 return）
-        currentY += Math.floor(25 * scale);
-        for (let i = 0; i < seasonContent.skills.length; i++) {
-            const skillId = seasonContent.skills[i];
-            const itemHeight = Math.floor(50 * scale);
-            const itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
-            
-            if (x >= charItemX && x <= charItemX + charItemWidth &&
-                y >= itemY && y <= itemY + itemHeight) {
-                // 切换技能选择（最多2个）
-                const idx = seasonSelection.skills.indexOf(skillId);
-                if (idx !== -1) {
-                    seasonSelection.skills.splice(idx, 1);
-                    _log('取消选择技能:', skillId);
-                } else if (seasonSelection.skills.length < 2) {
-                    seasonSelection.skills.push(skillId);
-                    _log('选择技能:', skillId);
-                }
-                return;
-            }
-        }
-        currentY += Math.floor(180 * scale);
-        
-        // 宠物选择（使用 for 循环以便正确 return）
-        currentY += Math.floor(25 * scale);
-        for (let i = 0; i < seasonContent.pets.length; i++) {
-            const petId = seasonContent.pets[i];
-            const itemHeight = Math.floor(50 * scale);
-            const itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
-            
-            if (x >= charItemX && x <= charItemX + charItemWidth &&
-                y >= itemY && y <= itemY + itemHeight) {
-                // 切换宠物选择
-                seasonSelection.pet = seasonSelection.pet === petId ? null : petId;
-                _log(seasonSelection.pet ? '选择宠物:' : '取消选择宠物:', petId);
-                return;
-            }
-        }
-        currentY += Math.floor(180 * scale);
-        
-        // 灵韵类型选择（使用 for 循环以便正确 return）- 多选最多3个
-        currentY += Math.floor(25 * scale);
-        for (let i = 0; i < seasonContent.starTypes.length; i++) {
-            const starTypeId = seasonContent.starTypes[i];
-            const itemHeight = Math.floor(45 * scale);
-            const itemY = currentY + i * (itemHeight + Math.floor(5 * scale));
-            
-            if (x >= charItemX && x <= charItemX + charItemWidth &&
-                y >= itemY && y <= itemY + itemHeight) {
-                // 切换灵韵类型选择（多选，最多3个）
-                const idx = seasonSelection.starTypes.indexOf(starTypeId);
-                if (idx !== -1) {
-                    // 已选中，取消选择
-                    seasonSelection.starTypes.splice(idx, 1);
-                    _log('取消选择灵韵类型:', starTypeId);
-                } else if (seasonSelection.starTypes.length < 3) {
-                    // 未选中且未满3个，添加选择
-                    seasonSelection.starTypes.push(starTypeId);
-                    _log('选择灵韵类型:', starTypeId, '当前已选:', seasonSelection.starTypes.length);
-                } else {
-                    // 已选满3个，提示
-                    $P.showToast({ title: '最多选择3个灵韵', icon: 'none', duration: 1000 });
-                }
-                return;
-            }
-        }
-        // 返回按钮和其他按钮已在前面处理
     } else if (state === GAME_STATE.GAMEOVER) {
         modeLifecycle.handleResultTouch(x, y);
     }

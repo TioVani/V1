@@ -19,6 +19,8 @@ function createDebugSystem(deps) {
     var setBestScore = deps.setBestScore || null;
     var getUpgradeEngine = deps.getUpgradeEngine || null;
     var toggleGodMode = deps.toggleGodMode || null;
+    var resetSaveData = deps.resetSaveData || null;
+    var onResetComplete = deps.onResetComplete || null;
 
     function executeDebugAction(actionId) {
         var pd = getSaveData();
@@ -125,6 +127,19 @@ function createDebugSystem(deps) {
                 if (toggleUIEditor) {
                     toggleUIEditor();
                 }
+                return;
+
+            case 'reset_save':
+                if (resetSaveData) {
+                    resetSaveData();
+                }
+                if (onResetComplete) {
+                    onResetComplete();
+                }
+                showToast('存档已重置，即将刷新页面', 'none', 1500);
+                setTimeout(function() {
+                    try { window.location.reload(); } catch(e) {}
+                }, 1500);
                 return;
 
             case 'god_mode':

@@ -27,7 +27,7 @@ function createGameDataStore(deps) {
         id: 'player_001',
         name: '唤灵人',
         gold: 0,
-        starSource: 9999,
+        starSource: 0,
         starStones: 0,
         ownedCharacters: [],
         currentCharacterId: null,
@@ -183,6 +183,7 @@ function createGameDataStore(deps) {
     var _loadHooks = [];
     var _proxyCache = null;
     var _saveProxy = null;   // WeakMap: 原始对象 → Proxy
+    var _suppressFlush = false; // reset 后抑制 flush，防止 beforeunload 写回旧数据
 
     // ==================== Proxy 标脏引擎 ====================
 
@@ -275,6 +276,7 @@ function createGameDataStore(deps) {
     }
 
     function flush() {
+        if (_suppressFlush) return;
         if (_dirty) {
             var snapshot = deepClone(_rawSave);
             var runtimeSnapshot = deepClone(_rawRuntime);
@@ -302,6 +304,7 @@ function createGameDataStore(deps) {
     }
 
     function tryFlush() {
+        if (_suppressFlush) return;
         if (!_dirty) return;
         var now = Date.now();
         if (now - _lastFlushTime >= _flushCooldownMs) {
@@ -327,9 +330,9 @@ function createGameDataStore(deps) {
                     var migrated = _migrateV2toV3(oldData);
                     _rawSave = migrated.save;
                     _rawRuntime = migrated.runtime;
-                    // 双写：同时写入新旧 key
+                    // 写入 v3，清除旧 key
                     flush();
-                    _writeLegacyCompat();
+                    try { removeStorage('playerData'); } catch(e) {}
                 } else {
                     Logger.info('[GameDataStore] 无存档，使用默认值');
                     _rawSave = deepClone(defaultSaveData);
@@ -483,27 +486,24 @@ function createGameDataStore(deps) {
         if (data.towerUnlocked === undefined) data.towerUnlocked = false;
     }
 
-    /**
-     * 降级兼容：回写旧 key (game_playerData)，去除运行时字段。
-     */
-    function _writeLegacyCompat() {
-        try {
-            var legacyData = deepClone(_rawSave);
-            // 旧 key 不应包含运行时字段（已经不在 _rawSave 中，安全）
-            setStorage('playerData', legacyData);
-        } catch (e) {
-            console.error('[GameDataStore] 降级兼容写入失败:', e);
-        }
-    }
-
+    
     function reset() {
         _rawSave = deepClone(defaultSaveData);
         _rawRuntime = deepClone(defaultRuntimeData);
         _rebuildProxy();
-        _resetDirty();
+        _markDirty();
+        _suppressFlush = false; // 暂时解除，允许本次 flush 执行
         flush();
-        // 注意：不触发 onLoad 回调
-        // 调用方需自行同步全局状态（timeCrystalUnlocked, starMode 等）
+        _suppressFlush = true;  // 之后抑制所有 flush，防止 beforeunload 写回
+        _resetDirty();
+        // 清除旧 key 残留，防止下次 load() 回退读取旧数据
+        try {
+            removeStorage('playerData');
+            removeStorage('bestScore');
+            removeStorage('cloudData');
+        } catch (e) {
+            console.error('[GameDataStore] reset 清理旧 key 失败:', e);
+        }
     }
 
     // ==================== 生命周期钩子 ====================

@@ -20,6 +20,14 @@ function createStageRenderer(deps) {
     var getStageModeSystem = deps.getStageModeSystem;
     var getMaterials = deps.getMaterials;
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    // 交互委托 deps
+    var isBackButtonClicked = deps.isBackButtonClicked;
+    var transitionTo = deps.transitionTo;
+    var showToast = deps.showToast;
+    var getAudioSystem = deps.getAudioSystem;
+    var setSelectedChapter = deps.setSelectedChapter;
+    var startStage = deps.startStage;
+    var getStageModeCurrent = deps.getStageModeCurrent;
     var DESIGN_HEIGHT = 812;
 
     function renderStageSelect() {
@@ -248,6 +256,110 @@ function createStageRenderer(deps) {
         drawBackButton();
     }
 
-    return { renderStageSelect: renderStageSelect, renderStageResult: renderStageResult };
+    function handleClick(x, y, currentState) {
+        var scale = getScreenScale();
+        var designOffsetY = getDesignOffsetY();
+        var screenWidth = getScreenWidth();
+        var screenHeight = getScreenHeight();
+        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
+        var GAME_STATE = getGameState();
+
+        // --- STAGE_SELECT ---
+        if (currentState === GAME_STATE.STAGE_SELECT) {
+            // 返回按钮（最先检测）
+            if (isBackButtonClicked && isBackButtonClicked(x, y)) {
+                transitionTo(GAME_STATE.WORLDMAP);
+                return true;
+            }
+
+            // 章节切换按钮（drawButton 以传入坐标为中心，按钮高30*scale，范围 center-15 到 center+15）
+            var navBtnCenterY = designOffsetY + Math.floor(100 * scale);
+            var navBtnH = Math.floor(30 * scale);
+            var navBtnTopY = navBtnCenterY - Math.floor(navBtnH / 2);
+            var navBtnBotY = navBtnCenterY + Math.floor(navBtnH / 2);
+            var CHAPTERS = getCHAPTERS();
+            var selectedChapter = getSelectedChapter();
+
+            var leftBtnX = Math.floor(30 * scale);
+            var rightBtnX = screenWidth - Math.floor(70 * scale);
+
+            if (selectedChapter > 1 && x >= leftBtnX && x <= leftBtnX + Math.floor(40 * scale) &&
+                y >= navBtnTopY && y <= navBtnBotY) {
+                if (setSelectedChapter) setSelectedChapter(selectedChapter - 1);
+                return true;
+            }
+            if (selectedChapter < Object.keys(CHAPTERS).length && x >= rightBtnX && x <= rightBtnX + Math.floor(40 * scale) &&
+                y >= navBtnTopY && y <= navBtnBotY) {
+                if (setSelectedChapter) setSelectedChapter(selectedChapter + 1);
+                return true;
+            }
+
+            // 关卡选择
+            var chapter = CHAPTERS[selectedChapter];
+            var startY = designOffsetY + Math.floor(150 * scale);
+            var stageHeight = Math.floor(120 * scale);
+            var padding = Math.floor(15 * scale);
+            var isStageUnlocked = getIsStageUnlocked;
+
+            for (var i = 0; i < chapter.stages.length; i++) {
+                var stageId = chapter.stages[i];
+                var itemY = startY + i * (stageHeight + padding);
+                if (x >= Math.floor(20 * scale) && x <= screenWidth - Math.floor(20 * scale) &&
+                    y >= itemY && y <= itemY + stageHeight) {
+                    if (isStageUnlocked(stageId)) {
+                        if (startStage) startStage(stageId);
+                    } else {
+                        if (showToast) showToast({ title: '关卡未解锁', icon: 'none' });
+                    }
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        // --- STAGE_RESULT ---
+        if (currentState === GAME_STATE.STAGE_RESULT) {
+            var btnWidth = Math.floor(120 * scale);
+            var btnHeight = Math.floor(45 * scale);
+            var btnY = designBottom - Math.floor(100 * scale);
+
+            // 重试按钮（居中）
+            if (x >= screenWidth / 2 - btnWidth / 2 && x <= screenWidth / 2 + btnWidth / 2 &&
+                y >= btnY - btnHeight / 2 && y <= btnY + btnHeight / 2) {
+                var audioSystem = getAudioSystem ? getAudioSystem() : null;
+                if (audioSystem) {
+                    var sms = getStageModeSystem();
+                    var sr = sms ? sms.getResult() : null;
+                    if (sr && sr.success) audioSystem.stopSuccess(); else audioSystem.stopFail();
+                }
+                var currentStage = getStageModeCurrent ? getStageModeCurrent() : null;
+                if (startStage && currentStage) startStage(currentStage);
+                return true;
+            }
+
+            // 返回按钮
+            if (isBackButtonClicked && isBackButtonClicked(x, y)) {
+                var audioSys = getAudioSystem ? getAudioSystem() : null;
+                if (audioSys) {
+                    var _sms = getStageModeSystem();
+                    var _sr = _sms ? _sms.getResult() : null;
+                    if (_sr && _sr.success) audioSys.stopSuccess(); else audioSys.stopFail();
+                }
+                transitionTo(GAME_STATE.STAGE_SELECT);
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    return {
+        renderStageSelect: renderStageSelect,
+        renderStageResult: renderStageResult,
+        handleClick: handleClick
+    };
 }
 export { createStageRenderer };

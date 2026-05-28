@@ -11,7 +11,7 @@ function createPlayerDataSystem() {
         id: 'player_001',
         name: '唤灵人',
         gold: 0,
-        starSource: 9999,
+        starSource: 0,
         starStones: 0,
         ownedCharacters: [],
         currentCharacterId: null,
