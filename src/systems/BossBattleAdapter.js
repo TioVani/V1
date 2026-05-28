@@ -28,6 +28,7 @@ function createBossBattleAdapter(deps) {
     var getBOSS_BATTLE_CONFIG = deps.getBOSS_BATTLE_CONFIG;
     var getBOSS_STUN_CHANCE = deps.getBOSS_STUN_CHANCE;
     var getBOSS_STUN_DURATION = deps.getBOSS_STUN_DURATION;
+    var getPlayerEffects = deps.getPlayerEffects || function() { return {}; };
 
     // 定时器
     var clearTimerInterval = deps.clearTimerInterval;
@@ -76,16 +77,7 @@ function createBossBattleAdapter(deps) {
     var getComboStarStartTime = deps.getComboStarStartTime;
     var setComboStarStartTime = deps.setComboStarStartTime;
 
-    // 状态效果
-    var setPlayerDodging = deps.setPlayerDodging;
-    var setPlayerDodgeEndTime = deps.setPlayerDodgeEndTime;
-    var setPlayerStunned = deps.setPlayerStunned;
-    var setPlayerStunEndTime = deps.setPlayerStunEndTime;
-    var setPlayerPoisoned = deps.setPlayerPoisoned;
-    var setPlayerPoisonEndTime = deps.setPlayerPoisonEndTime;
-    var setPlayerPoisonDamage = deps.setPlayerPoisonDamage;
-    var setPlayerPoisonTickTime = deps.setPlayerPoisonTickTime;
-
+    // 状态效果（改为直接写 playerEffects，不再需要 setter deps）
     // 动画
     var createMeteorAnimation = deps.createMeteorAnimation;
     var createCritAnimation = deps.createCritAnimation;
@@ -178,7 +170,24 @@ function createBossBattleAdapter(deps) {
             skills: {
                 getConfig: function() { return deps.getSkillsConfig ? deps.getSkillsConfig() : {}; },
                 getTypes: function() { return deps.getSkillTypes ? deps.getSkillTypes() : { PASSIVE: 'passive' }; }
-            }
+            },
+            // playerEffects getter/setter
+            getPlayerDodging: function() { return getPlayerEffects().dodging; },
+            getPlayerDodgeEndTime: function() { return getPlayerEffects().dodgeEndTime; },
+            isPlayerStunned: function() { return getPlayerEffects().isStunned(); },
+            getPlayerStunEndTime: function() { return getPlayerEffects().stunEndTime; },
+            getPlayerPoisoned: function() { return getPlayerEffects().poisoned; },
+            getPlayerPoisonEndTime: function() { return getPlayerEffects().poisonEndTime; },
+            getPlayerPoisonDamage: function() { return getPlayerEffects().poisonDamage; },
+            getPlayerPoisonTickTime: function() { return getPlayerEffects().poisonTickTime; },
+            setPlayerDodging: function(v) { getPlayerEffects().dodging = v; },
+            setPlayerDodgeEndTime: function(v) { getPlayerEffects().dodgeEndTime = v; },
+            setPlayerStunned: function(v) { getPlayerEffects().stunned = v; },
+            setPlayerStunEndTime: function(v) { getPlayerEffects().stunEndTime = v; },
+            setPlayerPoisoned: function(v) { getPlayerEffects().poisoned = v; },
+            setPlayerPoisonEndTime: function(v) { getPlayerEffects().poisonEndTime = v; },
+            setPlayerPoisonDamage: function(v) { getPlayerEffects().poisonDamage = v; },
+            setPlayerPoisonTickTime: function(v) { getPlayerEffects().poisonTickTime = v; }
         };
     }
 
@@ -281,10 +290,11 @@ function createBossBattleAdapter(deps) {
             poisonDmg -= sa;
         }
         pd.playerHp = Math.max(0, pd.playerHp - poisonDmg);
-        setPlayerPoisoned(true);
-        setPlayerPoisonEndTime(Date.now() + (poisonSplitSkill.poisonDuration || 5) * 1000);
-        setPlayerPoisonDamage(poisonSplitSkill.poisonDamage || 8);
-        setPlayerPoisonTickTime(Date.now() + 1000);
+        var fx = getPlayerEffects();
+        fx.poisoned = true;
+        fx.poisonEndTime = Date.now() + (poisonSplitSkill.poisonDuration || 5) * 1000;
+        fx.poisonDamage = poisonSplitSkill.poisonDamage || 8;
+        fx.poisonTickTime = Date.now() + 1000;
 
         if (addMonsterSkillAnimation) addMonsterSkillAnimation(getMonster(), 'poison_split', '毒液飞溅!');
         addMessage('☠️ 聚合邪灵溅射碎片! -' + poisonDmg + '灵能', '#00ff00', true);
@@ -373,6 +383,7 @@ function createBossBattleAdapter(deps) {
         if (!deathPoisonSkill) return;
 
         var pd = getSaveData();
+        var fx = getPlayerEffects();
         var deathDmg = deathPoisonSkill.damage || 20;
         if (pd.playerShield > 0) {
             var sa = Math.min(pd.playerShield, deathDmg);
@@ -380,10 +391,10 @@ function createBossBattleAdapter(deps) {
             deathDmg -= sa;
         }
         pd.playerHp = Math.max(0, pd.playerHp - deathDmg);
-        setPlayerPoisoned(true);
-        setPlayerPoisonEndTime(Date.now() + (deathPoisonSkill.poisonDuration || 5) * 1000);
-        setPlayerPoisonDamage(deathPoisonSkill.poisonDamage || 8);
-        setPlayerPoisonTickTime(Date.now() + 1000);
+        fx.poisoned = true;
+        fx.poisonEndTime = Date.now() + (deathPoisonSkill.poisonDuration || 5) * 1000;
+        fx.poisonDamage = deathPoisonSkill.poisonDamage || 8;
+        fx.poisonTickTime = Date.now() + 1000;
 
         var instantKill = !hasPoisonSplit;
         var deathSkill = Object.assign({}, deathPoisonSkill);
@@ -563,10 +574,9 @@ function createBossBattleAdapter(deps) {
         clearMessages();
         setComboStarActive(false);
         setComboStarStartTime(0);
-        setPlayerDodging(false);
-        setPlayerDodgeEndTime(0);
-        setPlayerStunned(false);
-        setPlayerStunEndTime(0);
+        var fx = getPlayerEffects();
+        fx.dodging = false; fx.dodgeEndTime = 0;
+        fx.stunned = false; fx.stunEndTime = 0;
 
         var pd = getSaveData();
         pd.playerRage = 0;
@@ -764,10 +774,9 @@ function createBossBattleAdapter(deps) {
         setMonsters([]);
 
         if (deps.clearPoisonPuddles) deps.clearPoisonPuddles();
-        setPlayerPoisoned(false);
-        setPlayerPoisonEndTime(0);
-        setPlayerPoisonDamage(0);
-        setPlayerPoisonTickTime(0);
+        var fx = getPlayerEffects();
+        fx.poisoned = false; fx.poisonEndTime = 0;
+        fx.poisonDamage = 0; fx.poisonTickTime = 0;
 
         Logger.info('BossAdapter 状态已清理');
     }
@@ -820,16 +829,6 @@ function createBossBattleAdapter(deps) {
         pd.playerHp = S.playerHp;
         pd.playerShield = S.playerShield;
         setTimeLeft(S.timeLeft);
-
-        // 同步状态效果
-        setPlayerStunned(S.isStunned);
-        setPlayerStunEndTime(S.stunEndTime);
-        setPlayerPoisoned(S.isPoisoned);
-        setPlayerPoisonEndTime(S.poisonEndTime);
-        setPlayerPoisonDamage(S.poisonDamage);
-        setPlayerPoisonTickTime(S.poisonTickTime);
-        setPlayerDodging(S.dodging);
-        setPlayerDodgeEndTime(S.dodgeEndTime);
 
         // 同步怪物状态
         if (!hasSplit && S.monster) {

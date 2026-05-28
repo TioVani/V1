@@ -1,7 +1,7 @@
 import Logger from '../utils/Logger.js';
 import TimerManager from '../utils/TimerManager.js';
 import { PauseCoordinator } from '../utils/PauseCoordinator.js';
-import { TOWER_COMBAT_OVERRIDES, TOWER_COMBAT_FEATURES } from '../config/CombatSpec.js';
+import { TOWER_COMBAT_OVERRIDES, TOWER_COMBAT_FEATURES, MODE_COMBAT_OVERRIDES } from '../config/CombatSpec.js';
 import { getSkillAttackRatio } from '../config/SkillConfig.js';
 import { vibrateShort } from '../platform/BrowserAPI.js';
 /**
@@ -168,6 +168,7 @@ function createTowerSystem(deps) {
     var getPets = deps.getPets;
     var clearBattleAnimations = deps.clearBattleAnimations;
     var clearStars = deps.clearStars;
+    var getPlayerEffects = deps.getPlayerEffects || function() { return {}; };
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
 
     // BattleEngine 引用（通过 _setBattleEngine 回填）
@@ -228,8 +229,6 @@ function createTowerSystem(deps) {
     var playerRage = 0;
     var greedyHpPool = 0;
     var greedySkillUnlocked = false;
-    var dodging = false;
-    var dodgeEndTime = 0;
     var comboStarActive = false;
     var comboStarStartTime = 0;
     var comboStarLastAttackTime = 0;
@@ -237,8 +236,6 @@ function createTowerSystem(deps) {
     var playerPoisonEndTime = 0;
     var playerPoisonDamage = 0;
     var playerPoisonTickTime = 0;
-    var playerStunned = false;
-    var playerStunEndTime = 0;
     var skillCooldowns = {};
 
     // ==================== 内部函数 ====================
@@ -1083,7 +1080,8 @@ function createTowerSystem(deps) {
             false,
             function() {
                 // 弹幕到达后检查闪避
-                if (dodging && Date.now() < dodgeEndTime) {
+                var fx = getPlayerEffects();
+                if (fx.dodging && Date.now() < fx.dodgeEndTime) {
                     // 闪避成功
                     createHpBarCounterAnimation();
                     var counterDamage = Math.floor(damage * 0.5);
@@ -1111,7 +1109,7 @@ function createTowerSystem(deps) {
 
                 // 同步扣血结果到 BattleEngine（统一血量源）
                 if (battleEngine) {
-                    battleEngine.setPlayerState(currentHp, currentShield, dodging, dodgeEndTime, playerStunned, playerStunEndTime);
+                    battleEngine.setPlayerState(currentHp, currentShield);
                 }
                 playerHp = currentHp;
                 playerShield = currentShield;
@@ -1123,10 +1121,12 @@ function createTowerSystem(deps) {
 
                 // 实际扣血 → 减时间 + 显示伤害动画 + 震动
                 if (damage > 0) {
-                    var timeDamage = 5;
-                    combatTime = Math.max(0, combatTime - timeDamage);
+                    var timeDamage = MODE_COMBAT_OVERRIDES.tower.COMBAT.TIME_DAMAGE_ON_HIT_S;
+                    if (timeDamage > 0) {
+                        combatTime = Math.max(0, combatTime - timeDamage);
+                        createTimeDamageAnimation(timeDamage);
+                    }
                     createPlayerDamageAnimation(damage, false);
-                    createTimeDamageAnimation(timeDamage);
                     addGameMessage('-' + damage + ' 灵能', '#ff6b6b');
                     playHit();
                     try { vibrateShort({ type: 'heavy' }); } catch (e) {}
@@ -1165,8 +1165,8 @@ function createTowerSystem(deps) {
                         }
                     }
                     if (stunSkill && Math.random() < (stunSkill.chance || 0)) {
-                        playerStunned = true;
-                        playerStunEndTime = Date.now() + (stunSkill.duration || 1000);
+                        fx.stunned = true;
+                        fx.stunEndTime = Date.now() + (stunSkill.duration || 1000);
                         addGameMessage('⚡ 被打断!', '#ff6b6b');
                     }
                 }
@@ -1177,10 +1177,7 @@ function createTowerSystem(deps) {
                 }
                 // 最终同步状态到 BattleEngine（中毒/眩晕等也要同步）
                 if (battleEngine) {
-                    battleEngine.setPlayerState(playerHp, playerShield, dodging, dodgeEndTime, playerStunned, playerStunEndTime);
-                    if (playerPoisoned) {
-                        battleEngine.setPoisonState(playerPoisoned, playerPoisonEndTime, playerPoisonDamage, playerPoisonTickTime);
-                    }
+                    battleEngine.setPlayerState(playerHp, playerShield);
                 }
             }
         );
@@ -1330,11 +1327,8 @@ function createTowerSystem(deps) {
             combatTime = st.timeLeft;
             playerHp = st.playerHp;
             playerShield = st.playerShield;
-            playerStunned = st.isStunned;
-            playerStunEndTime = st.stunEndTime;
             playerPoisoned = st.isPoisoned;
             comboStarActive = st.comboStarActive;
-            dodging = st.dodging;
             playerRage = st.playerRage;
             greedyHpPool = st.greedyHpPool;
 
@@ -1816,8 +1810,9 @@ function createTowerSystem(deps) {
         playerRage = 0;
         greedyHpPool = 0;
         greedySkillUnlocked = false;
-        dodging = false;
-        dodgeEndTime = 0;
+        var fx = getPlayerEffects();
+        fx.dodging = false; fx.dodgeEndTime = 0;
+        fx.stunned = false; fx.stunEndTime = 0;
         comboStarActive = false;
         comboStarStartTime = 0;
         comboStarLastAttackTime = 0;
@@ -1825,8 +1820,6 @@ function createTowerSystem(deps) {
         playerPoisonEndTime = 0;
         playerPoisonDamage = 0;
         playerPoisonTickTime = 0;
-        playerStunned = false;
-        playerStunEndTime = 0;
         resetComboFn();
 
         Logger.info('遭遇隐藏之路守卫:', combatMonster.name, 'HP:', combatMonster.hp);
@@ -2298,8 +2291,8 @@ function createTowerSystem(deps) {
         set victoryPopupTimer(v) { victoryPopupTimer = v; },
         get hiddenPathDialog() { return hiddenPathDialog; },
         set hiddenPathDialog(v) { hiddenPathDialog = v; },
-        get playerStunned() { return playerStunned; },
-        get playerStunEndTime() { return playerStunEndTime; },
+        get playerStunned() { return getPlayerEffects().stunned; },
+        get playerStunEndTime() { return getPlayerEffects().stunEndTime; },
         get comboStarActive() { return comboStarActive; },
         get comboStarStartTime() { return comboStarStartTime; },
 
@@ -2321,9 +2314,9 @@ function createTowerSystem(deps) {
             playerPoisonEndTime = 0;
             playerPoisonDamage = 0;
             playerPoisonTickTime = 0;
-            playerStunned = false;
-            playerStunEndTime = 0;
-            dodging = false;
+            var fx = getPlayerEffects();
+            fx.stunned = false; fx.stunEndTime = 0;
+            fx.dodging = false;
             comboStarActive = false;
             skillCooldowns = {};
             // 重新进入战斗

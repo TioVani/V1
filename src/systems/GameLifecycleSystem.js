@@ -80,6 +80,7 @@ function createGameLifecycleSystem(deps) {
     var setMonsterSplitType = deps.setMonsterSplitType;
 
     // 毒素
+    var getPlayerEffects = deps.getPlayerEffects;
     var getPlayerPoisoned = deps.getPlayerPoisoned;
     var setPlayerPoisoned = deps.setPlayerPoisoned;
     var getPlayerPoisonDamage = deps.getPlayerPoisonDamage;
@@ -186,9 +187,11 @@ function createGameLifecycleSystem(deps) {
         // 重置当局击杀计数
         if (deps.setMonstersKilled) deps.setMonstersKilled(0);
 
-        // 重置毒素
-        setPlayerPoisoned(false);
-        setPlayerPoisonDamage(0);
+        // 重置毒素+闪避+眩晕
+        var fx = getPlayerEffects();
+        fx.poisoned = false; fx.poisonDamage = 0;
+        fx.dodging = false; fx.dodgeEndTime = 0;
+        fx.stunned = false; fx.stunEndTime = 0;
 
         // 重置连击
         resetCombo();
@@ -337,8 +340,10 @@ function createGameLifecycleSystem(deps) {
         pd.bossKillCount = 0;
         setStarDevourerEscaped(false);
         setVoidEmperorSpawned(false);
-        setPlayerPoisoned(false);
-        setPlayerPoisonDamage(0);
+        var fx = getPlayerEffects();
+        fx.poisoned = false; fx.poisonDamage = 0;
+        fx.dodging = false; fx.dodgeEndTime = 0;
+        fx.stunned = false; fx.stunEndTime = 0;
         resetCombo();
         clearAllAnimations();
 

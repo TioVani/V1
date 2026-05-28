@@ -374,8 +374,8 @@ function createWorldMapRenderer(deps) {
             var facingX = wms.getFacingX();
 
             if (occCanvas) {
-                var pcW = portraitW + 4;
-                var pcH = portraitH + 4;
+                var pcW = portraitW;
+                var pcH = portraitH;
                 if (!_playerCanvas || _playerCanvas.width !== pcW || _playerCanvas.height !== pcH) {
                     _playerCanvas = document.createElement('canvas');
                     _playerCanvas.width = pcW;
@@ -384,6 +384,16 @@ function createWorldMapRenderer(deps) {
                 var pc = _playerCanvas.getContext('2d');
                 var pcCenterX = pcW / 2;
                 var pcCenterY = pcH / 2;
+
+                // 立绘在地图坐标系中的尺寸 (地图像素)
+                var portraitW_map = portraitW / scale;
+                var portraitH_map = portraitH / scale;
+                // 采样边界加少量 margin 防止边缘漏像素
+                var sampleMargin = 2;
+                var srcW = portraitW_map + sampleMargin * 2;
+                var srcH = portraitH_map + sampleMargin * 2;
+                var srcX = Math.round(pos.x - srcW / 2);
+                var srcY = Math.round(pos.y - srcH / 2);
 
                 pc.clearRect(0, 0, pcW, pcH);
                 pc.globalCompositeOperation = 'source-over';
@@ -401,12 +411,9 @@ function createWorldMapRenderer(deps) {
 
                 pc.globalCompositeOperation = 'destination-out';
                 pc.globalAlpha = 0.7;
-                var pwx = Math.round(pos.x);
-                var pwy = Math.round(pos.y);
-                var margin = 2;
-                pc.drawImage(occCanvas, pwx - 12 - margin, pwy - 12 - margin, 24 + margin * 2, 24 + margin * 2,
-                             pcCenterX - (12 + margin) * scale, pcCenterY - (12 + margin) * scale,
-                             (24 + margin * 2) * scale, (24 + margin * 2) * scale);
+                var margin = sampleMargin;
+                pc.drawImage(occCanvas, srcX, srcY, srcW, srcH,
+                             0, 0, pcW, pcH);
                 pc.globalCompositeOperation = 'source-over';
                 pc.globalAlpha = 1.0;
 
@@ -434,6 +441,14 @@ function createWorldMapRenderer(deps) {
                 var pc = _playerCanvas.getContext('2d');
                 var pcCenter = pcSize / 2;
 
+                // 蓝色圆形在地图坐标系中的直径 (地图像素)
+                var circleD_map = (2 * playerR + 2 * strokeW) / scale;
+                var circleMargin = 4 / scale;
+                var srcW = circleD_map + circleMargin * 2;
+                var srcH = circleD_map + circleMargin * 2;
+                var srcX = Math.round(pos.x - srcW / 2);
+                var srcY = Math.round(pos.y - srcH / 2);
+
                 pc.clearRect(0, 0, pcSize, pcSize);
                 pc.globalCompositeOperation = 'source-over';
                 pc.globalAlpha = 1.0;
@@ -447,12 +462,8 @@ function createWorldMapRenderer(deps) {
 
                 pc.globalCompositeOperation = 'destination-out';
                 pc.globalAlpha = 0.7;
-                var pwx = Math.round(pos.x);
-                var pwy = Math.round(pos.y);
-                var margin = 2;
-                pc.drawImage(occCanvas, pwx - 12 - margin, pwy - 12 - margin, 24 + margin * 2, 24 + margin * 2,
-                             pcCenter - (12 + margin) * scale, pcCenter - (12 + margin) * scale,
-                             (24 + margin * 2) * scale, (24 + margin * 2) * scale);
+                pc.drawImage(occCanvas, srcX, srcY, srcW, srcH,
+                             0, 0, pcSize, pcSize);
                 pc.globalCompositeOperation = 'source-over';
                 pc.globalAlpha = 1.0;
 

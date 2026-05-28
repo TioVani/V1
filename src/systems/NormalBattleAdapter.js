@@ -1,6 +1,7 @@
 import Logger from '../utils/Logger.js';
 import { createBattleEngine } from './BattleEngine.js';
 import { SATURATION_COSTS } from './SaturationState.js';
+import { MODE_COMBAT_OVERRIDES } from '../config/CombatSpec.js';
 
 /**
  * NormalBattleAdapter — BattleEngine 委托模式
@@ -234,7 +235,24 @@ function createNormalBattleAdapter(deps) {
             skills: {
                 getConfig: function() { return getSkillsConfig(); },
                 getTypes: function() { return { PASSIVE: 'passive' }; }
-            }
+            },
+            // playerEffects getter/setter
+            getPlayerDodging: function() { return getPlayerEffects().dodging; },
+            getPlayerDodgeEndTime: function() { return getPlayerEffects().dodgeEndTime; },
+            isPlayerStunned: function() { return getPlayerEffects().isStunned(); },
+            getPlayerStunEndTime: function() { return getPlayerEffects().stunEndTime; },
+            getPlayerPoisoned: function() { return getPlayerEffects().poisoned; },
+            getPlayerPoisonEndTime: function() { return getPlayerEffects().poisonEndTime; },
+            getPlayerPoisonDamage: function() { return getPlayerEffects().poisonDamage; },
+            getPlayerPoisonTickTime: function() { return getPlayerEffects().poisonTickTime; },
+            setPlayerDodging: function(v) { getPlayerEffects().dodging = v; },
+            setPlayerDodgeEndTime: function(v) { getPlayerEffects().dodgeEndTime = v; },
+            setPlayerStunned: function(v) { getPlayerEffects().stunned = v; },
+            setPlayerStunEndTime: function(v) { getPlayerEffects().stunEndTime = v; },
+            setPlayerPoisoned: function(v) { getPlayerEffects().poisoned = v; },
+            setPlayerPoisonEndTime: function(v) { getPlayerEffects().poisonEndTime = v; },
+            setPlayerPoisonDamage: function(v) { getPlayerEffects().poisonDamage = v; },
+            setPlayerPoisonTickTime: function(v) { getPlayerEffects().poisonTickTime = v; }
         };
     }
 
@@ -852,7 +870,7 @@ function createNormalBattleAdapter(deps) {
             playerMaxHp: charStats ? charStats.hp : 100,
             playerShield: pd.playerShield || 0,
             timeLimit: getTimeLeftFn() || 60,
-            combatOverrides: {},
+            combatOverrides: MODE_COMBAT_OVERRIDES.normal,
             features: {},
             extensions: {
                 onBeforeStarClick: onBeforeStarClickHook,
@@ -883,7 +901,21 @@ function createNormalBattleAdapter(deps) {
     }
 
     function update() {
-        if (battleEngine) battleEngine.update();
+        if (battleEngine) {
+            // 每帧同步玩家状态到引擎（playerEffects → BattleEngine.S 单向流动）
+            var fx = getPlayerEffects();
+            var pd = getSaveData();
+            var hp = pd.playerHp;
+            var shield = pd.playerShield;
+            var state = getGameState();
+            var GAME_STATE = getGameConst();
+            if (state === GAME_STATE.TOWER_COMBAT) {
+                var ts = getTowerSystem();
+                if (ts) { hp = ts.playerHp; shield = ts.playerShield || 0; }
+            }
+            battleEngine.setPlayerState(hp, shield);
+            battleEngine.update();
+        }
         // 收服灵光生成
         var capSys = getCaptureSystem();
         if (capSys) {
@@ -940,11 +972,6 @@ function createNormalBattleAdapter(deps) {
             }
         }
         Logger.info('[HP] set_state_to_engine | hp=' + hpToSync + ' shield=' + shieldToSync + (isTower ? ' [tower]' : ''));
-        engine.setPlayerState(
-            hpToSync, shieldToSync,
-            playerEffects.dodging, playerEffects.dodgeEndTime,
-            false, 0
-        );
 
         // 设置攻击目标
         if (isTower) {
@@ -1018,10 +1045,6 @@ function createNormalBattleAdapter(deps) {
             pd.playerHp = es.playerHp;
             pd.playerShield = es.playerShield;
         }
-        fx.dodging = es.dodging;
-        fx.dodgeEndTime = es.dodgeEndTime;
-        fx.stunned = es.isStunned;
-        fx.stunEndTime = es.stunEndTime;
 
         var combatState = getCombatState();
         combatState.greedyHpPool = es.greedyHpPool;
@@ -1554,9 +1577,7 @@ function createNormalBattleAdapter(deps) {
         }
         if (m.damageBonus > 0) damage += m.damageBonus;
 
-        var timeDamage = 0; // 被攻击不再减少时间
-
-        createMonsterProjectileAnimationFn(m.x, m.y, damage, timeDamage, isBoss, function() {
+        createMonsterProjectileAnimationFn(m.x, m.y, damage, 0, isBoss, function() {
             try {
                 var GAME_STATE = getGameConst();
                 var state = getGameState();
@@ -1606,15 +1627,10 @@ function createNormalBattleAdapter(deps) {
                     setStageDamageTakenFn(getStageDamageTakenFn() + damage);
                 }
 
-                if (damage > 0) {
-                    setTimeLeftFn(Math.max(0, getTimeLeftFn() - timeDamage));
-                }
-
                 if (shieldAbsorb > 0) createPlayerDamageAnimation(shieldAbsorb, false, false, null, true);
                 if (damage > 0) {
                     vibrateShort({ type: isBoss ? 'heavy' : 'medium' });
                     createPlayerDamageAnimation(damage, isBoss);
-                    if (deps.createTimeDamageAnimation) deps.createTimeDamageAnimation(timeDamage);
                 }
 
                 if (m.skills) {

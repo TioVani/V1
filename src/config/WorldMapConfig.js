@@ -46,7 +46,7 @@ var WORLDS = {
                 id: 'E01_enemy_01',
                 name: '灵域小黏',
                 type: 'enemy',
-                x: 634, y: 154,
+                x: 527, y: 633,
                 discoverRadius: 80,
                 interactRadius: 40,
                 priority: 60,

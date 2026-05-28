@@ -288,18 +288,12 @@ function createGameBattleRenderer(deps) {
                 pd.playerHp = _es.playerHp;
                 pd.maxPlayerHp = _es.playerMaxHp;
                 pd.playerShield = _es.playerShield;
-                var playerEffects = getPlayerEffects();
-                playerEffects.stunned = _es.isStunned;
-                playerEffects.stunEndTime = _es.stunEndTime;
                 var _ct = _es.timeLeft != null ? _es.timeLeft : (towerSystem.combatTime || 0);
                 setTimeLeft(_ct);
             } else {
                 pd.playerHp = towerSystem.playerHp != null ? towerSystem.playerHp : pd.playerHp;
                 pd.maxPlayerHp = towerSystem.playerMaxHp || pd.maxPlayerHp;
                 pd.playerShield = towerSystem.playerShield || 0;
-                var playerEffects = getPlayerEffects();
-                playerEffects.stunned = towerSystem.playerStunned || false;
-                playerEffects.stunEndTime = towerSystem.playerStunEndTime || 0;
                 setTimeLeft(towerSystem.combatTime || 0);
             }
         }

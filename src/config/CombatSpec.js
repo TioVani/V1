@@ -185,6 +185,18 @@ var TOWER_COMBAT_OVERRIDES = {
 };
 
 // ═══════════════════════════════════════════════════════════
+// 按模式的扣时间策略 — TIME_DAMAGE_ON_HIT_S: 0 = 不扣时间，>0 = 扣秒数
+// ═══════════════════════════════════════════════════════════
+
+var MODE_COMBAT_OVERRIDES = {
+    normal: { COMBAT: { TIME_DAMAGE_ON_HIT_S: 0 } },
+    season: { COMBAT: { TIME_DAMAGE_ON_HIT_S: 0 } },
+    stage:  { COMBAT: { TIME_DAMAGE_ON_HIT_S: 0 } },
+    tower:  { COMBAT: { TIME_DAMAGE_ON_HIT_S: 0 } },
+    boss:   { COMBAT: { TIME_DAMAGE_ON_HIT_S: 8 } }
+};
+
+// ═══════════════════════════════════════════════════════════
 // 工具函数
 // ═══════════════════════════════════════════════════════════
 
@@ -410,6 +422,7 @@ export {
     TOWER_COMBAT_FEATURES,
     BOSS_COMBAT_OVERRIDES,
     TOWER_COMBAT_OVERRIDES,
+    MODE_COMBAT_OVERRIDES,
     specResolver,
     getSpecValue,
     flattenSpec,

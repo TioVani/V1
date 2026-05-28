@@ -1260,6 +1260,7 @@ function init() {
             getPets: function() { return Pets; },
             clearBattleAnimations: function() { animationSystem.clearAllAnimations(); },
             clearStars: function() { stars = []; },
+            getPlayerEffects: function() { return playerEffects; },
             getModeLifecycle: function() { return modeLifecycle; }
         });
 
@@ -1313,7 +1314,25 @@ function init() {
                 getTypes: function() { return SkillTypes; }
             },
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+
+            // playerEffects getter/setter（真相源读写）
+            getPlayerDodging: function() { return playerEffects.dodging; },
+            getPlayerDodgeEndTime: function() { return playerEffects.dodgeEndTime; },
+            isPlayerStunned: function() { return playerEffects.isStunned(); },
+            getPlayerStunEndTime: function() { return playerEffects.stunEndTime; },
+            getPlayerPoisoned: function() { return playerEffects.poisoned; },
+            getPlayerPoisonEndTime: function() { return playerEffects.poisonEndTime; },
+            getPlayerPoisonDamage: function() { return playerEffects.poisonDamage; },
+            getPlayerPoisonTickTime: function() { return playerEffects.poisonTickTime; },
+            setPlayerDodging: function(val) { playerEffects.dodging = val; },
+            setPlayerDodgeEndTime: function(val) { playerEffects.dodgeEndTime = val; },
+            setPlayerStunned: function(val) { playerEffects.stunned = val; },
+            setPlayerStunEndTime: function(val) { playerEffects.stunEndTime = val; },
+            setPlayerPoisoned: function(val) { playerEffects.poisoned = val; },
+            setPlayerPoisonEndTime: function(val) { playerEffects.poisonEndTime = val; },
+            setPlayerPoisonDamage: function(val) { playerEffects.poisonDamage = val; },
+            setPlayerPoisonTickTime: function(val) { playerEffects.poisonTickTime = val; }
         });
         towerSystem._setBattleEngine(battleEngine);
         window._tower = towerSystem; // 控制台快捷入口
@@ -2739,6 +2758,7 @@ function init() {
             getBOSS_BATTLE_CONFIG: function() { return BOSS_BATTLE_CONFIG; },
             getBOSS_STUN_CHANCE: function() { return BOSS_STUN_CHANCE; },
             getBOSS_STUN_DURATION: function() { return BOSS_STUN_DURATION; },
+            getPlayerEffects: function() { return playerEffects; },
             clearTimerInterval: function() { if (timerInterval) { clearInterval(timerInterval); timerInterval = null; } },
             clearMoveInterval: function() { if (moveInterval) { clearInterval(moveInterval); moveInterval = null; } },
             clearMonsterAttackInterval: function() { if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; } },
@@ -3261,6 +3281,7 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
             setMonsterSplitCount: function(val) { combatState.monsterSplitCount = val; },
             getMonsterSplitType: function() { return combatState.monsterSplitType; },
             setMonsterSplitType: function(val) { combatState.monsterSplitType = val; },
+            getPlayerEffects: function() { return playerEffects; },
             getPlayerPoisoned: function() { return playerEffects.poisoned; },
             setPlayerPoisoned: function(val) { playerEffects.poisoned = val; },
             getPlayerPoisonDamage: function() { return playerEffects.poisonDamage; },
@@ -3871,10 +3892,17 @@ runtimeData.godMode = false;
             onComplete: function() {
                 _log('过场播放完毕，进入大地图');
                 stateMachine.transitionTo(GAME_STATE.WORLDMAP);
-                if (worldMapSystem) worldMapSystem.loadWorld('world_01');
-                if (audioSystem) {
-                    audioSystem.playBgm('shuhanTheme', 0.4);
-                    audioSystem.fadeBgmVolume(0.32, 5000); // 5秒内衰减到80%
+                if (worldMapSystem) {
+                    var lastWorldId = (saveData && saveData.worldMapProgress && saveData.worldMapProgress.currentWorldId) || 'world_01';
+                    if (audioSystem) {
+                        if (lastWorldId === 'world_17') {
+                            audioSystem.enterArdeacinerea();
+                        } else {
+                            audioSystem.playBgm('shuhanTheme', 0.4);
+                            audioSystem.fadeBgmVolume(0.32, 5000);
+                        }
+                    }
+                    worldMapSystem.loadWorld(lastWorldId);
                 }
             }
         });

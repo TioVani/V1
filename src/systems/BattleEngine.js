@@ -56,6 +56,24 @@ function createBattleEngine(deps) {
     var combatSvc = deps.combat;
     var skillSvc = deps.skills;
 
+    // ─── playerEffects getter/setter（真相源读写） ───
+    var getPlayerDodging = deps.getPlayerDodging;
+    var getPlayerDodgeEndTime = deps.getPlayerDodgeEndTime;
+    var isPlayerStunned = deps.isPlayerStunned;
+    var getPlayerStunEndTime = deps.getPlayerStunEndTime;
+    var getPlayerPoisoned = deps.getPlayerPoisoned;
+    var getPlayerPoisonEndTime = deps.getPlayerPoisonEndTime;
+    var getPlayerPoisonDamage = deps.getPlayerPoisonDamage;
+    var getPlayerPoisonTickTime = deps.getPlayerPoisonTickTime;
+    var setPlayerDodging = deps.setPlayerDodging;
+    var setPlayerDodgeEndTime = deps.setPlayerDodgeEndTime;
+    var setPlayerStunned = deps.setPlayerStunned;
+    var setPlayerStunEndTime = deps.setPlayerStunEndTime;
+    var setPlayerPoisoned = deps.setPlayerPoisoned;
+    var setPlayerPoisonEndTime = deps.setPlayerPoisonEndTime;
+    var setPlayerPoisonDamage = deps.setPlayerPoisonDamage;
+    var setPlayerPoisonTickTime = deps.setPlayerPoisonTickTime;
+
     // ─── 运行时配置（init 时从 COMBAT_SPEC + overrides 解析） ───
     var RC = null;  // Runtime Constants
     var RF = null;  // Runtime Features
@@ -100,10 +118,7 @@ function createBattleEngine(deps) {
             timeLeft: timeLimit, timeLimit: timeLimit,
             mode: 'normal', floor: 1,
             combo: 0, lastHitTime: 0, lastStarClickTime: 0,
-            isPoisoned: false, poisonEndTime: 0, poisonDamage: 0, poisonTickTime: 0,
-            isStunned: false, stunEndTime: 0,
             comboStarActive: false, comboStarStartTime: 0, comboStarLastAttack: 0,
-            dodging: false, dodgeEndTime: 0,
             greedyHpPool: 0, playerRage: 0,
             skillCooldowns: {},
             isFinished: false, finishReason: null,
@@ -234,31 +249,31 @@ function createBattleEngine(deps) {
     // ═══════════════════════════════════════════════════════
 
     function applyPoison(poisonSkill) {
-        S.isPoisoned = true;
-        S.poisonEndTime = Date.now() + (poisonSkill.duration || 3) * 1000;
-        S.poisonDamage = poisonSkill.damage || 5;
-        S.poisonTickTime = Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS');
+        setPlayerPoisoned(true);
+        setPlayerPoisonEndTime(Date.now() + (poisonSkill.duration || 3) * 1000);
+        setPlayerPoisonDamage(poisonSkill.damage || 5);
+        setPlayerPoisonTickTime(Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS'));
         var poisonLabel = S.playerShield > 0 ? '腐蚀!' : '中毒!';
         anim.createPlayerDamage(0, false, true, poisonLabel);
-        anim.addMessage('☠️ ' + poisonLabel + ' 每秒-' + S.poisonDamage + '灵能', '#ff6b6b');
+        anim.addMessage('☠️ ' + poisonLabel + ' 每秒-' + (poisonSkill.damage || 5) + '灵能', '#ff6b6b');
     }
 
     function applyStun(stunSkill) {
         if (Math.random() < (stunSkill.chance || 0)) {
-            S.isStunned = true;
-            S.stunEndTime = Date.now() + (stunSkill.duration || 1000);
+            setPlayerStunned(true);
+            setPlayerStunEndTime(Date.now() + (stunSkill.duration || 1000));
             anim.addMessage('⚡ 被打断!', '#ff6b6b');
         }
     }
 
     function updatePoisonTick() {
-        if (!S.isPoisoned || Date.now() >= S.poisonEndTime) {
-            if (S.isPoisoned) { S.isPoisoned = false; S.poisonDamage = 0; }
+        if (!getPlayerPoisoned() || Date.now() >= getPlayerPoisonEndTime()) {
+            if (getPlayerPoisoned()) { setPlayerPoisoned(false); setPlayerPoisonDamage(0); }
             return;
         }
-        if (Date.now() < S.poisonTickTime) return;
+        if (Date.now() < getPlayerPoisonTickTime()) return;
 
-        var poisonDmg = S.poisonDamage;
+        var poisonDmg = getPlayerPoisonDamage();
         var shieldAbsorb = 0;
         if (S.playerShield > 0) {
             shieldAbsorb = Math.min(S.playerShield, poisonDmg);
@@ -266,7 +281,7 @@ function createBattleEngine(deps) {
             poisonDmg -= shieldAbsorb;
         }
         S.playerHp -= poisonDmg;
-        S.poisonTickTime = Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS');
+        setPlayerPoisonTickTime(Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS'));
 
         if (shieldAbsorb > 0) anim.createPlayerDamage(shieldAbsorb, false, false, null, true);
         if (poisonDmg > 0) { anim.createPlayerDamage(poisonDmg, false, true); anim.playHit(); }
@@ -275,8 +290,8 @@ function createBattleEngine(deps) {
     }
 
     function updateStun() {
-        if (S.isStunned && Date.now() >= S.stunEndTime) {
-            S.isStunned = false;
+        if (isPlayerStunned() && Date.now() >= getPlayerStunEndTime()) {
+            setPlayerStunned(false);
         }
     }
 
@@ -347,8 +362,8 @@ function createBattleEngine(deps) {
                 anim.addMessage('💚 灵兽治愈 +' + healAmt + '灵能', '#00ff88');
                 break;
             case 'swift':
-                if (Math.random() < 0.15 && S.dodging) {
-                    S.dodgeEndTime += 200;
+                if (Math.random() < 0.15 && getPlayerDodging()) {
+                    setPlayerDodgeEndTime(getPlayerDodgeEndTime() + 200);
                     anim.addMessage('⚡ 宠物加速闪避!', '#DA70D6');
                 }
                 break;
@@ -437,7 +452,7 @@ function createBattleEngine(deps) {
                     if (S.phase !== PHASE.RUNNING) return;
 
                     // 闪避检查（在弹幕命中时检查，而非函数入口）
-                    if (S.dodging && Date.now() < S.dodgeEndTime) {
+                    if (getPlayerDodging() && Date.now() < getPlayerDodgeEndTime()) {
                         anim.createHpBarCounter();
                         var counterDamage = Math.floor(damage * getSpecValue(RC, 'SPECIAL_STARS.DODGE_COUNTER_MULT'));
                         monster.hp -= counterDamage;
@@ -463,9 +478,11 @@ function createBattleEngine(deps) {
                     if (shieldAbsorb > 0) anim.createPlayerDamage(shieldAbsorb, false, false, null, true);
 
                     if (damage > 0) {
-                        S.timeLeft = Math.max(0, S.timeLeft - S.timeDamageOnHit);
+                        if (S.timeDamageOnHit > 0) {
+                            S.timeLeft = Math.max(0, S.timeLeft - S.timeDamageOnHit);
+                            anim.createTimeDamage(S.timeDamageOnHit);
+                        }
                         anim.createPlayerDamage(damage, false);
-                        anim.createTimeDamage(S.timeDamageOnHit);
                         anim.addMessage('-' + damage + ' 灵能', '#ff6b6b');
                         anim.vibrateShort({ type: 'heavy' });
                         anim.playHit();
@@ -490,8 +507,8 @@ function createBattleEngine(deps) {
 
                     // Boss 眩晕检查
                     if (S.bossStunChance > 0 && damage > 0 && Math.random() < S.bossStunChance) {
-                        S.isStunned = true;
-                        S.stunEndTime = Date.now() + (S.bossStunDuration || 1000);
+                        setPlayerStunned(true);
+                        setPlayerStunEndTime(Date.now() + (S.bossStunDuration || 1000));
                         anim.addMessage('⚡ 守护灵打断!', '#ff6b6b');
                     }
 
@@ -624,8 +641,8 @@ function createBattleEngine(deps) {
                 } else {
                     anim.addMessage('💫 闪避! 1秒', '#DA70D6');
                 }
-                S.dodging = true;
-                S.dodgeEndTime = Date.now() + dodgeTime;
+                setPlayerDodging(true);
+                setPlayerDodgeEndTime(Date.now() + dodgeTime);
                 combatSvc.updateCombo();
                 anim.createStarBurst(star.x, star.y, 'dodge');
                 break;
@@ -755,8 +772,8 @@ function createBattleEngine(deps) {
         if (S.phase !== PHASE.RUNNING) return false;
 
         // 眩晕检查
-        if (S.isStunned && Date.now() < S.stunEndTime) return false;
-        if (S.isStunned) S.isStunned = false;
+        if (isPlayerStunned() && Date.now() < getPlayerStunEndTime()) return false;
+        if (isPlayerStunned()) setPlayerStunned(false);
 
         var stars = externalStars || S.stars;
 
@@ -1171,12 +1188,12 @@ function createBattleEngine(deps) {
         onResume: function(duration) {
             if (S.phase !== 'paused') return;
             if (S.comboStarActive) S.comboStarStartTime += duration;
-            if (S.isPoisoned) {
-                S.poisonEndTime += duration;
-                S.poisonTickTime += duration;
+            if (getPlayerPoisoned()) {
+                setPlayerPoisonEndTime(getPlayerPoisonEndTime() + duration);
+                setPlayerPoisonTickTime(getPlayerPoisonTickTime() + duration);
             }
-            if (S.isStunned) S.stunEndTime += duration;
-            if (S.dodging) S.dodgeEndTime += duration;
+            if (isPlayerStunned()) setPlayerStunEndTime(getPlayerStunEndTime() + duration);
+            if (getPlayerDodging()) setPlayerDodgeEndTime(getPlayerDodgeEndTime() + duration);
             for (var ai = 0; ai < attackers.length; ai++) {
                 attackers[ai].lastAttackTime += duration;
             }
@@ -1201,20 +1218,9 @@ function createBattleEngine(deps) {
         return S.monster;
     }
 
-    function setPlayerState(hp, shield, dodging, dodgeEndTime, stunned, stunEndTime) {
+    function setPlayerState(hp, shield) {
         if (hp !== undefined) S.playerHp = hp;
         if (shield !== undefined) S.playerShield = shield;
-        if (dodging !== undefined) S.dodging = dodging;
-        if (dodgeEndTime !== undefined) S.dodgeEndTime = dodgeEndTime;
-        if (stunned !== undefined) S.isStunned = stunned;
-        if (stunEndTime !== undefined) S.stunEndTime = stunEndTime;
-    }
-
-    function setPoisonState(poisoned, poisonEndTime, poisonDamage, poisonTickTime) {
-        if (poisoned !== undefined) S.isPoisoned = poisoned;
-        if (poisonEndTime !== undefined) S.poisonEndTime = poisonEndTime;
-        if (poisonDamage !== undefined) S.poisonDamage = poisonDamage;
-        if (poisonTickTime !== undefined) S.poisonTickTime = poisonTickTime;
     }
 
     return {
@@ -1238,7 +1244,6 @@ function createBattleEngine(deps) {
         getTargetMonster: getTargetMonster,
         addPendingDeath: addPendingDeath,
         setPlayerState: setPlayerState,
-        setPoisonState: setPoisonState,
         finishBattle: finishBattle
     };
 }
