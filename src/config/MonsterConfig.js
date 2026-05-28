@@ -36,7 +36,7 @@ const Monsters = {
         baseDefense: 0,
         attackInterval: 99999,
         skills: [],
-        mechanics: {},
+        mechanics: { isTutorial: true },
         drops: { gold: [0, 0], exp: 0 },
         unlockScore: 0,
         imageAssetId: 'char_archerPortrait'

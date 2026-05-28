@@ -31,32 +31,51 @@ function createWorldMapRenderer(deps) {
     }
     var _dialogue = null;       // { lines: [], index: 0 }
     var _dialogueCallback = null;
+    var _choiceHotspots = [];   // [{ x, y, w, h, key }, ...]
     var _confirmEntity = null;  // { id, type, x, y, label }
     var _playerCanvas = null;
     var _chestCanvas = null;
 
     function showDialogue(lines, callback) {
         _dialogue = { lines: lines, index: 0 };
-        _dialogueCallback = callback;
+        _dialogueCallback = callback || null;
+        _choiceHotspots = [];
     }
 
     function dismissDialogue() {
         _dialogue = null;
         _dialogueCallback = null;
+        _choiceHotspots = [];
     }
 
     function isDialogueOpen() {
         return _dialogue !== null;
     }
 
-    function advanceDialogue() {
+    function advanceDialogue(choiceKey) {
         if (!_dialogue) return null;
+
+        var cur = _dialogue.lines[_dialogue.index];
+
+        // 当前行有选项但没传 choiceKey → 等待用户点击选项（不推进）
+        if (cur && typeof cur === 'object' && cur.choices && cur.choices.length > 0 && choiceKey === undefined) {
+            return cur;
+        }
+
+        // 有选项且传了 choiceKey，通知回调
+        if (_dialogueCallback && choiceKey !== undefined) {
+            _dialogueCallback(choiceKey);
+        }
+
         _dialogue.index++;
+
+        // 对话结束
         if (_dialogue.index >= _dialogue.lines.length) {
-            if (_dialogueCallback) _dialogueCallback();
             dismissDialogue();
             return null;
         }
+
+        _choiceHotspots = [];
         return _dialogue.lines[_dialogue.index];
     }
 
@@ -284,15 +303,33 @@ function createWorldMapRenderer(deps) {
                 ctx.textBaseline = 'middle';
                 ctx.fillText('门', sp.x, sp.y);
             } else if (e.type === 'npc') {
-                ctx.fillStyle = '#2ecc71';
-                ctx.beginPath();
-                ctx.arc(sp.x, sp.y, ir * 0.6, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#fff';
-                ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(e.name || 'NPC', sp.x, sp.y);
+                var npcImg = null;
+                if (e.npcImageId && assets[e.npcImageId] && assets[e.npcImageId].complete && assets[e.npcImageId].naturalWidth > 0) {
+                    npcImg = assets[e.npcImageId];
+                }
+                if (npcImg) {
+                    var npcImgRatio = npcImg.naturalWidth / npcImg.naturalHeight;
+                    var npcSize = ir * 2;
+                    var npcW, npcH;
+                    if (npcImgRatio >= 1) {
+                        npcW = npcSize;
+                        npcH = Math.floor(npcSize / npcImgRatio);
+                    } else {
+                        npcH = npcSize;
+                        npcW = Math.floor(npcSize * npcImgRatio);
+                    }
+                    ctx.drawImage(npcImg, sp.x - npcW / 2, sp.y - npcH / 2, npcW, npcH);
+                } else {
+                    ctx.fillStyle = '#2ecc71';
+                    ctx.beginPath();
+                    ctx.arc(sp.x, sp.y, ir * 0.6, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.font = Math.floor(12 * scale) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(e.name || 'NPC', sp.x, sp.y);
+                }
             } else if (e.type === 'barrier') {
                 var bResolved = wms.isEntityResolved(e.id);
                 if (!bResolved) {
@@ -522,7 +559,9 @@ function createWorldMapRenderer(deps) {
 
             var padding = Math.floor(20 * uiScale);
             var dlgW = sw - Math.floor(40 * uiScale);
-            var dlgH = padding + textLines.length * lineH + Math.floor(30 * uiScale);
+            var hasChoices = line && typeof line === 'object' && line.choices && line.choices.length > 0;
+            var btnH = hasChoices ? Math.floor(38 * uiScale) : 0;
+            var dlgH = padding + textLines.length * lineH + Math.floor(30 * uiScale) + btnH + (hasChoices ? Math.floor(10 * uiScale) : 0);
             var dlgX = (sw - dlgW) / 2;
             var dlgY = designBottom - Math.floor(20 * uiScale) - dlgH;
 
@@ -556,13 +595,56 @@ function createWorldMapRenderer(deps) {
                 textY += lineH;
             }
 
-            // 继续提示
-            var hintSize = Math.floor(11 * uiScale);
-            ctx.font = hintSize + 'px sans-serif';
-            ctx.fillStyle = 'rgba(232,213,163,0.5)';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('点击继续', dlgX + dlgW - Math.floor(15 * uiScale), dlgY + dlgH - Math.floor(10 * uiScale));
+            // 绘制选项按钮
+            if (hasChoices) {
+                _choiceHotspots = [];
+                var btnW = Math.floor((dlgW - padding * 3) / 2);
+                var btnGap = Math.floor(8 * uiScale);
+                var btnY = dlgY + dlgH - btnH - Math.floor(15 * uiScale);
+
+                for (var bi = 0; bi < line.choices.length; bi++) {
+                    var btnX = dlgX + padding + bi * (btnW + btnGap);
+
+                    ctx.fillStyle = 'rgba(232,213,163,0.15)';
+                    ctx.strokeStyle = '#e8d5a3';
+                    ctx.lineWidth = Math.floor(1.5 * uiScale);
+                    var bdr = Math.floor(6 * uiScale);
+                    ctx.beginPath();
+                    ctx.moveTo(btnX + bdr, btnY);
+                    ctx.lineTo(btnX + btnW - bdr, btnY);
+                    ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + bdr, bdr);
+                    ctx.lineTo(btnX + btnW, btnY + btnH - bdr);
+                    ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - bdr, btnY + btnH, bdr);
+                    ctx.lineTo(btnX + bdr, btnY + btnH);
+                    ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - bdr, bdr);
+                    ctx.lineTo(btnX, btnY + bdr);
+                    ctx.arcTo(btnX, btnY, btnX + bdr, btnY, bdr);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#e8d5a3';
+                    ctx.font = 'bold ' + Math.floor(14 * uiScale) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(line.choices[bi].label, btnX + btnW / 2, btnY + btnH / 2);
+
+                    _choiceHotspots.push({
+                        x: btnX, y: btnY, w: btnW, h: btnH,
+                        key: line.choices[bi].key
+                    });
+                }
+            }
+
+            // 继续提示（选项模式下不显示）
+            if (!hasChoices) {
+                var hintSize = Math.floor(11 * uiScale);
+                ctx.font = hintSize + 'px sans-serif';
+                ctx.fillStyle = 'rgba(232,213,163,0.5)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('点击继续', dlgX + dlgW - Math.floor(15 * uiScale), dlgY + dlgH - Math.floor(10 * uiScale));
+            }
         }
 
         // 虚拟摇杆
@@ -630,6 +712,15 @@ function createWorldMapRenderer(deps) {
         dismissDialogue: dismissDialogue,
         isDialogueOpen: isDialogueOpen,
         advanceDialogue: advanceDialogue,
+        getChoiceHotspotAt: function (x, y) {
+            for (var i = 0; i < _choiceHotspots.length; i++) {
+                var hs = _choiceHotspots[i];
+                if (x >= hs.x && x <= hs.x + hs.w && y >= hs.y && y <= hs.y + hs.h) {
+                    return hs;
+                }
+            }
+            return null;
+        },
         showConfirm: showConfirm,
         dismissConfirm: dismissConfirm,
         isConfirmOpen: isConfirmOpen,

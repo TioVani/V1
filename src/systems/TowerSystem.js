@@ -928,6 +928,7 @@ function createTowerSystem(deps) {
         for (let key in cell.monster) {
             combatMonster[key] = cell.monster[key];
         }
+        combatMonster._combatInstanceId = 'tower_' + currentFloor + '_' + cell.x + '_' + cell.y + '_' + Date.now();
         // 如果有上次未击杀的记录，用保存的 HP
         if (cell.monster.savedHp != null) {
             combatMonster.hp = cell.monster.savedHp;
@@ -1802,6 +1803,7 @@ function createTowerSystem(deps) {
         for (let key in cell.guardian) {
             combatMonster[key] = cell.guardian[key];
         }
+        combatMonster._combatInstanceId = 'tower_hidden_' + currentFloor + '_' + Date.now();
         combatTime = 45;
         combatReward = null;
         isHiddenPathBoss = true;

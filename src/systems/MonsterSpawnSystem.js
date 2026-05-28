@@ -91,8 +91,8 @@ function createMonsterSpawnSystem(deps) {
         var MonstersConfig = getMonstersConfig();
         return Object.keys(MonstersConfig).filter(function(id) {
             var m = MonstersConfig[id];
-            // 排除Boss和偷星者（偷星者只能通过shouldReplace触发）
-            return !m.mechanics.isBoss && !m.isStarThief && m.unlockScore <= score;
+            // 排除Boss、偷星者、教学怪物
+            return !m.mechanics.isBoss && !m.mechanics.isTutorial && !m.isStarThief && m.unlockScore <= score;
         });
     }
 

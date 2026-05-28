@@ -8,28 +8,54 @@
  *   var tracker = createDelayedHpTracker();
  *   var result = tracker.get(entity, currentHp, maxHp);
  *   // result.delayedHp, result.ratio (delayedHp / maxHp)
- *   tracker.reset(entity);  // 清除某实体的跟踪
- *   tracker.resetAll();     // 清除全部
+ *   tracker.getById(id, currentHp, maxHp); // 按稳定字符串 ID 跟踪
+ *   tracker.reset(entity);   // 清除某实体的跟踪
+ *   tracker.resetById(id);   // 清除某 ID 的跟踪
+ *   tracker.resetAll();      // 清除全部
  */
 function createDelayedHpTracker() {
-    var cache = new WeakMap();
+    var weakCache = new WeakMap();
+    var idCache = new Map();
 
     function get(entity, currentHp, maxHp) {
         currentHp = Math.max(0, currentHp);
-        var entry = cache.get(entity);
+        var entry = weakCache.get(entity);
 
-        // maxHp 变化时自动重置（如 boss 分裂）
         if (!entry || entry.maxHp !== maxHp) {
             entry = { delayedHp: currentHp, maxHp: maxHp };
-            cache.set(entity, entry);
+            weakCache.set(entity, entry);
         }
 
-        // hp 增加时直接跟随
         if (currentHp > entry.delayedHp) {
             entry.delayedHp = currentHp;
         }
 
-        // hp 减少时缓慢衰减（白色残影效果）
+        if (entry.delayedHp > currentHp) {
+            entry.delayedHp -= (entry.delayedHp - currentHp) * 0.06;
+            if (entry.delayedHp - currentHp < 0.5) {
+                entry.delayedHp = currentHp;
+            }
+        }
+
+        return {
+            delayedHp: entry.delayedHp,
+            ratio: maxHp > 0 ? entry.delayedHp / maxHp : 0
+        };
+    }
+
+    function getById(id, currentHp, maxHp) {
+        currentHp = Math.max(0, currentHp);
+        var entry = idCache.get(id);
+
+        if (!entry || entry.maxHp !== maxHp) {
+            entry = { delayedHp: currentHp, maxHp: maxHp };
+            idCache.set(id, entry);
+        }
+
+        if (currentHp > entry.delayedHp) {
+            entry.delayedHp = currentHp;
+        }
+
         if (entry.delayedHp > currentHp) {
             entry.delayedHp -= (entry.delayedHp - currentHp) * 0.06;
             if (entry.delayedHp - currentHp < 0.5) {
@@ -44,14 +70,19 @@ function createDelayedHpTracker() {
     }
 
     function reset(entity) {
-        if (entity) cache.delete(entity);
+        if (entity) weakCache.delete(entity);
+    }
+
+    function resetById(id) {
+        idCache.delete(id);
     }
 
     function resetAll() {
-        cache = new WeakMap();
+        weakCache = new WeakMap();
+        idCache = new Map();
     }
 
-    return { get: get, reset: reset, resetAll: resetAll };
+    return { get: get, getById: getById, reset: reset, resetById: resetById, resetAll: resetAll };
 }
 
 export { createDelayedHpTracker };

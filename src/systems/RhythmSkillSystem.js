@@ -363,21 +363,21 @@ playQteActivate();
             if (count >= 24) {
                 // 3层：金 + 青 + 紫
                 state.settleShockwaveRings.push(
-                    { startTime: now, duration: 600, color: '#FFD700', startRadius: 0, endRadius: maxDim * 1.2 },
-                    { startTime: now + 80, duration: 500, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 1.2 },
-                    { startTime: now + 160, duration: 400, color: '#FF00FF', startRadius: 0, endRadius: maxDim * 1.2 }
+                    { startTime: now, duration: 420, color: '#FFD700', startRadius: 0, endRadius: maxDim * 2.4 },
+                    { startTime: now + 80, duration: 350, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 2.4 },
+                    { startTime: now + 160, duration: 280, color: '#FF00FF', startRadius: 0, endRadius: maxDim * 2.4 }
                 );
                 state.settleFlash.peakAlpha = 0.6;
             } else if (count >= 12) {
                 // 2层：金 + 青
                 state.settleShockwaveRings.push(
-                    { startTime: now, duration: 600, color: '#FFD700', startRadius: 0, endRadius: maxDim * 1.2 },
-                    { startTime: now + 80, duration: 500, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 1.2 }
+                    { startTime: now, duration: 420, color: '#FFD700', startRadius: 0, endRadius: maxDim * 2.4 },
+                    { startTime: now + 80, duration: 350, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 2.4 }
                 );
             } else {
                 // 1层：青色
                 state.settleShockwaveRings.push(
-                    { startTime: now, duration: 600, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 1.2 }
+                    { startTime: now, duration: 420, color: '#00FFFF', startRadius: 0, endRadius: maxDim * 2.4 }
                 );
             }
 
@@ -524,6 +524,14 @@ playQteActivate();
                     ctx.strokeStyle = 'rgba(' + rHex + ',' + gHex + ',' + bHex + ',' + ringAlpha.toFixed(3) + ')';
                     ctx.lineWidth = ringWidth * scale;
                     ctx.stroke();
+
+                    if (ring.color === '#00FFFF') {
+                        var settleMaskAlpha = ringAlpha * 0.12;
+                        ctx.fillStyle = 'rgba(0, 255, 255, ' + settleMaskAlpha.toFixed(3) + ')';
+                        ctx.beginPath();
+                        ctx.arc(ringCx, ringCy, ringRadius * 0.85, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
 
                     activeRings.push(ring);
                 } else if (ringElapsed < 0) {
@@ -718,10 +726,10 @@ playQteActivate();
         // ── 冲击波 ──
         if (state.shockwaveTime > 0) {
             var waveElapsed = now - state.shockwaveTime;
-            var waveDuration = 400;
+            var waveDuration = 280;
             if (waveElapsed < waveDuration) {
                 var waveProgress = waveElapsed / waveDuration;
-                var waveRadius = innerRadius + waveProgress * outerRingRadius;
+                var waveRadius = innerRadius + waveProgress * 2 * outerRingRadius;
                 var waveAlpha = (1 - waveProgress) * 0.6;
 
                 ctx.beginPath();
@@ -729,6 +737,12 @@ playQteActivate();
                 ctx.strokeStyle = 'rgba(0, 255, 255, ' + waveAlpha.toFixed(2) + ')';
                 ctx.lineWidth = (3 + waveProgress * 4) * scale;
                 ctx.stroke();
+
+                var waveMaskAlpha = (1 - waveProgress) * 0.12;
+                ctx.fillStyle = 'rgba(0, 255, 255, ' + waveMaskAlpha.toFixed(3) + ')';
+                ctx.beginPath();
+                ctx.arc(rs.x, rs.y, waveRadius * 0.85, 0, Math.PI * 2);
+                ctx.fill();
 
                 var waveAlphaInner = (1 - waveProgress) * 0.3;
                 ctx.beginPath();

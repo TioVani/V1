@@ -38,6 +38,9 @@ export var IMAGE_GROUPS = {
         { id: 'char_archerPortrait',      src: 'assets/images/character/JP.png' },
         { id: 'char_starterPortrait',     src: 'assets/images/character/YCX_Portrait.png' },
         { id: 'char_worldMapPlayer',       src: 'assets/images/ui/PLAYER_ALPHA.png' },
+        { id: 'dialogue_portrait_jp',      src: 'assets/images/角色图/剑魄/JP.png' },
+        { id: 'dialogue_portrait_ml',      src: 'assets/images/角色图/猫灵/ML.png' },
+        { id: 'dialogue_portrait_ycx',     src: 'assets/images/角色图/玉婵仙/YCX.png' },
     ],
     battle: [
         { id: 'fightBgImage',             src: 'assets/images/battle/Fight_03_BG.jpg' },
@@ -155,4 +158,7 @@ export var CHARACTER_MAP = {
     char_warriorPortrait: 'warriorPortrait',
     char_archer: 'archer',
     char_archerPortrait: 'archerPortrait',
+    dialogue_portrait_jp: 'portrait_jp',
+    dialogue_portrait_ml: 'portrait_ml',
+    dialogue_portrait_ycx: 'portrait_ycx',
 };

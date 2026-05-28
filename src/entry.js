@@ -135,6 +135,7 @@ import { createAssetManager } from './systems/AssetManager.js';
 import { createDialogueSystem } from './systems/DialogueSystem.js';
 import { createSceneDispatcher } from './systems/SceneDispatcher.js';
 import { PORTRAIT_MAP, PROLOGUE_DIALOGUE, PROLOGUE_AFTER_BATTLE, STORY_SCENES } from './config/DialogueConfig.js';
+import { NPC_DIALOGUE_DRIVERS } from './config/NpcDialogueConfig.js';
 
 var GameModules = {
     createStarThiefSystem: createStarThiefSystem,
@@ -360,7 +361,8 @@ var GameModules = {
     PORTRAIT_MAP: PORTRAIT_MAP,
     PROLOGUE_DIALOGUE: PROLOGUE_DIALOGUE,
     PROLOGUE_AFTER_BATTLE: PROLOGUE_AFTER_BATTLE,
-    STORY_SCENES: STORY_SCENES
+    STORY_SCENES: STORY_SCENES,
+    NPC_DIALOGUE_DRIVERS: NPC_DIALOGUE_DRIVERS
 };
 
 // CommonJS 环境

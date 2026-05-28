@@ -19,7 +19,8 @@ export const GUIDE_TASKS = [
     { id: 'guide_super_perfect', name: '灵光合拍', description: '在灵光映射模式达成一次灵光合拍', type: 'super_perfect_clicks', target: 1, order: 7, rewards: { gold: 75, exp: 25 }, tip: '在核心判定区域触碰可以获得四倍灵辉值！' },
     { id: 'guide_kill_boss', name: '守护灵净化', description: '净化第一只守护灵级邪灵', type: 'kill_boss', target: 1, order: 8, rewards: { gold: 150, exp: 50 }, tip: '2000灵辉值后会出现守护灵，它更强但净化奖励也更丰厚！' },
     { id: 'guide_use_ice_crystal', name: '水行灵光·初醒', description: '使用一颗水灵晶唤醒水行灵光', type: 'use_ice_crystal', target: 1, order: 9, rewards: { gold: 75, exp: 25 }, tip: '水灵晶可以唤醒水灵光，提升灵光威力！' },
-    { id: 'guide_high_score', name: '灵辉汇聚', description: '单次净化获得2000灵辉值', type: 'score', target: 2000, order: 10, rewards: { gold: 100, timePotion: 1 }, tip: '挑战更高灵辉值，解锁更多灵域内容！' }
+    { id: 'guide_high_score', name: '灵辉汇聚', description: '单次净化获得2000灵辉值', type: 'score', target: 2000, order: 10, rewards: { gold: 100, timePotion: 1 }, tip: '挑战更高灵辉值，解锁更多灵域内容！' },
+    { id: 'guide_find_cat_spirit', name: '找到猫灵', description: '剑魄正在追击猫灵，她身上散发着污染的气息。帮助剑魄找到猫灵的下落。', type: 'event_flag', target: 1, order: 999, rewards: { gold: 100, exp: 30 }, tip: '剑魄已经追上去了，在世界地图上继续探索寻找猫灵的踪迹吧。' }
 ];
 
 export const DAILY_TASKS = [
@@ -155,6 +156,47 @@ export function createTaskSystem(deps) {
         });
 
         saveData();
+    }
+
+    // 事件驱动型任务完成：由外部事件触发，直接标记完成并发放奖励
+    function completeEventTask(taskId) {
+        initTaskProgress();
+        checkDailyTaskRefresh();
+        var pd = getSaveData();
+
+        // 查找所有 type === 'event_flag' 的任务
+        var allTasks = GUIDE_TASKS.concat(DAILY_TASKS, ACHIEVEMENT_TASKS);
+        for (var i = 0; i < allTasks.length; i++) {
+            var task = allTasks[i];
+            if (task.type === 'event_flag' && task.id === taskId) {
+                // 确定任务所属分类
+                var category = 'guide';
+                if (DAILY_TASKS.indexOf(task) !== -1) category = 'daily';
+                if (ACHIEVEMENT_TASKS.indexOf(task) !== -1) category = 'achievements';
+
+                if (!pd.taskProgress[category][task.id]) {
+                    pd.taskProgress[category][task.id] = { progress: 0, claimed: false };
+                }
+                pd.taskProgress[category][task.id].progress = task.target;
+
+                // 自动发放奖励
+                if (!pd.taskProgress[category][task.id].claimed) {
+                    pd.taskProgress[category][task.id].claimed = true;
+                    if (task.rewards) {
+                        if (task.rewards.gold) {
+                            pd.starSource = (pd.starSource || 0) + task.rewards.gold;
+                        }
+                        if (task.rewards.exp) {
+                            addCharExp(pd.currentCharacterId || 'char_001', task.rewards.exp);
+                        }
+                    }
+                    showToast({ title: task.name + ' 完成！', icon: 'success' });
+                }
+                saveData();
+                return true;
+            }
+        }
+        return false;
     }
 
     // 更新累计统计
@@ -327,6 +369,7 @@ export function createTaskSystem(deps) {
         updateTaskStats: updateTaskStats,
         claimTaskReward: claimTaskReward,
         getTasksWithProgress: getTasksWithProgress,
-        hasClaimableRewards: hasClaimableRewards
+        hasClaimableRewards: hasClaimableRewards,
+        completeEventTask: completeEventTask
     };
 }

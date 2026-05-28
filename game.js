@@ -110,6 +110,7 @@ var createDialogueSystem = _gameModules.createDialogueSystem;
 var createSceneDispatcher = _gameModules.createSceneDispatcher;
 var PORTRAIT_MAP = _gameModules.PORTRAIT_MAP;
 var STORY_SCENES = _gameModules.STORY_SCENES;
+var NPC_DIALOGUE_DRIVERS = _gameModules.NPC_DIALOGUE_DRIVERS;
 // 抽卡配置（供渲染等直接使用）
 var GACHA_POOL_TYPES = _gameModules.GACHA_POOL_TYPES;
 var GACHA_POOL_ROTATION_DAYS = _gameModules.GACHA_POOL_ROTATION_DAYS;
@@ -865,6 +866,18 @@ const MAX_AD_ITEMS = 2;  // 每种道具看广告次数上限
 var saveData = null;
 var runtimeData = null;
 
+function _updateCatSpiritVisibility(worldId) {
+    if (worldId === 'world_02' && worldMapSystem) {
+        var pd = saveData;
+        var tutorialDone = pd && pd.ownedCharacters && pd.ownedCharacters.indexOf('char_001') !== -1;
+        if (!tutorialDone) {
+            worldMapSystem.setHiddenEntityIds(['npc_cat_spirit']);
+        } else {
+            worldMapSystem.setHiddenEntityIds([]);
+        }
+    }
+}
+
 // 游戏状态
 const GameState = {
     MENU: 'menu',
@@ -1145,6 +1158,8 @@ function init() {
             portrait_ml: assetManager.get('dialogue_portrait_ml'),
             portrait_ycx: assetManager.get('dialogue_portrait_ycx'),
         };
+        // NPC 大地图立绘扁平映射（供 WorldMapRenderer 按 npcImageId 查找）
+        Assets['dialogue_portrait_ml'] = assetManager.get('dialogue_portrait_ml');
         Assets.beautyFrames = assetManager.getFrames('beauty');
         Assets.bluelightImg = assetManager.get('bluelightImg');
 
@@ -3978,6 +3993,7 @@ runtimeData.godMode = false;
                         }
                     }
                     worldMapSystem.loadWorld(lastWorldId);
+                    _updateCatSpiritVisibility(lastWorldId);
                 }
             }
         });
@@ -4169,6 +4185,7 @@ runtimeData.godMode = false;
                         }
                     }
                     worldMapSystem.loadWorld(result.targetWorld, fromWorld);
+                    _updateCatSpiritVisibility(result.targetWorld);
                     worldMapSystem.saveProgress();
                     if (result.targetWorld === 'world_17') {
                         if (audioSystem) audioSystem.enterArdeacinerea();
@@ -4186,11 +4203,11 @@ runtimeData.godMode = false;
                 }
                 if (result.type === 'npc') {
                     _log('NPC对话:', result.entity.id);
-                    console.log('[W17-DBG] NPC interact result, dialogue lines:', result.dialogue ? result.dialogue.length : 0, 'worldMapRenderer:', !!worldMapRenderer);
-                    if (worldMapRenderer && result.dialogue && result.dialogue.length > 0) {
-                        console.log('[W17-DBG] Calling showDialogue');
+                    var driverId = result.entity && result.entity.npcDialogueDriver;
+                    if (driverId && NPC_DIALOGUE_DRIVERS && NPC_DIALOGUE_DRIVERS[driverId]) {
+                        _handleNpcDialogue(driverId);
+                    } else if (worldMapRenderer && result.dialogue && result.dialogue.length > 0) {
                         worldMapRenderer.showDialogue(result.dialogue);
-                        // 检查第一句是否有 voice 标记，播放语音
                         var firstLine = result.dialogue[0];
                         if (typeof firstLine === 'object' && firstLine.voice && audioSystem) {
                             audioSystem.playVo(firstLine.voice);
@@ -4199,6 +4216,29 @@ runtimeData.godMode = false;
                 }
             }
         });
+
+        function _handleNpcDialogue(driverId) {
+            var drv = NPC_DIALOGUE_DRIVERS[driverId];
+            var pd = saveData;
+            if (!pd.npcDialogState) pd.npcDialogState = {};
+            if (!pd.npcDialogState[driverId]) {
+                pd.npcDialogState[driverId] = drv.initState();
+            }
+            var state = pd.npcDialogState[driverId];
+
+            var script = drv.getScript(state);
+            if (!script || script.length === 0) return;
+
+            worldMapRenderer.showDialogue(script, function (choiceKey) {
+                if (choiceKey) {
+                    var result = drv.onChoice(pd, driverId, state, choiceKey);
+                    if (result && result.toast) {
+                        $P.showToast({ title: result.toast, icon: 'success', duration: 2500 });
+                    }
+                    worldMapSystem.saveProgress();
+                }
+            });
+        }
 
         worldMapRenderer = _gameModules.createWorldMapRenderer({
             getCtx: function() { return ctx; },
@@ -4382,8 +4422,14 @@ function handleTouchStart(res) {
 
     // ===== 大地图触摸 =====
     if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
-        // 对话框点击推进
+        // 对话框点击推进（优先处理选项点击）
         if (worldMapRenderer && worldMapRenderer.isDialogueOpen()) {
+            var hotspot = worldMapRenderer.getChoiceHotspotAt(x, y);
+            if (hotspot) {
+                worldMapRenderer.advanceDialogue(hotspot.key);
+                return;
+            }
+            // 无选项或未命中热区 → 触摸任意位置推进普通文本行
             var nextLine = worldMapRenderer.advanceDialogue();
             if (nextLine && typeof nextLine === 'object' && nextLine.voice && audioSystem) {
                 if (nextLine.stopVoice) audioSystem.stopVo(nextLine.stopVoice);
@@ -5674,6 +5720,8 @@ function render() {
 
     // 大世界地图更新
     if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
+        // 猫灵可见性懒刷新（每帧幂等，开销极低）
+        _updateCatSpiritVisibility(worldMapSystem.getWorldId());
         var _dialogueOpen = worldMapRenderer && worldMapRenderer.isDialogueOpen();
         var wdx = 0, wdy = 0;
         if (!_dialogueOpen) {
@@ -5704,6 +5752,7 @@ function render() {
         if (_tl && _tl.targetWorld) {
             if (audioSystem) audioSystem.playTeleport();
             worldMapSystem.loadWorld(_tl.targetWorld, worldMapSystem.getWorldId());
+            _updateCatSpiritVisibility(_tl.targetWorld);
             worldMapSystem.saveProgress();
         }
     }

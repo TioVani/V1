@@ -160,7 +160,8 @@ function createGameDataStore(deps) {
             large: { days: 0, lastClaimDate: null, adsWatched: 0 }
         },
         purchasedShopPets: [],
-        seasonData: null
+        seasonData: null,
+        npcDialogState: null
     };
 
     var defaultRuntimeData = {

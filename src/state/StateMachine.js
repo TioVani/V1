@@ -22,8 +22,9 @@ function createStateMachine(deps) {
             'tutorial', 'boss_select', 'stage_select', 'season_menu', 'tower',
             'tower_resume', 'squad', 'shop', 'backpack', 'leaderboard',
             'settings', 'tasks', 'gacha_animation', 'debug', 'faith', 'nostalgic',
-            'fusion', 'upgrade'
+            'fusion', 'upgrade', 'cutscene_dialogue'
         ],
+        'cutscene_dialogue': ['worldmap'],
         'tutorial': ['worldmap', 'tutorial'],
         'menu': [
             'playing', 'boss_select', 'stage_select', 'season_menu', 'tower',

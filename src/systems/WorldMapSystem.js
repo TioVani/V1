@@ -183,6 +183,7 @@ function createWorldMapSystem(deps) {
     function isEntityDiscovered(id) { return entity.isEntityDiscovered(id); }
     function isEntityResolved(id) { return entity.isEntityResolved(id); }
     function resolveEntity(id) { entity.resolveEntity(id); }
+    function unresolveEntity(id) { entity.unresolveEntity(id); }
     function respawnEntities() { entity.respawnEntities(); }
     function markNeedsRespawn() { _needsRespawn = true; }
 
@@ -234,6 +235,7 @@ function createWorldMapSystem(deps) {
         isEntityDiscovered: isEntityDiscovered,
         isEntityResolved: isEntityResolved,
         resolveEntity: resolveEntity,
+        unresolveEntity: unresolveEntity,
         respawnEntities: respawnEntities,
         markNeedsRespawn: markNeedsRespawn,
         isMenuUnlocked: isMenuUnlocked,
@@ -242,6 +244,7 @@ function createWorldMapSystem(deps) {
         isTutorialComplete: isTutorialComplete,
         onTutorialWin: onTutorialWin,
         onTutorialLose: onTutorialLose,
+        setHiddenEntityIds: function(ids) { entity.setHiddenEntityIds(ids); },
         saveProgress: saveProgress,
         consumeTriggerLine: consumeTriggerLine
     };

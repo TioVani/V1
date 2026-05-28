@@ -29,7 +29,8 @@ var WORLDS = {
                 discoverRadius: 120,
                 interactRadius: 60,
                 priority: 100,
-                once: true
+                once: true,
+                storyScene: 'prologue'
             },
             {
                 id: 'chest_01',
@@ -150,6 +151,19 @@ var WORLDS = {
                 chestType: 'normal',
                 reward: { spiritStones: 5, characterExp: 15, currency: 50, equipmentRarityRange: ['N', 'R'], equipmentCount: 1 }
             },
+            {
+                id: 'npc_cat_spirit',
+                type: 'npc',
+                npcDialogueDriver: 'cat_spirit',
+                npcImageId: 'dialogue_portrait_ml',
+                x: 1237, y: 720,
+                name: '猫灵',
+                discoverRadius: 80,
+                interactRadius: 50,
+                priority: 50,
+                once: false,
+                dialogue: []
+            }
             ],
         triggerLines: []
     },

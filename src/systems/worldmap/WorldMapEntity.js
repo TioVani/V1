@@ -159,6 +159,15 @@ function createWorldMapEntity(deps) {
         }
     }
 
+    function unresolveEntity(entityId) {
+        var state = _entityStates[entityId];
+        if (state) {
+            state.resolved = false;
+            state.discovered = false;
+            delete _resolvedTimestamps[entityId];
+        }
+    }
+
     function respawnEntities() {
         var now = Date.now();
         for (var i = 0; i < _entities.length; i++) {
@@ -240,6 +249,7 @@ function createWorldMapEntity(deps) {
         getNearbyEntity: getNearbyEntity,
         interact: interact,
         resolveEntity: resolveEntity,
+        unresolveEntity: unresolveEntity,
         respawnEntities: respawnEntities,
         updateRespawnTimers: updateRespawnTimers,
         getActiveEntities: getActiveEntities,
