@@ -269,10 +269,10 @@ function createCharacterSystem(deps) {
             // 通过uid查找宠物配置（兼容旧数据）
             if (pd.pets.owned) {
                 for (let pi = 0; pi < pd.pets.owned.length; pi++) {
-                    var pd = pd.pets.owned[pi];
-                    var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + pi);
+                    var petData = pd.pets.owned[pi];
+                    var pdUid = (typeof petData === 'object' && petData.uid) ? petData.uid : ('idx_' + pi);
                     if (pdUid === petUid) {
-                        var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
+                        var pdKey = typeof petData === 'string' ? petData : (petData.id || petData);
                         if (Pets && Pets[pdKey]) equippedPet = Pets[pdKey];
                         break;
                     }

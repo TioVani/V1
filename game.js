@@ -761,6 +761,8 @@ let selectedChapter = 1;           // 当前选择的章节
 const Assets = {
     backgroundImage: null,
     titleBgImage: null,
+    titleLogo: null,
+    titleStartBtn: null,
     fightBgImage: null,     // 战斗场景背景图片（初始）
     fightBgImage2: null,    // 战斗场景背景图片（2000分解锁）
     worldMapBg01: null,     // 世界地图背景 world_01
@@ -1070,6 +1072,8 @@ function init() {
         // 适配层：回填 Assets 对象，渲染器零改动
         Assets.backgroundImage = assetManager.get('backgroundImage');
         Assets.titleBgImage = assetManager.get('titleBgImage');
+        Assets.titleLogo = assetManager.get('titleLogo');
+        Assets.titleStartBtn = assetManager.get('titleStartBtn');
         Assets.fightBgImage = assetManager.get('fightBgImage');
         Assets.fightBgImage2 = assetManager.get('fightBgImage2');
         Assets.normalStarImage = assetManager.get('normalStarImage');
@@ -3422,7 +3426,8 @@ runtimeData.godMode = false;
             getGameState: function() { return state; },
             setGameState: function(s) { stateMachine.transitionTo(s); },
             GAME_STATE: GAME_STATE,
-            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ }
+            saveData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
+            getPreviousGameState: function() { return stateMachine.getPreviousState ? stateMachine.getPreviousState() : null; }
         });
 
         // 注册 5 个战斗模式
@@ -3456,6 +3461,72 @@ runtimeData.godMode = false;
                 if (touchGestureSystem) touchGestureSystem.reset();
                 _battleMusicTriggered = false;
                 gameLifecycleSystem.startGame();
+            },
+            renderResult: function(rc) {
+                var c = rc.ctx;
+                var sw = rc.screenWidth;
+                var sh = rc.screenHeight;
+                var s = rc.scale;
+                var doY = rc.designOffsetY;
+                var db = rc.designBottom;
+                var dt = rc.drawText;
+                var dbt = rc.drawButton;
+                var Assets = rc.Assets;
+                // 背景
+                if (Assets.backgroundImage && Assets.backgroundImage.complete && Assets.bgPositionCache) {
+                    var cache = Assets.bgPositionCache;
+                    c.drawImage(Assets.backgroundImage, cache.drawX, cache.drawY, cache.drawWidth, cache.drawHeight);
+                    c.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                    c.fillRect(0, 0, sw, sh);
+                } else {
+                    c.fillStyle = 'rgba(0, 0, 0, 0.9)';
+                    c.fillRect(0, 0, sw, sh);
+                }
+                // 内容
+                dt('净化中止', sw / 2, doY + Math.floor(DESIGN_HEIGHT / 3 * s), Math.floor(48 * s), '#ffd700');
+                dt(rc.score.toString(), sw / 2, (doY + db) / 2, Math.floor(64 * s), '#ffd700');
+                dt('最高分: ' + rc.bestScore, sw / 2, (doY + db) / 2 + 50 * s, Math.floor(24 * s), '#ffffff');
+                var msg = '不错！继续加油！';
+                if (rc.score >= rc.bestScore && rc.score > 0) msg = '新纪录！太棒了！';
+                else if (rc.score >= 100) msg = '唤灵传说！';
+                else if (rc.score >= 50) msg = '灵光璀璨！';
+                dt(msg, sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.6 * s), Math.floor(24 * s), '#ffffff');
+                var bw = Math.floor(200 * s);
+                var bh = Math.floor(60 * s);
+                dbt('再玩一次', sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.70 * s), bw, bh, '#ffd700');
+                dbt('返回菜单', sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.78 * s), bw, bh, '#87CEEB');
+            },
+            handleResultTouch: function(x, y) {
+                var s = getScreenScale();
+                var doY = getDesignOffsetY();
+                var sw = screenWidth;
+                var sh = screenHeight;
+                var db = Math.min(doY + Math.floor(DESIGN_HEIGHT * s), sh);
+                var bw = Math.floor(200 * s);
+                var bh = Math.floor(60 * s);
+                // 再玩一次按钮
+                var rby = doY + Math.floor(DESIGN_HEIGHT * 0.70 * s);
+                if (x >= sw/2 - bw/2 && x <= sw/2 + bw/2 &&
+                    y >= rby - bh/2 && y <= rby + bh/2) {
+                    _log('点击再玩一次按钮');
+                    if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer1(); audioSystem.restartBattle(); }
+                    modeLifecycle.restartMode('normal');
+                    return true;
+                }
+                // 返回菜单按钮
+                var mby = doY + Math.floor(DESIGN_HEIGHT * 0.78 * s);
+                if (x >= sw/2 - bw/2 && x <= sw/2 + bw/2 &&
+                    y >= mby - bh/2 && y <= mby + bh/2) {
+                    _log('点击返回菜单按钮');
+                    if (audioSystem) { audioSystem.stopFail(); }
+                    seasonSelection = { character: null, skills: [], pet: null };
+                    if (saveData.seasonData && saveData.seasonData.selection) {
+                        saveData.seasonData.selection = null;
+                    }
+                    stateMachine.transitionTo(GAME_STATE.WORLDMAP);
+                    return true;
+                }
+                return false;
             }
         }, GAME_STATE.PLAYING);
 
@@ -3476,7 +3547,9 @@ runtimeData.godMode = false;
                 BossBattleMode.cleanup();
                 BossBattleMode.init(BossBattleMode.bossLevel);
                 BossBattleMode.start();
-            }
+            },
+            renderResult: function() {},
+            handleResultTouch: function() { return false; }
         }, GAME_STATE.BOSS_BATTLE);
 
         modeLifecycle.registerMode('tower', {
@@ -3488,7 +3561,9 @@ runtimeData.godMode = false;
             },
             restart: function(ctx) {
                 if (towerSystem) towerSystem.restartCurrentCombat();
-            }
+            },
+            renderResult: function() {},
+            handleResultTouch: function() { return false; }
         }, GAME_STATE.TOWER_COMBAT);
 
         modeLifecycle.registerMode('stage', {
@@ -3503,7 +3578,9 @@ runtimeData.godMode = false;
             restart: function(ctx) {
                 if (stageModeSystem) stageModeSystem.end(false);
                 startStage(StageMode.currentStage);
-            }
+            },
+            renderResult: function() {},
+            handleResultTouch: function() { return false; }
         }, GAME_STATE.STAGE_PLAYING);
 
         modeLifecycle.registerMode('season', {
@@ -3525,6 +3602,108 @@ runtimeData.godMode = false;
                 if (linkChainSystem) linkChainSystem.reset();
                 if (touchGestureSystem) touchGestureSystem.reset();
                 gameLifecycleSystem.startSeasonGame();
+            },
+            renderResult: function(rc) {
+                var c = rc.ctx;
+                var sw = rc.screenWidth;
+                var sh = rc.screenHeight;
+                var s = rc.scale;
+                var doY = rc.designOffsetY;
+                var dt = rc.drawText;
+                var dbt = rc.drawButton;
+                var Assets = rc.Assets;
+                var Characters = rc.Characters;
+                var Skills = rc.Skills;
+                var Pets = rc.Pets;
+                var ss = rc.seasonSelection;
+                // 背景
+                if (Assets.backgroundImage && Assets.backgroundImage.complete && Assets.bgPositionCache) {
+                    var cache = Assets.bgPositionCache;
+                    c.drawImage(Assets.backgroundImage, cache.drawX, cache.drawY, cache.drawWidth, cache.drawHeight);
+                    c.fillStyle = 'rgba(20, 10, 10, 0.8)';
+                    c.fillRect(0, 0, sw, sh);
+                } else {
+                    c.fillStyle = 'rgba(30, 10, 10, 0.95)';
+                    c.fillRect(0, 0, sw, sh);
+                }
+                // 内容
+                dt('赛季结束', sw / 2, doY + Math.floor(DESIGN_HEIGHT / 4 * s), Math.floor(36 * s), '#E74C3C');
+                dt(rc.seasonScore.toString(), sw / 2, doY + Math.floor(DESIGN_HEIGHT / 3 * s), Math.floor(64 * s), '#ffd700');
+                dt('赛季最高分: ' + rc.seasonBestScore, sw / 2, doY + Math.floor(DESIGN_HEIGHT / 3 * s) + 50 * s, Math.floor(20 * s), '#ffffff');
+                dt('排名: 第 ' + rc.seasonRank + ' 名', sw / 2, doY + Math.floor(DESIGN_HEIGHT / 3 * s) + 80 * s, Math.floor(18 * s), '#aaaaaa');
+                // 配置信息
+                var charData = Characters[ss.character];
+                var skillNames = '';
+                for (var si = 0; si < ss.skills.length; si++) {
+                    var sid = ss.skills[si];
+                    if (si > 0) skillNames += ', ';
+                    skillNames += (Skills[sid] && Skills[sid].name) ? Skills[sid].name : sid;
+                }
+                var petName = (Pets[ss.pet] && Pets[ss.pet].name) ? Pets[ss.pet].name : '无';
+                c.fillStyle = '#888888';
+                c.font = Math.floor(12 * s) + 'px sans-serif';
+                c.textAlign = 'center';
+                c.fillText('配置: ' + (charData ? charData.name : '未知') + ' | ' + skillNames + ' | ' + petName, sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.5 * s));
+                // 鼓励语
+                var msg = '继续努力！';
+                if (rc.seasonScore >= rc.seasonBestScore && rc.seasonScore > 0) msg = '新赛季最高分！';
+                else if (rc.seasonScore >= 1000) msg = '传奇唤灵人！';
+                else if (rc.seasonScore >= 500) msg = '出色的表现！';
+                dt(msg, sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.58 * s), Math.floor(20 * s), '#ffffff');
+                // 按钮
+                var bw = Math.floor(160 * s);
+                var bh = Math.floor(50 * s);
+                dbt('再来一局', sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.68 * s), bw, bh, '#E74C3C');
+                dbt('查看排行榜', sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.76 * s), bw, bh, '#9b59b6');
+                dbt('返回菜单', sw / 2, doY + Math.floor(DESIGN_HEIGHT * 0.84 * s), bw, bh, '#4a4a6a');
+            },
+            handleResultTouch: function(x, y) {
+                var s = getScreenScale();
+                var doY = getDesignOffsetY();
+                var sw = screenWidth;
+                var bw = Math.floor(160 * s);
+                var bh = Math.floor(50 * s);
+                // 再来一局按钮
+                var rby = doY + Math.floor(DESIGN_HEIGHT * 0.68 * s);
+                if (x >= sw/2 - bw/2 && x <= sw/2 + bw/2 &&
+                    y >= rby - bh/2 && y <= rby + bh/2) {
+                    _log('点击再来一局按钮');
+                    if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
+                    modeLifecycle.restartMode('season');
+                    return true;
+                }
+                // 查看排行榜按钮
+                var lby = doY + Math.floor(DESIGN_HEIGHT * 0.76 * s);
+                if (x >= sw/2 - bw/2 && x <= sw/2 + bw/2 &&
+                    y >= lby - bh/2 && y <= lby + bh/2) {
+                    _log('点击查看排行榜按钮');
+                    if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
+                    seasonSelection = { character: null, skills: [], pet: null };
+                    if (saveData.seasonData && saveData.seasonData.selection) {
+                        saveData.seasonData.selection = null;
+                    }
+                    stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
+                    currentLeaderboardTab = 'season_score';
+                    if (!openDataContext) initOpenDataContext();
+                    currentLeaderboardTab = 'season_score';
+                    sendLeaderboardMessage('show', 'season_score');
+                    return true;
+                }
+                // 返回菜单按钮
+                var mby = doY + Math.floor(DESIGN_HEIGHT * 0.84 * s);
+                if (x >= sw/2 - bw/2 && x <= sw/2 + bw/2 &&
+                    y >= mby - bh/2 && y <= mby + bh/2) {
+                    _log('点击返回菜单按钮');
+                    if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playUiSkip(); }
+                    modeLifecycle.cleanupMode('season');
+                    seasonSelection = { character: null, skills: [], pet: null };
+                    if (saveData.seasonData && saveData.seasonData.selection) {
+                        saveData.seasonData.selection = null;
+                    }
+                    stateMachine.transitionTo(GAME_STATE.WORLDMAP);
+                    return true;
+                }
+                return false;
             }
         }, GAME_STATE.SEASON_PLAYING);
 
@@ -5387,82 +5566,7 @@ function handleTouchStart(res) {
         }
         // 返回按钮和其他按钮已在前面处理
     } else if (state === GAME_STATE.GAMEOVER) {
-        var endedMode = modeLifecycle.getActiveMode() || 'normal';
-
-        if (endedMode === 'season') {
-            // ===== 赛季模式结束按钮 =====
-            const btnWidth = Math.floor(160 * scale);
-            const btnHeight = Math.floor(50 * scale);
-
-            // 再来一局按钮
-            const restartBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.68 * getScreenScale());
-            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-                y >= restartBtnY - btnHeight/2 && y <= restartBtnY + btnHeight/2) {
-                _log('点击再来一局按钮');
-                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
-                modeLifecycle.restartMode('season');
-                return;
-            }
-
-            // 查看排行榜按钮
-            const leaderboardBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.76 * getScreenScale());
-            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-                y >= leaderboardBtnY - btnHeight/2 && y <= leaderboardBtnY + btnHeight/2) {
-                _log('点击查看排行榜按钮');
-                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playAnswer1(); }
-                var _seasonSelectionSnapshot = Object.assign({}, seasonSelection);
-                seasonSelection = { character: null, skills: [], pet: null };
-                if (saveData.seasonData && saveData.seasonData.selection) {
-                    saveData.seasonData.selection = null;
-                }
-                stateMachine.transitionTo(GAME_STATE.LEADERBOARD);
-                currentLeaderboardTab = 'season_score';
-                if (!openDataContext) initOpenDataContext();
-                currentLeaderboardTab = 'season_score';
-                sendLeaderboardMessage('show', 'season_score');
-                return;
-            }
-
-            // 返回菜单按钮
-            const menuBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.84 * getScreenScale());
-            if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
-                y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
-                _log('点击返回菜单按钮');
-                if (audioSystem) { audioSystem.stopSuccess(); audioSystem.playUiSkip(); }
-                modeLifecycle.cleanupMode('season');
-                seasonSelection = { character: null, skills: [], pet: null };
-                if (saveData.seasonData && saveData.seasonData.selection) {
-                    saveData.seasonData.selection = null;
-                }
-                stateMachine.transitionTo(GAME_STATE.WORLDMAP);
-                return;
-            }
-        } else {
-            // ===== 普通模式结束按钮 =====
-            // 重新开始按钮
-            var restartBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.70 * getScreenScale());
-            var btnHeight = Math.floor(60 * scale);
-
-            if (y > restartBtnY - btnHeight/2 && y < restartBtnY + btnHeight/2) {
-                _log('点击重新开始按钮');
-                if (audioSystem) { audioSystem.stopFail(); audioSystem.playAnswer1(); audioSystem.restartBattle(); }
-                modeLifecycle.restartMode('normal');
-            }
-
-            // 返回菜单按钮
-        var menuBtnY = getDesignOffsetY() + Math.floor(DESIGN_HEIGHT * 0.78 * getScreenScale());
-
-        if (y > menuBtnY - btnHeight/2 && y < menuBtnY + btnHeight/2) {
-            _log('点击返回菜单按钮');
-            if (audioSystem) { audioSystem.stopFail(); }
-            seasonSelection = { character: null, skills: [], pet: null };
-            if (saveData.seasonData && saveData.seasonData.selection) {
-                saveData.seasonData.selection = null;
-            }
-            stateMachine.transitionTo(GAME_STATE.WORLDMAP);
-        }
-
-        }
+        modeLifecycle.handleResultTouch(x, y);
     }
 }
 
@@ -5721,7 +5825,31 @@ function render() {
             render._dispatch[GAME_STATE.MENU] = renderMenu;
             render._dispatch[GAME_STATE.PLAYING] = renderGame;
             render._dispatch[GAME_STATE.PAUSED] = function() { renderGame(); renderPausedMenu(); };
-            render._dispatch[GAME_STATE.GAMEOVER] = renderGameOver;
+            render._dispatch[GAME_STATE.GAMEOVER] = function() {
+                modeLifecycle.renderResult({
+                    ctx: ctx,
+                    screenWidth: screenWidth,
+                    screenHeight: screenHeight,
+                    scale: getScreenScale(),
+                    designOffsetY: getDesignOffsetY(),
+                    designBottom: Math.min(getDesignOffsetY() + Math.floor(812 * getScreenScale()), screenHeight),
+                    drawText: uiCoreRenderer.drawText,
+                    drawButton: uiCoreRenderer.drawButton,
+                    Assets: Assets,
+                    pd: saveData,
+                    bestScore: bestScore,
+                    score: score,
+                    seasonScore: seasonScore,
+                    seasonBestScore: seasonBestScore,
+                    seasonRank: getSeasonRank(),
+                    seasonSelection: seasonSelection,
+                    Characters: Characters,
+                    Skills: Skills,
+                    Pets: Pets,
+                    GAME_STATE: GAME_STATE,
+                    timeLeft: timeLeft
+                });
+            };
             render._dispatch[GAME_STATE.BACKPACK] = renderBackpack;
             render._dispatch[GAME_STATE.SHOP] = renderShop;
             render._dispatch[GAME_STATE.FUSION] = function() { if (fusionRenderer) fusionRenderer.renderFusion(); };

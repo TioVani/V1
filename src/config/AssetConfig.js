@@ -7,6 +7,8 @@ export var IMAGE_GROUPS = {
     core: [
         { id: 'backgroundImage',          src: 'assets/images/background/background.png' },
         { id: 'titleBgImage',             src: 'assets/images/background/title_bg.jpg' },
+        { id: 'titleLogo',                src: 'assets/images/background/WWYL.png' },
+        { id: 'titleStartBtn',            src: 'assets/images/background/JRYX.png' },
         { id: 'normalStarImage',          src: 'assets/images/LG.png' },
         { id: 'iceStarImage',             src: 'assets/images/ui/IST.png' },
         { id: 'fireStarImage',            src: 'assets/images/ui/FST.png' },

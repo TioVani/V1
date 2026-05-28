@@ -138,7 +138,53 @@ init(level) {
 
 ## 三、问题一根因：Boss被击败后不结算
 
-### 3.1 结算触发链路
+### 3.1 已确认根因：技能伤害路径绕过 Boss 结算
+
+Boss 被技能（蓄力技/联连技/节奏技流星等）击杀时，走 NormalBattleAdapter.attackMonster() 路径：
+```
+蓄力技/联连技 → NormalBattleAdapter.attackMonster()
+  → executeMonsterDamage() → monster.hp -= damage → _afterDamageHook(BossAdapter.applyBossSkills)
+  → monster.hp <= 0 → onMonsterKilled(m)
+  → killMonster() → handleMonsterDeath()  ← 普通模式死亡流程！
+  → monster 从数组移除、计分、掉落... 但 NEVER 调用 BossBattleAdapter.end(true)
+  → 不触发 setGameState(BOSS_BATTLE_RESULT) → 结算面板不显示
+```
+
+而星星点击路径是正确的：
+```
+handleStarClick → targetMonster.hp <= 0
+  → addPendingDeath(targetMonster)
+  → update() 等 1150ms
+  → pendingDeaths 到期 (preventFinish=true)
+  → callbacks.onMonsterDeath
+  → BossBattleAdapter.onMonsterDeathHandler
+  → end(true)
+  → setGameState(BOSS_BATTLE_RESULT) ✓
+```
+
+### 3.2 修复方案
+
+在 NormalBattleAdapter.killMonster() 中，BOSS_BATTLE 状态下不走 handleMonsterDeath，
+而是通过 BattleEngine.addPendingDeath() 桥接到 Boss 结算路径：
+
+```javascript
+if (state === GAME_STATE.BOSS_BATTLE) {
+    if (battleEngine) {
+        battleEngine.addPendingDeath(m);
+    }
+    return;
+}
+```
+
+修复后技能击杀路径：
+```
+蓄力技/联连技 → attackMonster → executeMonsterDamage → onMonsterKilled
+  → killMonster → BOSS_BATTLE 分支 → battleEngine.addPendingDeath(m)
+  → update() 等 1150ms → pendingDeaths 到期 (preventFinish=true)
+  → onMonsterDeathHandler → end(true) → BOSS_BATTLE_RESULT ✓
+```
+
+### 3.3 结算触发链路
 
 Boss 被击败后，有两种路径进入结算：
 

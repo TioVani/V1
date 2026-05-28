@@ -51,10 +51,10 @@ function createPetSystem(deps) {
         var pet = null;
         if (pd.pets.owned) {
             for (let i = 0; i < pd.pets.owned.length; i++) {
-                var pd = pd.pets.owned[i];
-                var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + i);
+                var petData = pd.pets.owned[i];
+                var pdUid = (typeof petData === 'object' && petData.uid) ? petData.uid : ('idx_' + i);
                 if (pdUid === equippedPetId) {
-                    var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
+                    var pdKey = typeof petData === 'string' ? petData : (petData.id || petData);
                     pet = Pets[pdKey];
                     break;
                 }
@@ -204,10 +204,10 @@ function createPetSystem(deps) {
         var pet = null;
         if (pd.pets.owned) {
             for (let j = 0; j < pd.pets.owned.length; j++) {
-                var pd = pd.pets.owned[j];
-                var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + j);
+                var petData = pd.pets.owned[j];
+                var pdUid = (typeof petData === 'object' && petData.uid) ? petData.uid : ('idx_' + j);
                 if (pdUid === equippedPetId) {
-                    var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
+                    var pdKey = typeof petData === 'string' ? petData : (petData.id || petData);
                     pet = Pets[pdKey];
                     break;
                 }

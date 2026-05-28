@@ -677,11 +677,11 @@ function createSquadRenderer(deps) {
         var pet = null;
         if (equippedUid && pd.pets && pd.pets.owned) {
             for (let pi = 0; pi < pd.pets.owned.length; pi++) {
-                var pd = pd.pets.owned[pi];
-                var pdUid = (typeof pd === 'object' && pd.uid) ? pd.uid : ('idx_' + pi);
+                var petData = pd.pets.owned[pi];
+                var pdUid = (typeof petData === 'object' && petData.uid) ? petData.uid : ('idx_' + pi);
                 if (pdUid === equippedUid) {
-                    equippedPetData = pd;
-                    var pdKey = typeof pd === 'string' ? pd : (pd.id || pd);
+                    equippedPetData = petData;
+                    var pdKey = typeof petData === 'string' ? petData : (petData.id || petData);
                     pet = Pets[pdKey];
                     break;
                 }

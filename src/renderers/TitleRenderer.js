@@ -66,12 +66,19 @@ function createTitleRenderer(deps) {
         ctx.globalAlpha = _titleAlpha;
 
         // 游戏标题
-        var titleSize = Math.floor(36 * scale);
-        ctx.font = 'bold ' + titleSize + 'px sans-serif';
-        ctx.fillStyle = '#e8d5a3';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('器落山河', sw / 2, sh * 0.35);
+        var titleLogo = Assets && Assets.titleLogo;
+        if (titleLogo && (titleLogo.complete || titleLogo._loaded)) {
+            var logoH = Math.floor(800 * scale);
+            var logoW = Math.floor(titleLogo.width / titleLogo.height * logoH);
+            ctx.drawImage(titleLogo, sw / 2 - logoW / 2, sh * 0.35 - logoH / 2 + 150 * scale, logoW, logoH);
+        } else {
+            var titleSize = Math.floor(36 * scale);
+            ctx.font = 'bold ' + titleSize + 'px sans-serif';
+            ctx.fillStyle = '#e8d5a3';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('器落山河', sw / 2, sh * 0.35);
+        }
 
         // 副标题
         var subSize = Math.floor(14 * scale);
@@ -108,36 +115,46 @@ function createTitleRenderer(deps) {
             ctx.fillText(hintText, hintX, hintY);
         } else {
             // 开始按钮（淡入）
-            var btnW = Math.floor(160 * scale);
-            var btnH = Math.floor(48 * scale);
-            var btnX = sw / 2 - btnW / 2;
-            var btnY = sh * 0.58 - btnH / 2;
+            var btnImg = Assets && Assets.titleStartBtn;
+            if (btnImg && (btnImg.complete || btnImg._loaded)) {
+                var btnW = Math.floor(btnImg.width / btnImg.height * 600 * scale);
+                var btnH = Math.floor(600 * scale);
+                var btnX = sw / 2 - btnW / 2;
+                var btnY = sh * 0.58 - btnH / 2 - 70 * scale;
+                ctx.globalAlpha = _titleAlpha * _btnAlpha * (_btnHover ? 1 : 0.85);
+                ctx.drawImage(btnImg, btnX, btnY, btnW, btnH);
+            } else {
+                var btnW = Math.floor(160 * scale);
+                var btnH = Math.floor(48 * scale);
+                var btnX = sw / 2 - btnW / 2;
+                var btnY = sh * 0.58 - btnH / 2;
 
-            ctx.globalAlpha = _titleAlpha * _btnAlpha * (_btnHover ? 1 : 0.85);
-            ctx.fillStyle = '#2a1f0e';
-            ctx.strokeStyle = '#e8d5a3';
-            ctx.lineWidth = Math.floor(2 * scale);
-            var r = Math.floor(8 * scale);
-            ctx.beginPath();
-            ctx.moveTo(btnX + r, btnY);
-            ctx.lineTo(btnX + btnW - r, btnY);
-            ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + r, r);
-            ctx.lineTo(btnX + btnW, btnY + btnH - r);
-            ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - r, btnY + btnH, r);
-            ctx.lineTo(btnX + r, btnY + btnH);
-            ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - r, r);
-            ctx.lineTo(btnX, btnY + r);
-            ctx.arcTo(btnX, btnY, btnX + r, btnY, r);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+                ctx.globalAlpha = _titleAlpha * _btnAlpha * (_btnHover ? 1 : 0.85);
+                ctx.fillStyle = '#2a1f0e';
+                ctx.strokeStyle = '#e8d5a3';
+                ctx.lineWidth = Math.floor(2 * scale);
+                var r = Math.floor(8 * scale);
+                ctx.beginPath();
+                ctx.moveTo(btnX + r, btnY);
+                ctx.lineTo(btnX + btnW - r, btnY);
+                ctx.arcTo(btnX + btnW, btnY, btnX + btnW, btnY + r, r);
+                ctx.lineTo(btnX + btnW, btnY + btnH - r);
+                ctx.arcTo(btnX + btnW, btnY + btnH, btnX + btnW - r, btnY + btnH, r);
+                ctx.lineTo(btnX + r, btnY + btnH);
+                ctx.arcTo(btnX, btnY + btnH, btnX, btnY + btnH - r, r);
+                ctx.lineTo(btnX, btnY + r);
+                ctx.arcTo(btnX, btnY, btnX + r, btnY, r);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
 
-            var btnTextSize = Math.floor(18 * scale);
-            ctx.font = btnTextSize + 'px sans-serif';
-            ctx.fillStyle = '#e8d5a3';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('开始游戏', sw / 2, btnY + btnH / 2);
+                var btnTextSize = Math.floor(18 * scale);
+                ctx.font = btnTextSize + 'px sans-serif';
+                ctx.fillStyle = '#e8d5a3';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('开始游戏', sw / 2, btnY + btnH / 2);
+            }
         }
 
         ctx.restore();

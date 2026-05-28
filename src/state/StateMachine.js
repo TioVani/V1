@@ -52,7 +52,7 @@ function createStateMachine(deps) {
         'tasks': ['worldmap', 'menu'],
         'squad': ['worldmap', 'menu', 'backpack'],
         'gacha_animation': ['menu'],
-        'gameover': ['menu']
+        'gameover': ['menu', 'season_playing', 'playing', 'boss_battle', 'stage_playing', 'tower_combat']
     };
 
     // 统计

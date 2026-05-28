@@ -2038,6 +2038,18 @@ function createNormalBattleAdapter(deps) {
         var GAME_STATE = getGameConst();
         var pd = getSaveData();
 
+        // Boss模式：不走普通消散流程，由 BossBattleAdapter 结算
+        // 技能伤害路径（蓄力/联连/节奏技流星等）杀Boss时，
+        // 需要走 BattleEngine pendingDeath → onMonsterDeathHandler → end(true)
+        // 而非 handleMonsterDeath（普通模式死亡流程，不触发BOSS_BATTLE_RESULT）
+        if (state === GAME_STATE.BOSS_BATTLE) {
+            if (battleEngine) {
+                battleEngine.addPendingDeath(m);
+                Logger.info('[NormalBattleAdapter] killMonster → Boss模式 pendingDeath:', m.id);
+            }
+            return;
+        }
+
         if (state === GAME_STATE.STAGE_PLAYING) {
             if (m.hp > 0) return;
             var monstersArr = getMonsters();

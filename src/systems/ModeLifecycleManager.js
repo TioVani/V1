@@ -23,6 +23,7 @@ function createModeLifecycleManager(deps) {
     var setGameState = deps.setGameState;
     var GAME_STATE = deps.GAME_STATE;
     var saveDataFn = deps.saveData || null;
+    var getPreviousGameState = deps.getPreviousGameState || null;
 
     // 模式注册表
     var handlers = {};
@@ -247,6 +248,49 @@ function createModeLifecycleManager(deps) {
     }
 
     /**
+     * 推断当前结束模式 — 三级 fallback
+     * 1. getActiveMode()（首选）
+     * 2. detectModeForState(previousGameState)（StateMachine 记录的上一状态）
+     * 3. 'normal'（终极兜底）
+     */
+    function resolveEndedMode() {
+        var mode = getActiveMode();
+        if (mode) return mode;
+        // cleanupMode 清零 activeMode 前会把 previousMode = activeMode
+        // 所以 previousMode 保留了"哪个模式刚结束"的信息
+        mode = getPreviousMode();
+        if (mode) return mode;
+        if (getPreviousGameState) {
+            var prevState = getPreviousGameState();
+            mode = detectModeForState(prevState);
+            if (mode) return mode;
+        }
+        return 'normal';
+    }
+
+    /**
+     * 结算渲染 — 托给 ended mode 的 renderResult handler
+     */
+    function renderResult(renderCtx) {
+        var mode = resolveEndedMode();
+        if (handlers[mode] && handlers[mode].renderResult) {
+            handlers[mode].renderResult(renderCtx);
+        }
+        Logger.info('ModeLifecycle: renderResult 委托到', mode);
+    }
+
+    /**
+     * 结算交互 — 姗托给 ended mode 的 handleResultTouch handler
+     */
+    function handleResultTouch(x, y) {
+        var mode = resolveEndedMode();
+        if (handlers[mode] && handlers[mode].handleResultTouch) {
+            handlers[mode].handleResultTouch(x, y);
+        }
+        Logger.info('ModeLifecycle: handleResultTouch 姗托到', mode);
+    }
+
+    /**
      * 查询某模式是否已注册
      */
     function isRegistered(modeName) {
@@ -276,7 +320,9 @@ function createModeLifecycleManager(deps) {
         setModeTimeout: setModeTimeout,
         clearModeTimer: clearModeTimer,
         isRegistered: isRegistered,
-        isActive: isActive
+        isActive: isActive,
+        renderResult: renderResult,
+        handleResultTouch: handleResultTouch
     };
 }
 

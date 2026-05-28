@@ -183,7 +183,16 @@ function createMenuRenderer(deps) {
 
         // 标题
         var titleOv = uiConfig ? uiConfig.get('menu_title') : { dx: 0, dy: 0 };
-        drawText('🏺 器落山河 🏺', screenWidth / 2 + titleOv.dx * scale, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + titleOv.dy * scale, Math.floor(48 * scale), '#ffd700');
+        var titleX = screenWidth / 2 + titleOv.dx * scale;
+        var titleY = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + titleOv.dy * scale;
+        var titleLogo = Assets.titleLogo;
+        if (titleLogo && (titleLogo.complete || titleLogo._loaded)) {
+            var logoH = Math.floor(200 * scale);
+            var logoW = Math.floor(titleLogo.width / titleLogo.height * logoH);
+            ctx.drawImage(titleLogo, titleX - logoW / 2, titleY - logoH / 2, logoW, logoH);
+        } else {
+            drawText('器落山河', titleX, titleY, Math.floor(48 * scale), '#ffd700');
+        }
 
         // 说明
         drawText('收集灵韵，唤醒器灵', screenWidth / 2, (designOffsetY + designBottom) / 2 - 30 * scale, Math.floor(24 * scale), '#ffffff');
@@ -805,117 +814,8 @@ function createMenuRenderer(deps) {
     }
 
     function renderGameOver() {
-        var ctx = getCtx();
-        var screenWidth = getScreenWidth();
-        var screenHeight = getScreenHeight();
-        var scale = getScreenScale();
-        var designOffsetY = getDesignOffsetY();
-        var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
-        var Assets = getAssets();
-        var pd = getSaveData();
-        var bestScore = getBestScore();
-        var score = getScore();
-        var state = getGameState();
-        var Characters = getCharacters();
-        var Skills = getSkills();
-        var Pets = getPets();
-        var seasonScore = getSeasonScore();
-        var seasonBestScore = getSeasonBestScore();
-        var seasonRank = getSeasonRank();
-        var seasonSelection = getSeasonSelection();
-        var adSystem = getAdSystem();
-        var timeLeft = getTimeLeft();
-
-        var GAME_STATE = deps.getGAME_STATE ? deps.getGAME_STATE() : {};
-        var drawText = uiCore.drawText;
-        var drawButton = uiCore.drawButton;
-
-        // 判断是否是赛季模式 — 只看运行时 seasonSelection，不看 pd.seasonData 残留
-        var isSeasonMode = (getSeasonSelection() && getSeasonSelection().character);
-
-        // 绘制背景图片（使用缓存的背景位置）
-        if (Assets.backgroundImage && Assets.backgroundImage.complete && Assets.bgPositionCache) {
-            var cache = Assets.bgPositionCache;
-            ctx.drawImage(Assets.backgroundImage, cache.drawX, cache.drawY, cache.drawWidth, cache.drawHeight);
-
-            ctx.fillStyle = isSeasonMode ? 'rgba(20, 10, 10, 0.8)' : 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(0, 0, screenWidth, screenHeight);
-        } else {
-            ctx.fillStyle = isSeasonMode ? 'rgba(30, 10, 10, 0.95)' : 'rgba(0, 0, 0, 0.9)';
-            ctx.fillRect(0, 0, screenWidth, screenHeight);
-        }
-
-        if (isSeasonMode) {
-            // ===== 赛季模式结束界面 =====
-            drawText('🏆 赛季结束 🏆', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 4 * scale), Math.floor(36 * scale), '#E74C3C');
-
-            drawText(seasonScore.toString(), screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale), Math.floor(64 * scale), '#ffd700');
-
-            drawText('赛季最高分: ' + seasonBestScore, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + 50 * scale, Math.floor(20 * scale), '#ffffff');
-
-            drawText('排名: 第 ' + seasonRank + ' 名', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) + 80 * scale, Math.floor(18 * scale), '#aaaaaa');
-
-            // 配置信息
-            var charData = Characters[seasonSelection.character];
-            var skillNames = '';
-            for (var si = 0; si < seasonSelection.skills.length; si++) {
-                var sid = seasonSelection.skills[si];
-                if (si > 0) skillNames += ', ';
-                skillNames += (Skills[sid] && Skills[sid].name) ? Skills[sid].name : sid;
-            }
-            var petName = (Pets[seasonSelection.pet] && Pets[seasonSelection.pet].name) ? Pets[seasonSelection.pet].name : '无';
-
-            ctx.fillStyle = '#888888';
-            ctx.font = Math.floor(12 * scale) + 'px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.fillText('配置: ' + (charData ? charData.name : '未知') + ' | ' + skillNames + ' | ' + petName, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.5 * scale));
-
-            // 鼓励语
-            var message = '继续努力！';
-            if (seasonScore >= seasonBestScore && seasonScore > 0) {
-                message = '新赛季最高分！';
-            } else if (seasonScore >= 1000) {
-                message = '传奇唤灵人！';
-            } else if (seasonScore >= 500) {
-                message = '出色的表现！';
-            }
-            drawText(message, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.58 * scale), Math.floor(20 * scale), '#ffffff');
-
-            // 按钮
-            var seasonBtnWidth = Math.floor(160 * scale);
-            var seasonBtnHeight = Math.floor(50 * scale);
-
-            drawButton('再来一局', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.68 * scale), seasonBtnWidth, seasonBtnHeight, '#E74C3C');
-            drawButton('查看排行榜', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.76 * scale), seasonBtnWidth, seasonBtnHeight, '#9b59b6');
-            drawButton('返回菜单', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.84 * scale), seasonBtnWidth, seasonBtnHeight, '#4a4a6a');
-        } else {
-            // ===== 普通模式结束界面 =====
-            drawText('净化中止', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale), Math.floor(48 * scale), '#ffd700');
-
-            drawText(score.toString(), screenWidth / 2, (designOffsetY + designBottom) / 2, Math.floor(64 * scale), '#ffd700');
-
-            drawText('最高分: ' + bestScore, screenWidth / 2, (designOffsetY + designBottom) / 2 + 50 * scale, Math.floor(24 * scale), '#ffffff');
-
-            // 鼓励语
-            var normalMsg = '不错！继续加油！';
-            if (score >= bestScore && score > 0) {
-                normalMsg = '新纪录！太棒了！';
-            } else if (score >= 100) {
-                normalMsg = '唤灵传说！';
-            } else if (score >= 50) {
-                normalMsg = '灵光璀璨！';
-            }
-            drawText(normalMsg, screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.6 * scale), Math.floor(24 * scale), '#ffffff');
-
-            // 重新开始按钮
-            var normalBtnWidth = Math.floor(200 * scale);
-            var normalBtnHeight = Math.floor(60 * scale);
-            drawButton('再玩一次', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.70 * scale), normalBtnWidth, normalBtnHeight, '#ffd700');
-
-            // 返回菜单按钮
-            drawButton('返回菜单', screenWidth / 2, designOffsetY + Math.floor(DESIGN_HEIGHT * 0.78 * scale), normalBtnWidth, normalBtnHeight, '#87CEEB');
-
-        }
+        // GAMEOVER 渲染已委托给 ModeLifecycleManager mode handler
+        // 此函数保留为空 — 由 modeLifecycle.renderResult(renderCtx) 调度
     }
 
     function renderPausedMenu() {

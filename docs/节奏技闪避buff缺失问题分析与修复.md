@@ -73,28 +73,27 @@ BOSS:      BossBattleAdapter.update()
   RhythmSkillSystem → playerEffects  (不经过 BattleEngine)
 
 变更后（单向流动）：
-  playerEffects ──→ BattleEngine.S  (NormalBattleAdapter.update，每帧同步)
-  playerEffects ──→ TowerSystem弹幕检查 (直接读 getPlayerEffects)
-  RhythmSkillSystem → playerEffects  ← 自动传播到所有消费者
+  playerEffects ──→ NormalBattleAdapter.update() ──→ BattleEngine.S (每帧同步，覆盖全部模式)
+  TowerSystem弹幕检查 ──→ 惰性读 playerEffects.dodging (不再读本地变量)
+  RhythmSkillSystem/闪避星 → playerEffects → 自动广播到所有消费者
 ```
 
 ---
 
 ## 具体改动
 
-### 1. NormalBattleAdapter.js — 改为每帧同步 + 删除反向覆盖
+### 1. NormalBattleAdapter.js — 改为每帧同步
 
-**a) `update()` 方法**：每帧开始时从 `playerEffects` 同步到 BattleEngine（无需等待点击事件）。
+**a) `update()` 方法**：在 `battleEngine.update()` 之前插入正向同步（line 886 之后、line 887 注释之前）：
 
 ```javascript
 function update() {
     if (battleEngine) {
-        // 每帧同步玩家状态到引擎（取代原来在 handleStarClick 中的同步）
+        // 每帧同步玩家状态到引擎
         var fx = getPlayerEffects();
         var pd = getSaveData();
         var hp = pd.playerHp;
         var shield = pd.playerShield;
-        // 塔模式用 TowerSystem 的 hp/shield
         var state = getGameState();
         var GAME_STATE = getGameConst();
         if (state === GAME_STATE.TOWER_COMBAT) {
@@ -109,111 +108,105 @@ function update() {
         if (fx.poisoned) {
             battleEngine.setPoisonState(fx.poisoned, fx.poisonEndTime, fx.poisonDamage, fx.poisonTickTime);
         }
-        battleEngine.update();
     }
+    battleEngine.update();  // 原有 line 886，移到这里
+    // 收服灵光生成（保留原有逻辑 line 887-897）
+    ...
 }
 ```
 
-**b) `handleStarClick()` 方法**：删除手动 `setPlayerState` 调用（已移到 update 中）。保留 `setTargetMonster`。
+注意：`battleEngine.setPoisonState` 是 BattleEngine 实例方法（定义在 `BattleEngine.js:1213`），直接调用即可，无需 deps 注入。
 
-**c) `syncEngineStateBack()` 方法**：删除 `fx.dodging/es.dodging` 和 `fx.dodgeEndTime/es.dodgeEndTime` 回写行，保留 hp/shield 回写。
+**b) `handleStarClick()` 方法**：删除 line 941-945（`engine.setPlayerState(hpToSync, shieldToSync, playerEffects.dodging, playerEffects.dodgeEndTime, false, 0)` 这 5 行调用）。保留 `setTargetMonster`、`syncEngineStateBack()` 和 `Logger.info` 日志行（line 940）。
 
-改前（line 1021-1022）：
-```javascript
-fx.dodging = es.dodging;
-fx.dodgeEndTime = es.dodgeEndTime;
-```
-→ 删除这两行。
+**c) `syncEngineStateBack()` 方法**：**保留不动**。闪避星点击后 BattleEngine 精确计算了 dodgeEndTime（含超速/快速点击加成），回写到 playerEffects 是合理的单向传播。
 
-**d) `monsterAttackPlayer()` 中弹幕命中**：闪避检查已通过 update 中的同步间接依赖 playerEffects，但当前代码直接访问 `fx.dodging`(line 1569)，所以不受影响。
+### 2. BossBattleAdapter.js — 仅删除反向覆盖
 
-### 2. BossBattleAdapter.js — 删除反向覆盖 + 补充正向同步
+**关键发现**：`game.js` 的渲染循环中，`isCombat` 条件包含 `BOSS_BATTLE` 和 `TOWER_COMBAT`，**所有战斗模式每帧都调用 `normalBattleAdapter.update()`**（line 5897）。而 `normalBattleAdapter` 在 `initBossEngine`/`initTowerEngine` 时已将引擎引用指向 Boss/Tower 创建的引擎实例。
 
-**a) `update()` 方法**：删除反向覆盖行，补充正向同步。
+因此 NormalBattleAdapter.update() 中新增的 `setPlayerState` 正向同步**同时覆盖 Boss 和 Tower 模式**，BossBattleAdapter 无需自己做正向同步。
+
+**a) `update()` 方法**：删除 line 820-828（整个"同步状态效果"区块，9行）：
 
 ```javascript
-// 删除 line 824-825:
-setPlayerStunned(S.isStunned);
-setPlayerStunEndTime(S.stunEndTime);
-
-// 删除 line 831-832:
-setPlayerDodging(S.dodging);
-setPlayerDodgeEndTime(S.dodgeEndTime);
+// 删除以下区块（line 820-828）:
+// 同步状态效果
+setPlayerStunned(S.isStunned);        // line 821
+setPlayerStunEndTime(S.stunEndTime);  // line 822
+setPlayerPoisoned(S.isPoisoned);      // line 823
+setPlayerPoisonEndTime(S.poisonEndTime);// line 824
+setPlayerPoisonDamage(S.poisonDamage); // line 825
+setPlayerPoisonTickTime(S.poisonTickTime);// line 826
+setPlayerDodging(S.dodging);          // line 827
+setPlayerDodgeEndTime(S.dodgeEndTime);// line 828
 ```
 
-**b) 补充正向同步**：在 `update()` 中 `battleEngine.update()` 调用之前，从 `playerEffects` 同步状态到 BattleEngine。BossBattleAdapter 没有 `getPlayerEffects` 依赖，需要新增：
+poison 的 4 行（823-826）也在同一区块中，一并删除（避免后续遗漏）。
 
-```javascript
-var getPlayerEffects = deps.getPlayerEffects || function() { return {}; };
+**b) `init()` 方法**中的初始化重置行（`setPlayerDodging(false)` 等）保留不动——它们是战斗入口清理逻辑。
 
-// update() 中 battleEngine.update() 之前插入：
-var fx = getPlayerEffects();
-battleEngine.setPlayerState(
-    null, null,  // hp/shield 由 BossBattleAdapter 自己管理
-    fx.dodging, fx.dodgeEndTime,
-    fx.stunned, fx.stunEndTime
-);
-```
-
-**c)** BossBattleAdapter 中 `setPlayerPoisoned`/`setPlayerPoisonEndTime`/`setPlayerPoisonDamage`（line 826-830）也存在同样的反向覆盖问题，但 poison 状态不在本次方案范围，可后续统一处理。
+**c)** BossBattleAdapter **不需要**新增 `getPlayerEffects` deps——正向同步由 NormalBattleAdapter.update() 代为完成。
 
 ### 3. TowerSystem.js — 删除独立变量，改为读 playerEffects
 
-**a)** 删除独立声明的 `var dodging = false;` 和 `var dodgeEndTime = 0;`（line 231-232）
+**涉及 4 个变量**：`dodging`、`dodgeEndTime`、`playerStunned`、`playerStunEndTime`。它们有完全一致的 6 类引用点：声明 → 弹幕闭包读写 → updateCombatTick 回写 → getter → 重置 → restartCurrentCombat。
 
-**b)** 新增 deps 注入 `getPlayerEffects`：
-
+**a) 新增 deps 注入**：
 ```javascript
 var getPlayerEffects = deps.getPlayerEffects || function() { return {}; };
 ```
 
-**c)** 弹幕命中闪避检查（line 1089）：改为读 `playerEffects`：
+**b) 删除变量声明**（line 227-228, 240-241）：
 ```javascript
-// 改前：
-if (dodging && Date.now() < dodgeEndTime) {
-// 改后：
-var fx = getPlayerEffects();
-if (fx.dodging && Date.now() < fx.dodgeEndTime) {
+var dodging = false;           // 删除
+var dodgeEndTime = 0;          // 删除
+var playerStunned = false;     // 删除
+var playerStunEndTime = 0;     // 删除
 ```
 
-**d)** `updateCombatTick()` 中（line 1340）：删除 `dodging = st.dodging;`
+**c) 弹幕命中闭包**（line 1084-1185 匿名函数内）：
+- line 1086 闪避检查：改为 `var fx = getPlayerEffects(); if (fx.dodging && Date.now() < fx.dodgeEndTime)`
+- line 1114 `setPlayerState` 传参：`dodging` → `fx.dodging`，`playerStunned` → `fx.stunned`
+- line 1168-1169 眩晕触发（**写**操作）：`playerStunned = true` → `fx.stunned = true`，`playerStunEndTime = ...` → `fx.stunEndTime = ...`
+- line 1180 `setPlayerState` 传参：同上改为从 `fx` 读取
 
-**e)** 所有传给 `battleEngine.setPlayerState` 的 `dodging` 参数改为从 `getPlayerEffects()` 读取。
+**d) `updateCombatTick()` 删除回写行**（line 1333-1337）：
+```javascript
+playerStunned = st.isStunned;      // 删除
+playerStunEndTime = st.stunEndTime;// 删除
+dodging = st.dodging;             // 删除
+```
 
-**f)** 初始化重置（line 1822/2332）：`dodging = false; dodgeEndTime = 0;` 改为 `getPlayerEffects().dodging = false; getPlayerEffects().dodgeEndTime = 0;`
+**e) getter 修改**（搜索 `get dodging`、`get playerStunned` 等）：改为返回 `playerEffects` 的值而非本地变量：
+```javascript
+get dodging() { return getPlayerEffects().dodging; },
+get dodgeEndTime() { return getPlayerEffects().dodgeEndTime; },
+get playerStunned() { return getPlayerEffects().stunned; },
+get playerStunEndTime() { return getPlayerEffects().stunEndTime; },
+```
 
-### 4. game.js — TowerSystem 增加 deps
+**f) 初始化重置**（line 1819-1820/1828-1829 和 line 2324-2326）：改为写 `playerEffects`。
 
-在 TowerSystem 初始化 deps 中增加：
+### 3b. GameBattleRenderer.js — 删除对 TowerSystem 的反向覆盖
 
+`GameBattleRenderer.js` line 301 附近存在：
+```javascript
+playerEffects.stunned = towerSystem.playerStunned || false;
+playerEffects.stunEndTime = towerSystem.playerStunEndTime || 0;
+```
+这是从 TowerSystem getter 读到值后再写回 `playerEffects` 的反向覆盖。改为 TowerSystem getter 直接返回 `playerEffects` 的值后，这两行变为自赋值（`fx.stunned = fx.stunned`），**删除这两行**。
+
+### 4. game.js — TowerSystem 增加 deps + 确保 playerEffects.reset() 在战斗入口调用
+
+**a)** TowerSystem deps 中增加（line 1258 `clearStars` 之后、line 1259 `getModeLifecycle` 之前）：
 ```javascript
 getPlayerEffects: function() { return playerEffects; },
 ```
 
-### 5. 闪避星（dodge star）状态传播 — 补充 onAfterSpecialStar 钩子
+**b)** BossBattleAdapter 不需要新增 deps。
 
-**问题**：闪避星点击时 BattleEngine 内部设置 `S.dodging = true`（`BattleEngine.js:627`），当前通过 `syncEngineStateBack` 回写到 `playerEffects`。删除回写后此路径断裂。
-
-**修复**：在 `NormalBattleAdapter.onAfterSpecialStarHook` 中增加 `dodge` case：
-
-```javascript
-case 'dodge':
-    var fx = getPlayerEffects();
-    var dodgeTime = getDodgeDuration();
-    fx.dodging = true;
-    fx.dodgeEndTime = Date.now() + dodgeTime;
-    break;
-```
-
-`getDodgeDuration` 已在 deps 中（line 80），无需额外注入。
-
-或者更简洁：在 `onAfterSpecialStar` 中直接写 `playerEffects`（引擎内部 `case 'dodge'` 仍设置 `S.dodging`，下一帧 update 同步会覆盖 S，一帧延迟无感知）。
-
-### 6. 暂停恢复补偿 — playerEffects.dodgeEndTime 需同步补偿
-
-**问题**：`BattleEngine._restorePauseCombatState` 中补偿 `S.dodgeEndTime += duration`，但 `playerEffects.dodgeEndTime` 不会被补偿，导致暂停恢复后 `playerEffects` 与 `S` 在一帧内不一致。
-
-**处理**：一帧延迟后 update 同步会覆盖。但为彻底一致，可在 PauseCoordinator 的 resume 回调中增加对 playerEffects 的补偿——当前 PauseCoordinator 是外部模块，改动范围超出本次方案。**暂不处理**，一帧不一致在 60fps 下无感知。
+**c)** `playerEffects` 变量在 game.js **line 173** 声明：`var playerEffects = _gameModules.playerEffects;`。
 
 ---
 
@@ -221,24 +214,50 @@ case 'dodge':
 
 | 文件 | 增 | 删 |
 |------|---|----|
-| `NormalBattleAdapter.js` | update 中增加每帧 setPlayerState；onAfterSpecialStarHook 增加 dodge case | handleStarClick 中的 setPlayerState 调用；syncEngineStateBack 中 dodging/stun 回写行 |
-| `BossBattleAdapter.js` | deps 增加 getPlayerEffects；update 中增加正向 setPlayerState | update 中 setPlayerDodging/setPlayerDodgeEndTime/setPlayerStunned/setPlayerStunEndTime |
-| `TowerSystem.js` | deps 增加 getPlayerEffects；弹幕检查改为读 playerEffects；setPlayerState 传参改为读 playerEffects | 独立 dodging/dodgeEndTime 变量声明；updateCombatTick 中 dodging/stun 回写行；重置逻辑改为写 playerEffects |
-| `game.js` | BossBattleAdapter 和 TowerSystem deps 各增加 getPlayerEffects | — |
+| `NormalBattleAdapter.js` | update 中增加每帧 setPlayerState（含 poison 同步） | handleStarClick 中 line 941-945 的 setPlayerState 调用 |
+| `BossBattleAdapter.js` | — | update 中 line 820-828 整个"同步状态效果"区块（含 poison 4行一并清理） |
+| `TowerSystem.js` | deps 增加 getPlayerEffects；弹幕闭包改为惰性读/写 playerEffects；getter 改为透传 playerEffects | 4个本地变量（dodging/dodgeEndTime/playerStunned/playerStunEndTime）；updateCombatTick 中对应回写行；重置改为写 playerEffects |
+| `GameBattleRenderer.js` | — | line 301 附近：删除从 TowerSystem getter 到 playerEffects 的赋值行 |
+| `game.js` | TowerSystem deps 增加 getPlayerEffects（line 1258 后） | — |
+| `BattleEngine.js` | — | — |
 | `RhythmSkillSystem.js` | — | — |
+| `syncEngineStateBack` | — | 保留不动 |
 
-模型统一后，将来新增任何玩家状态字段或新增游戏模式，只需维护一个方向：写入 `playerEffects` → 自动传播。
+正向同步由 **一处代码** 覆盖所有模式：
+
+```
+game.js renderGame → isCombat → normalBattleAdapter.update()
+    → battleEngine.setPlayerState(hp, shield, dodging, dodgeEndTime, stunned, stunEndTime)
+    → battleEngine.setPoisonState(...)
+    → battleEngine.update()
+
+Boss/Tower 模式共享此路径（initBossEngine/initTowerEngine 已将引擎引用注入到 normalBattleAdapter.battleEngine）
+```
+
+已删除的覆盖回路：
+
+```
+BossBattleAdapter.update → S.dodging/stun/poison → setPlayerXxx() → playerEffects (每帧覆盖)
+TowerSystem.updateCombatTick → st.dodging/stun → 本地变量 (每帧覆盖)
+GameBattleRenderer → towerSystem.playerStunned → playerEffects.stunned (反向覆盖)
+```
 
 ---
 
 ## 风险点
 
-1. **`NormalBattleAdapter.update()` 调用频率**：当前渲染循环中各模式都调用 adapter/system.update()，频率为每帧一次（60fps），16ms 延迟对闪避状态同步而言充分。
+1. **正向同步已覆盖全部模式**：`normalBattleAdapter.update()` 对所有战斗模式均被调用（`isCombat` 条件），且 `initBossEngine`/`initTowerEngine` 已将引擎引用指向正确的实例。
 
-2. **闪避星点击后一帧延迟**：`case 'dodge'` 在 BattleEngine 中写 `S.dodging = true`，同时 `onAfterSpecialStar` 写 `playerEffects.dodging = true`。下一帧 `update()` 同步 playerEffects → S 时会覆盖 S 中的值。一帧内两者均正确，无竞态。
+2. **`syncEngineStateBack` 保留不动**：闪避星 dodgeEndTime 含超速/快速点击加成，需 BattleEngine 精确计算后回写。
 
-3. **BossBattleAdapter.init() 中 `setPlayerDodging(false)` 保留**：这是初始化重置逻辑（建立干净初始状态），不是反向覆盖，保留不删。
+3. **BossBattleAdapter.init() 重置行保留**：战斗入口清理，不删。
 
-4. **TowerSystem 弹幕命中闭包**：当前闭包捕获本地 `dodging` 变量，改为 `getPlayerEffects()` 后需要确保闭包内的 `getPlayerEffects` 引用正确。TowerSystem 是函数式模块，`getPlayerEffects` 通过 deps 注入为闭包变量，弹幕回调中访问的是注入时的引用，指向 game.js 的 `playerEffects` 全局单例，始终有效。
+4. **TowerSystem 弹幕闭包**：延时回调惰性读 `getPlayerEffects()` 正确。
 
-5. **暂停恢复补偿**：`BattleEngine._restorePauseCombatState` 中 `S.dodgeEndTime += duration` 补偿生效，`playerEffects.dodgeEndTime` 滞后一帧（16ms），下一个 `update()` 周期会被覆盖为旧值。暂不处理，影响可忽略。
+5. **TowerSystem 眩晕变量一并处理**：`playerStunned`/`playerStunEndTime` 与 dodging 模式完全一致，统一改为从 playerEffects 读写。
+
+6. **GameBattleRenderer 反向覆盖删除**：TowerSystem getter 改为透传 playerEffects 后，渲染器中的赋值行变为自赋值，删除无副作用。
+
+7. **暂停恢复补偿**：`BattleEngine._restorePauseCombatState` 中 `S.dodgeEndTime += duration` 仅补偿引擎内部状态，playerEffects 滞后一帧。影响可忽略。
+
+8. **TowerSystem 中毒变量暂不处理**：`playerPoisoned`/`playerPoisonEndTime`/`playerPoisonDamage`/`playerPoisonTickTime` 也是相同模式的本地变量，但本次方案聚焦闪避+眩晕（直接影响节奏技），中毒变量后续以相同模式统一。
