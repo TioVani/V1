@@ -17,6 +17,7 @@ function createWorldMapSystem(deps) {
     var _prevPos = null;
     var _onTriggerLine = null;
     var _teleportCooldown = false;
+    var _autoSaveTimer = 0;
 
     var player = createWorldMapPlayer({
         getWorldConfig: function() { return getWorldConfig(_exploration.getWorldId()); }
@@ -72,10 +73,9 @@ function createWorldMapSystem(deps) {
             unlock.restoreState(pd, worldId);
         }
 
-        // 首次进入时，落点为目标世界中指向来源世界的 portal 坐标
+        // 从另一个世界传送过来时，落点为目标世界中指向来源世界的 portal 坐标
         // spawnX/spawnY 是正向传送的落点覆盖（目标世界坐标），回传时不应使用
-        // 已访问世界由 restoreProgress 恢复存档位置，不覆盖
-        if (!visited && fromWorldId && config.entities) {
+        if (fromWorldId && config.entities) {
             for (var i = 0; i < config.entities.length; i++) {
                 var e = config.entities[i];
                 if (e.type === 'portal' && e.targetWorld === fromWorldId) {
@@ -95,6 +95,11 @@ function createWorldMapSystem(deps) {
     }
 
     function update(dt) {
+        _autoSaveTimer += dt;
+        if (_autoSaveTimer >= 5) {
+            saveProgress();
+            _autoSaveTimer = 0;
+        }
         if (_needsRespawn) {
             entity.respawnEntities();
             _needsRespawn = false;

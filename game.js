@@ -4106,6 +4106,11 @@ runtimeData.godMode = false;
         _log('大世界探索系统初始化完成');
 
         // 启动渲染循环（所有系统初始化完成后）
+        // 页面关闭时强制保存位置，绕过防抖
+        window.addEventListener('beforeunload', function() {
+            if (worldMapSystem) worldMapSystem.saveProgress();
+            dataStore.flush();
+        });
         function renderLoop() {
             render();
             dataStore.tryFlush();
