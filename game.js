@@ -1124,6 +1124,8 @@ function init() {
         Assets.characterImages.starterPortrait = assetManager.get('char_starterPortrait');
         Assets.characterImages.warrior = assetManager.get('char_warrior');
         Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
+        Assets.characterImages.archer = assetManager.get('char_archer');
+        Assets.characterImages.archerPortrait = assetManager.get('char_archerPortrait');
         Assets.beautyFrames = assetManager.getFrames('beauty');
         Assets.bluelightImg = assetManager.get('bluelightImg');
 
@@ -3967,8 +3969,8 @@ runtimeData.godMode = false;
                     if (stopPetAttackTimer) stopPetAttackTimer();
                     timeLeft = 9999;
 
-                    // 只生成一只怪
-                    spawnMonster('slime');
+                    // 只生成一只怪（剑魄教学对手）
+                    spawnMonster('tutorial_jp');
                     tipShowTipOnce('tutorial_start', '点击灵光攻击邪灵！净化它！');
                 }
                 if (result.type === 'enemy') {

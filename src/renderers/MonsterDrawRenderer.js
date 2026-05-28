@@ -4,6 +4,7 @@
  * drawSingleMonster, drawMonster, drawPoisonPuddles
  */
 import { RARITY_COLORS } from '../config/GameConfig.js';
+import { CHARACTER_MAP } from '../config/AssetConfig.js';
 import { createDelayedHpTracker } from '../utils/DelayedHpTracker.js';
 var _monsterHpTracker = createDelayedHpTracker();
 function createMonsterDrawRenderer(deps) {
@@ -119,7 +120,24 @@ function createMonsterDrawRenderer(deps) {
             ctx.globalCompositeOperation = 'lighter';
         }
 
-        ctx.fillText(monsterType.emoji, m.x, drawY);
+        if (monsterType.imageAssetId) {
+            var Assets = getAssets();
+            var img = Assets.characterImages && Assets.characterImages[CHARACTER_MAP[monsterType.imageAssetId]] || Assets[monsterType.imageAssetId];
+            if (img && img.complete && img.naturalWidth > 0) {
+                var imgRatio = img.naturalWidth / img.naturalHeight;
+                var imgTargetH = scaledSize * 3.2;
+                var imgW = imgTargetH * imgRatio;
+                var imgH = imgTargetH;
+                ctx.drawImage(img, m.x - imgW / 2, drawY - imgH / 2, imgW, imgH);
+            } else {
+                ctx.fillText(monsterType.emoji, m.x, drawY);
+            }
+        } else {
+            ctx.fillText(monsterType.emoji, m.x, drawY);
+        }
+
+        // 图片怪物使用更大的半高，避免血条/名字与图片重叠
+        var effectiveHalfH = monsterType.imageAssetId ? scaledSize * 1.6 : scaledSize / 2;
 
         if (hitFlashing) {
             ctx.globalCompositeOperation = 'source-over';
@@ -128,13 +146,13 @@ function createMonsterDrawRenderer(deps) {
         var isStarThief = m.type === 'star_thief';
         var designOffsetY = getDesignOffsetY();
         var scale = getScreenScale();
-        var starThiefHpBarY = isStarThief ? designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) - scaledSize / 2 - Math.floor(15 * scale) : drawY - scaledSize / 2 - Math.floor(15 * scale);
+        var starThiefHpBarY = isStarThief ? designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) - effectiveHalfH - Math.floor(15 * scale) : drawY - effectiveHalfH - Math.floor(15 * scale);
         ctx.font = 'bold 12px sans-serif';
         ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         var nameX = m.x;
-        var nameY = isStarThief ? starThiefHpBarY + 8 + 2 : drawY + scaledSize / 2 + 5;
+        var nameY = isStarThief ? starThiefHpBarY + 8 + 2 : drawY + effectiveHalfH + 5;
         ctx.fillText(monsterType.name || m.name || '邪灵', nameX, nameY);
 
         if (m.absorbType) {
@@ -152,7 +170,7 @@ function createMonsterDrawRenderer(deps) {
                 color = '#FFD700';
             }
             ctx.fillStyle = color;
-            ctx.fillText(label, m.x, drawY - scaledSize / 2 - Math.floor(25 * scale));
+            ctx.fillText(label, m.x, drawY - effectiveHalfH - Math.floor(25 * scale));
         }
 
         var hpBarWidth = isStarThief ? 150 : (totalCount > 1 ? 80 : 120);
@@ -160,8 +178,8 @@ function createMonsterDrawRenderer(deps) {
         var hpBarCenterX = m.x;
         var hpBarX = hpBarCenterX - hpBarWidth / 2;
         var hpBarY = isStarThief
-            ? designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) - scaledSize / 2 - Math.floor(15 * scale)
-            : drawY - scaledSize / 2 - Math.floor(15 * scale);
+            ? designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale) - effectiveHalfH - Math.floor(15 * scale)
+            : drawY - effectiveHalfH - Math.floor(15 * scale);
 
         ctx.fillStyle = '#333333';
         fillRoundRect(ctx, hpBarX, hpBarY, hpBarWidth, hpBarHeight, 3);
@@ -171,7 +189,12 @@ function createMonsterDrawRenderer(deps) {
         else if (hpPercent > 1) hpPercent = 1;
 
         // 白色残影血条（统一 DelayedHpTracker）
-        var _mDelay = _monsterHpTracker.get(m, m.hp, m.maxHp);
+        var _mDelay;
+        if (m._combatInstanceId) {
+            _mDelay = _monsterHpTracker.getById(m._combatInstanceId, m.hp, m.maxHp);
+        } else {
+            _mDelay = _monsterHpTracker.get(m, m.hp, m.maxHp);
+        }
         if (_mDelay.delayedHp > m.hp) {
             ctx.save();
             ctx.globalAlpha = 0.45;

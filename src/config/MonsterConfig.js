@@ -24,6 +24,24 @@ const Monsters = {
         unlockScore: 0
     },
 
+    // 新手教学对手：剑魄（使用实际角色图渲染）
+    tutorial_jp: {
+        id: 'tutorial_jp',
+        name: '剑魄',
+        rarity: 'R',
+        emoji: '⚔️',
+        description: '华夏·青铜灵，新手教学对手',
+        baseHp: 100,
+        baseAttack: 0,
+        baseDefense: 0,
+        attackInterval: 99999,
+        skills: [],
+        mechanics: {},
+        drops: { gold: [0, 0], exp: 0 },
+        unlockScore: 0,
+        imageAssetId: 'char_archerPortrait'
+    },
+
     wisp: {
         id: 'wisp',
         name: '微光灵絮',
@@ -829,6 +847,16 @@ const BOSS_LIST = [
 
 // 古灵配置 - 使用统一古灵系统（MonsterTypes 通过 Monsters 引用自动获取新名称）
 const MonsterTypes = {
+    tutorial_jp: {
+        id: 'tutorial_jp',
+        name: Monsters.tutorial_jp.name,
+        emoji: Monsters.tutorial_jp.emoji,
+        baseHp: Monsters.tutorial_jp.baseHp,
+        timeReward: 0,
+        rarity: Monsters.tutorial_jp.rarity,
+        skills: Monsters.tutorial_jp.skills,
+        imageAssetId: 'char_archerPortrait'
+    },
     dust: {
         id: 'dust',
         name: Monsters.dust.name,
