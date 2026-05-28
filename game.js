@@ -4029,8 +4029,8 @@ runtimeData.godMode = false;
                             audioSystem.playBgm('shuhanTheme', 0.32);
                         }
                     }
-                    worldMapSystem.saveProgress();
                     worldMapSystem.loadWorld(result.targetWorld, fromWorld);
+                    worldMapSystem.saveProgress();
                     if (result.targetWorld === 'world_17') {
                         if (audioSystem) audioSystem.enterArdeacinerea();
                     }
@@ -5769,8 +5769,8 @@ function render() {
         var _tl = worldMapSystem.consumeTriggerLine();
         if (_tl && _tl.targetWorld) {
             if (audioSystem) audioSystem.playTeleport();
-            worldMapSystem.saveProgress();
             worldMapSystem.loadWorld(_tl.targetWorld, worldMapSystem.getWorldId());
+            worldMapSystem.saveProgress();
         }
     }
     // 无尽之塔键盘移动（WASD / 方向键）
