@@ -132,6 +132,9 @@ import { createWorldMapUnlock } from './systems/worldmap/WorldMapUnlock.js';
 import { COLLISION_BITMAPS } from './config/CollisionBitmapConfig.js';
 import { IMAGE_GROUPS, BEAUTY_CONFIG, AUDIO_CONFIG, CHARACTER_MAP } from './config/AssetConfig.js';
 import { createAssetManager } from './systems/AssetManager.js';
+import { createDialogueSystem } from './systems/DialogueSystem.js';
+import { createSceneDispatcher } from './systems/SceneDispatcher.js';
+import { PORTRAIT_MAP, PROLOGUE_DIALOGUE, PROLOGUE_AFTER_BATTLE, STORY_SCENES } from './config/DialogueConfig.js';
 
 var GameModules = {
     createStarThiefSystem: createStarThiefSystem,
@@ -349,7 +352,15 @@ var GameModules = {
     AUDIO_CONFIG: AUDIO_CONFIG,
     CHARACTER_MAP: CHARACTER_MAP,
     createAssetManager: createAssetManager,
-    PauseCoordinator: PauseCoordinator
+    PauseCoordinator: PauseCoordinator,
+
+    // 对话剧情系统
+    createDialogueSystem: createDialogueSystem,
+    createSceneDispatcher: createSceneDispatcher,
+    PORTRAIT_MAP: PORTRAIT_MAP,
+    PROLOGUE_DIALOGUE: PROLOGUE_DIALOGUE,
+    PROLOGUE_AFTER_BATTLE: PROLOGUE_AFTER_BATTLE,
+    STORY_SCENES: STORY_SCENES
 };
 
 // CommonJS 环境

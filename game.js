@@ -41,7 +41,8 @@ const GAME_STATE = {
     GACHA_ANIMATION: 'gacha_animation', // 抽卡动画界面
     DEBUG: 'debug',  // 调试面板
     FUSION: 'fusion',  // 融合系统界面
-    UPGRADE: 'upgrade' // 升级系统界面
+    UPGRADE: 'upgrade', // 升级系统界面
+    CUTSCENE_DIALOGUE: 'cutscene_dialogue' // 对话剧情状态（全屏文字对话）
 };
 
 // 游戏变量
@@ -105,6 +106,10 @@ var createFaithSystem = _gameModules.createFaithSystem;
 var createTowerSystem = _gameModules.createTowerSystem;
 var createAFKSystem = _gameModules.createAFKSystem;
 var createGachaSystem = _gameModules.createGachaSystem;
+var createDialogueSystem = _gameModules.createDialogueSystem;
+var createSceneDispatcher = _gameModules.createSceneDispatcher;
+var PORTRAIT_MAP = _gameModules.PORTRAIT_MAP;
+var STORY_SCENES = _gameModules.STORY_SCENES;
 // 抽卡配置（供渲染等直接使用）
 var GACHA_POOL_TYPES = _gameModules.GACHA_POOL_TYPES;
 var GACHA_POOL_ROTATION_DAYS = _gameModules.GACHA_POOL_ROTATION_DAYS;
@@ -516,6 +521,9 @@ var _joystickStartX = 0;
 var _joystickStartY = 0;
 var _joystickDX = 0;
 var _joystickDY = 0;
+// 对话剧情系统
+var dialogueSystem = null;
+var sceneDispatcher = null;
 // 教学状态（收敛为单一对象，减少散弹式修改）
 var _tutorial = {
     active: false,
@@ -807,6 +815,11 @@ const Assets = {
         starter: null,      // 玉蝉仙
         starterPortrait: null, // 玉蝉仙立绘
         warrior: null       // 鼎魂
+    },
+    dialoguePortraits: {   // 对话剧情立绘
+        portrait_jp: null,   // 剑魄
+        portrait_ml: null,   // 猫灵
+        portrait_ycx: null   // 玉蝉仙
     }
 };
 
@@ -1126,6 +1139,12 @@ function init() {
         Assets.characterImages.warriorPortrait = assetManager.get('char_warriorPortrait');
         Assets.characterImages.archer = assetManager.get('char_archer');
         Assets.characterImages.archerPortrait = assetManager.get('char_archerPortrait');
+        // 对话剧情立绘
+        Assets.dialoguePortraits = {
+            portrait_jp: assetManager.get('dialogue_portrait_jp'),
+            portrait_ml: assetManager.get('dialogue_portrait_ml'),
+            portrait_ycx: assetManager.get('dialogue_portrait_ycx'),
+        };
         Assets.beautyFrames = assetManager.getFrames('beauty');
         Assets.bluelightImg = assetManager.get('bluelightImg');
 
@@ -1191,6 +1210,7 @@ function init() {
         claimTaskReward = function(taskId, taskType) { return taskSystem.claimTaskReward(taskId, taskType); };
         getTasksWithProgress = function(taskType) { return taskSystem.getTasksWithProgress(taskType); };
         hasClaimableRewards = function() { return taskSystem.hasClaimableRewards(); };
+        completeEventTask = function(taskId) { return taskSystem.completeEventTask(taskId); };
         _log('任务系统模块初始化完成');
 
         // 初始化信仰系统模块
@@ -3419,7 +3439,12 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                         saveData.characterExperience = saveData.characterExperience || {};
                         saveData.characterExperience['char_001'] = { level: 1, exp: 0, maxExp: 100 };
                         dataStore.flush();
-                        state = GAME_STATE.WORLDMAP;
+                        // 剧情场景：postBattle 由 SceneDispatcher 接管，它会在 onComplete 中切回 WORLDMAP
+                        if (sceneDispatcher && sceneDispatcher.getActiveSceneId()) {
+                            sceneDispatcher.onBattleEnd('win');
+                        } else {
+                            state = GAME_STATE.WORLDMAP;
+                        }
                     }
                 };
                 state = GAME_STATE.TUTORIAL;
@@ -3442,6 +3467,11 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                 normalBattleAdapter.cancelPendingVictory();
             }
 
+            // 关闭 overlay 引导（如果有）
+            if (dialogueSystem && dialogueSystem.isActive()) {
+                dialogueSystem.destroy();
+            }
+
             if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
             if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
             if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
@@ -3454,17 +3484,29 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                 _tutorial.ending = false;
                 godMode = false;
 runtimeData.godMode = false;
-                worldMapSystem.restoreReturnPosition();
-                worldMapSystem.saveProgress();
+                // 剧情场景失败上限：通知 SceneDispatcher
+                if (sceneDispatcher && sceneDispatcher.getActiveSceneId()) {
+                    sceneDispatcher.onBattleEnd('lose');
+                } else {
+                    worldMapSystem.restoreReturnPosition();
+                    worldMapSystem.saveProgress();
+                    state = GAME_STATE.WORLDMAP;
+                }
                 _tutorial.entityId = null;
-                state = GAME_STATE.WORLDMAP;
                 return;
             }
 
             startGame();
-            spawnMonster('slime');
+            spawnMonster('tutorial_jp');
             tipShowTipOnce('tutorial_retry', '再试一次！点击灵光攻击邪灵');
             _tutorial.ending = false;
+            // 重新注册 first_star_click trigger（仅第二条引导）
+            if (sceneDispatcher && sceneDispatcher.getActiveSceneId()) {
+                var _sceneRef = _gameModules.STORY_SCENES[sceneDispatcher.getActiveSceneId()];
+                if (_sceneRef && _sceneRef.inBattle) {
+                    sceneDispatcher.registerBattleTriggersRetry(_sceneRef.inBattle);
+                }
+            }
         };
         restartGame = function() {
             modeLifecycle.transitionTo('normal');
@@ -3940,6 +3982,65 @@ runtimeData.godMode = false;
             }
         });
 
+        // ===== 对话剧情系统初始化 =====
+        dialogueSystem = createDialogueSystem({
+            getAssets: function() { return Assets; },
+            getScreenWidth: function() { return screenWidth; },
+            getScreenHeight: function() { return screenHeight; },
+            getScreenScale: getScreenScale,
+            getDesignOffsetY: getDesignOffsetY,
+            playClickAudio: function() { if (audioSystem) audioSystem.playClick(); },
+            getCharacterImage: function(characterId) {
+                var key = PORTRAIT_MAP[characterId];
+                if (!key) return null;
+                var img = (Assets.dialoguePortraits || {})[key];
+                return (img && img.complete && img.naturalWidth > 0) ? img : null;
+            },
+            registerFirstStarClick: function(cb) {
+                if (normalBattleAdapter && normalBattleAdapter.registerFirstStarClick) {
+                    normalBattleAdapter.registerFirstStarClick(cb);
+                }
+            },
+            unregisterFirstStarClick: function() {
+                if (normalBattleAdapter && normalBattleAdapter.unregisterFirstStarClick) {
+                    normalBattleAdapter.unregisterFirstStarClick();
+                }
+            },
+        });
+
+        sceneDispatcher = createSceneDispatcher({
+            dialogueSystem: dialogueSystem,
+            startBattle: function(context) {
+                // 剧情场景进入战斗：等效于原 tutorial 流程
+                _tutorial.active = true;
+                _tutorial.entityId = context.entityId;
+                _tutorial.ending = false;
+                _tutorial.retryCount = 0;
+                worldMapSystem.snapshotReturnPosition();
+                godMode = true;
+                runtimeData.godMode = true;
+
+                if (audioSystem) audioSystem.enterBattle();
+                // 不用 modeLifecycle.transitionTo('normal')，因为它会把 state 设为 PLAYING
+                // 教学战斗需要 state 为 TUTORIAL，否则 endGame 流程不对
+                modeLifecycle.transitionTo('normal');
+                // 覆盖 state 为 TUTORIAL（normal enter 设了 PLAYING）
+                state = GAME_STATE.TUTORIAL;
+
+                // 硬杀干扰源
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                timeLeft = 9999;
+
+                spawnMonster('tutorial_jp');
+            },
+            stateMachine: stateMachine,
+            gameStateEnum: GAME_STATE,
+            completeEventTask: function(taskId) { if (taskSystem && taskSystem.completeEventTask) taskSystem.completeEventTask(taskId); },
+            onBeforeStarClickHook: { getAdapter: function() { return normalBattleAdapter; } },
+        });
+
         worldMapSystem = _gameModules.createWorldMapSystem({
             showToast: function(opts) { $P.showToast(opts); },
             onTeleport: function() { if (audioSystem) audioSystem.playTeleport(); },
@@ -3951,6 +4052,11 @@ runtimeData.godMode = false;
                 _log('实体交互结果:', result.type, result.entity ? result.entity.id : '');
                 if (result.type === 'tutorial') {
                     _log('触发教学战斗');
+                    // 剧情场景检测：有 storyScene 则交给 SceneDispatcher
+                    if (result.entity && result.entity.storyScene) {
+                        sceneDispatcher.start(result.entity.storyScene, { entityId: result.entity.id });
+                        return;
+                    }
                     _tutorial.active = true;
                     _tutorial.entityId = result.entity.id;
                     _tutorial.ending = false;
@@ -4268,6 +4374,12 @@ function handleTouchStart(res) {
         return;
     }
 
+    // ===== 对话剧情点击推进 =====
+    if (state === GAME_STATE.CUTSCENE_DIALOGUE && dialogueSystem) {
+        dialogueSystem.handleClick(x, y);
+        return;
+    }
+
     // ===== 大地图触摸 =====
     if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
         // 对话框点击推进
@@ -4567,7 +4679,7 @@ function handleTouchStart(res) {
         // var y = firstTouch.clientY;
     
         // 检查是否点击暂停按钮（仅在游戏中，包括赛季模式、Boss、塔）
-        if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT) {
+        if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.TUTORIAL) {
             const pauseBtnSize = Math.floor(50 * scale);
             if (x >= 15 && x <= 15 + pauseBtnSize && y >= getDesignOffsetY() + Math.floor(15 * scale) && y <= getDesignOffsetY() + Math.floor(15 * scale) + pauseBtnSize) {
                 _log('点击暂停按钮');
@@ -4754,6 +4866,22 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单');
+                // 教学剧情退出：重置剧情状态，让实体重新出现
+                if (_tutorial.active) {
+                    _tutorial.active = false;
+                    _tutorial.ending = false;
+                    _tutorial.completed = false;
+                    runtimeData.tutorialCompleted = false;
+                    godMode = false;
+                    runtimeData.godMode = false;
+                    if (sceneDispatcher) sceneDispatcher.destroy();
+                    if (dialogueSystem) dialogueSystem.destroy();
+                    // 让教学实体重新出现
+                    if (worldMapSystem) {
+                        worldMapSystem.restoreReturnPosition();
+                        worldMapSystem.unresolveEntity('tutorial_spirits');
+                    }
+                }
                 var exitMode = modeLifecycle.getActiveMode();
                 if (exitMode) {
                     modeLifecycle.cleanupMode(exitMode);
@@ -4793,8 +4921,7 @@ function handleTouchStart(res) {
             return; // 暂停状态下，点击其他区域无效
         }
     
-        if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT) {
-            // 检查玩家是否被打断状态
+        if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.TUTORIAL) {
             if (playerEffects.stunned) {
                 // 检查打断是否结束
                 if (Date.now() >= playerEffects.stunEndTime) {
@@ -5601,6 +5728,7 @@ function render() {
     }
     if (state === GAME_STATE.TITLE && titleRenderer) titleRenderer.update(dt);
     if (state === GAME_STATE.CUTSCENE && cutsceneRenderer) cutsceneRenderer.update(dt);
+    if (state === GAME_STATE.CUTSCENE_DIALOGUE && dialogueSystem) dialogueSystem.update(dt);
 
     // 更新视觉屏幕震动
     updateScreenShake();
@@ -5628,6 +5756,13 @@ function render() {
                 ctx.fillText('加载中...', screenWidth / 2, screenHeight / 2);
             };
             render._dispatch[GAME_STATE.CUTSCENE] = function() { if (cutsceneRenderer) cutsceneRenderer.renderCutscene(); };
+            render._dispatch[GAME_STATE.CUTSCENE_DIALOGUE] = function() {
+                if (worldMapRenderer) {
+                    worldMapRenderer.updateCamera(1/60);
+                    worldMapRenderer.renderWorldMap();
+                }
+                if (dialogueSystem) dialogueSystem.render(ctx, screenWidth, screenHeight);
+            };
             render._dispatch[GAME_STATE.WORLDMAP] = function() {
                 if (worldMapRenderer) {
                     worldMapRenderer.updateCamera(1/60);
@@ -5655,6 +5790,10 @@ function render() {
                     ctx.restore();
                 } else {
                     renderGame();
+                    // overlay 引导对话叠加渲染
+                    if (dialogueSystem && dialogueSystem.isActive()) {
+                        dialogueSystem.render(ctx, screenWidth, screenHeight);
+                    }
                 }
             };
             render._dispatch[GAME_STATE.MENU] = renderMenu;
@@ -5729,11 +5868,17 @@ function render() {
         // 战斗动画：仅在战斗状态执行，非战斗状态清理残留
         var isCombat = state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED ||
             state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT ||
-            state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING;
+            state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING ||
+            state === GAME_STATE.TUTORIAL;
 
         if (isCombat) {
             // BattleEngine 每帧 tick（处理 pendingDeaths、攻击者、时间倒计时等）
             if (normalBattleAdapter) normalBattleAdapter.update();
+
+            // overlay 引导对话更新
+            if (dialogueSystem && dialogueSystem.isActive()) {
+                dialogueSystem.update(dt);
+            }
 
             // 普通战斗 / 塔战斗：第一个灵光出现时播放战斗音乐
             if ((state === GAME_STATE.PLAYING || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING) && !_battleMusicTriggered && stars && stars.length > 0) {

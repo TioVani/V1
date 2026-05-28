@@ -260,6 +260,16 @@ function createNormalBattleAdapter(deps) {
     // 扩展钩子
     // ═══════════════════════════════════════════════════════
 
+    // 首次点击灵光回调（一次性，由 SceneDispatcher 注册）
+    var _firstStarClickCallback = null;
+
+    function registerFirstStarClick(callback) {
+        _firstStarClickCallback = callback;
+    }
+    function unregisterFirstStarClick() {
+        _firstStarClickCallback = null;
+    }
+
     // 前置处理：偷星者/毒星/毒液滩/掉落区域限制/收服灵光
     function onBeforeStarClickHook(star, x, y, index) {
         var designOffsetY = getDesignOffsetY();
@@ -332,6 +342,13 @@ function createNormalBattleAdapter(deps) {
                     return { handled: true };
                 }
             }
+        }
+
+        // 触发首次点击灵光回调（一次性）
+        if (_firstStarClickCallback) {
+            var cb = _firstStarClickCallback;
+            _firstStarClickCallback = null;
+            cb();
         }
 
         return undefined;
@@ -943,7 +960,7 @@ function createNormalBattleAdapter(deps) {
         var isTower = (state === GAME_STATE.TOWER_COMBAT);
         var isBoss = (state === GAME_STATE.BOSS_BATTLE);
 
-        if (state !== GAME_STATE.PLAYING && state !== GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.STAGE_PLAYING && !isTower && !isBoss) {
+        if (state !== GAME_STATE.PLAYING && state !== GAME_STATE.SEASON_PLAYING && state !== GAME_STATE.STAGE_PLAYING && state !== GAME_STATE.TUTORIAL && !isTower && !isBoss) {
             return false;
         }
 
@@ -2173,7 +2190,9 @@ function createNormalBattleAdapter(deps) {
                 clearTimeout(_pendingVictoryTimeout);
                 _pendingVictoryTimeout = null;
             }
-        }
+        },
+        registerFirstStarClick: registerFirstStarClick,
+        unregisterFirstStarClick: unregisterFirstStarClick
     };
 }
 
