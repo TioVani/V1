@@ -92,6 +92,7 @@ function createChargeSystem(deps) {
         if (state.monitoredStar) {
             state.originalDisappearTime = state.monitoredStar.disappearTime;
             state.monitoredStar._charging = true;
+            state.monitoredStar._chargeStartTime = Date.now();
             state.monitoredStar.disappearTime = Date.now() + 86400000;
         }
         state.chargeCenterX = state.monitoredStar ? state.monitoredStar.x : x;

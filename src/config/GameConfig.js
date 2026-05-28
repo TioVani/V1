@@ -151,7 +151,8 @@ var MODE_UNLOCK = {
     stage:       { condition: 'none' },
     season:      { condition: 'bestScore', value: 200, hint: '最高分达到200解锁' },
     boss:        { condition: 'bestScore', value: 2000, hint: '最高分达到2000解锁' },
-    tower:       { condition: 'bestScore', value: 3000, hint: '最高分达到3000解锁' }
+    tower:       { condition: 'bestScore', value: 3000, hint: '最高分达到3000解锁' },
+    idle:        { condition: 'firstBossKilled', hint: '击败首个守护灵后解锁' }
 };
 
 function isModeUnlocked(modeId, playerData, bestScore) {
@@ -161,6 +162,11 @@ function isModeUnlocked(modeId, playerData, bestScore) {
     // 优先检查 saveData 中的解锁标记（来自大地图实体交互）
     if (modeId === 'tower' && playerData && playerData.towerUnlocked) {
         return { unlocked: true };
+    }
+
+    if (config.condition === 'firstBossKilled') {
+        if (playerData && playerData.firstBossKilled) return { unlocked: true };
+        return { unlocked: false, hint: config.hint };
     }
 
     if (config.condition === 'bestScore') {

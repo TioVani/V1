@@ -50,7 +50,7 @@ function createTouchGestureSystem(deps) {
         for (var i = stars.length - 1; i >= 0; i--) {
             var star = stars[i];
             if (star._charging) continue;
-            var hitRadius = star.size > 50 ? star.size : star.size / 2 + 10;
+            var hitRadius = star.size > 50 ? star.size : Math.max(Math.floor(star.size * 0.7), 32);
             var dx = x - star.x;
             var dy = y - star.y;
             if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {

@@ -84,6 +84,7 @@ function createGameDataStore(deps) {
             equipped: null
         },
         equippedStars: [],
+        spaceKeyStar: null,
         normalStarEnabled: true,
         taskProgress: {
             guide: {},
@@ -160,6 +161,7 @@ function createGameDataStore(deps) {
             large: { days: 0, lastClaimDate: null, adsWatched: 0 }
         },
         purchasedShopPets: [],
+        _spaceKeyTutorialShown: false,
         seasonData: null,
         npcDialogState: null
     };

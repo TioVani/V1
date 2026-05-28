@@ -287,13 +287,11 @@ function createGameBattleRenderer(deps) {
                 var _es = towerSystem.battleEngine.getState();
                 pd.playerHp = _es.playerHp;
                 pd.maxPlayerHp = _es.playerMaxHp;
-                pd.playerShield = _es.playerShield;
                 var _ct = _es.timeLeft != null ? _es.timeLeft : (towerSystem.combatTime || 0);
                 setTimeLeft(_ct);
             } else {
                 pd.playerHp = towerSystem.playerHp != null ? towerSystem.playerHp : pd.playerHp;
                 pd.maxPlayerHp = towerSystem.playerMaxHp || pd.maxPlayerHp;
-                pd.playerShield = towerSystem.playerShield || 0;
                 setTimeLeft(towerSystem.combatTime || 0);
             }
         }

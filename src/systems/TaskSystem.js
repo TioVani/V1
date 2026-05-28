@@ -20,7 +20,7 @@ export const GUIDE_TASKS = [
     { id: 'guide_kill_boss', name: '守护灵净化', description: '净化第一只守护灵级邪灵', type: 'kill_boss', target: 1, order: 8, rewards: { gold: 150, exp: 50 }, tip: '2000灵辉值后会出现守护灵，它更强但净化奖励也更丰厚！' },
     { id: 'guide_use_ice_crystal', name: '水行灵光·初醒', description: '使用一颗水灵晶唤醒水行灵光', type: 'use_ice_crystal', target: 1, order: 9, rewards: { gold: 75, exp: 25 }, tip: '水灵晶可以唤醒水灵光，提升灵光威力！' },
     { id: 'guide_high_score', name: '灵辉汇聚', description: '单次净化获得2000灵辉值', type: 'score', target: 2000, order: 10, rewards: { gold: 100, timePotion: 1 }, tip: '挑战更高灵辉值，解锁更多灵域内容！' },
-    { id: 'guide_find_cat_spirit', name: '找到猫灵', description: '剑魄正在追击猫灵，她身上散发着污染的气息。帮助剑魄找到猫灵的下落。', type: 'event_flag', target: 1, order: 999, rewards: { gold: 100, exp: 30 }, tip: '剑魄已经追上去了，在世界地图上继续探索寻找猫灵的踪迹吧。' }
+    { id: 'guide_find_cat_spirit', name: '找到猫灵', description: '剑魄正在追击猫灵，她身上散发着污染的气息。帮助剑魄找到猫灵的下落。', type: 'event_flag', target: 1, order: 999, rewards: { currency: 5000, spiritStones: 150, exp: 300 }, tip: '剑魄已经追上去了，在世界地图上继续探索寻找猫灵的踪迹吧。' }
 ];
 
 export const DAILY_TASKS = [
@@ -183,8 +183,11 @@ export function createTaskSystem(deps) {
                 if (!pd.taskProgress[category][task.id].claimed) {
                     pd.taskProgress[category][task.id].claimed = true;
                     if (task.rewards) {
-                        if (task.rewards.gold) {
-                            pd.starSource = (pd.starSource || 0) + task.rewards.gold;
+                        if (task.rewards.gold || task.rewards.currency) {
+                            pd.starSource = (pd.starSource || 0) + (task.rewards.gold || 0) + (task.rewards.currency || 0);
+                        }
+                        if (task.rewards.spiritStones) {
+                            pd.spiritStones = (pd.spiritStones || 0) + task.rewards.spiritStones;
                         }
                         if (task.rewards.exp) {
                             addCharExp(pd.currentCharacterId || 'char_001', task.rewards.exp);

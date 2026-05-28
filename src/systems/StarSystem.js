@@ -78,7 +78,13 @@ function createStarSystem(deps) {
     // PauseCoordinator 注册 — 进入战斗时 subscribe，退出时 unsubscribe
     var _owner = { _destroyed: false };
     PauseCoordinator.instance.subscribe(_owner, 'StarSystem', {
-        onPause: function() {},
+        onPause: function() {
+            var mi = getMoveInterval();
+            if (mi) {
+                clearInterval(mi);
+                setMoveInterval(null);
+            }
+        },
         onResume: function(duration) {
             var starsArr = getStars();
             for (var i = 0; i < starsArr.length; i++) {
@@ -534,7 +540,16 @@ function createStarSystem(deps) {
         var changed = false;
         var newStars = stars.filter(function(star) {
             if (star.isThiefStar) return true;  // 偷星由 StarThiefSystem 管理
-            if (star._charging) return true;    // 蓄力灵光由 ChargeSystem 管理生命周期
+            if (star._charging) {
+                // 蓄力标记超时保护：30秒后强制清除（防止状态泄漏）
+                var MAX_CHARGING_MS = 30000;
+                if (star._chargeStartTime && Date.now() - star._chargeStartTime > MAX_CHARGING_MS) {
+                    star._charging = false;
+                    star.disappearTime = Date.now() + 5000;
+                    changed = true;
+                }
+                return true;
+            }
             if (star._dragging) return true;    // 拖拽灵光由 DragSystem 管理生命周期
             if (star._linking) return true;     // 联连灵光由 LinkChainSystem 管理生命周期
             if (star._rhythm) return true;     // 节奏灵光由 RhythmSkillSystem 理生命周期

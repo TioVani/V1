@@ -12,7 +12,8 @@ var NPC_DIALOGUE_DRIVERS = {
                 choice1: null,
                 choice2: null,
                 gaveReward: false,
-                resolved: false
+                resolved: false,
+                _questCompleted: false
             };
         },
 
@@ -27,23 +28,29 @@ var NPC_DIALOGUE_DRIVERS = {
             }
 
             if (v === 0) {
-                return [{
-                    text: '喵。',
-                    choices: [
-                        { label: '你好~', key: 'hello' },
-                        { label: '喵喵喵？', key: 'meow' }
-                    ]
-                }];
+                return [
+                    {
+                        choicePrompt: '你想说什么？',
+                        choices: [
+                            { label: '你好~', key: 'hello' },
+                            { label: '喵喵喵？', key: 'meow' }
+                        ]
+                    },
+                    { text: '喵。', autoDismissAfter: 2000 }
+                ];
             }
 
             if (v === 1) {
-                return [{
-                    text: '喵喵喵？',
-                    choices: [
-                        { label: '你好~', key: 'hello' },
-                        { label: '喵喵喵？', key: 'meow' }
-                    ]
-                }];
+                return [
+                    {
+                        choicePrompt: '你想说什么？',
+                        choices: [
+                            { label: '你好~', key: 'hello' },
+                            { label: '喵喵喵？', key: 'meow' }
+                        ]
+                    },
+                    { text: '喵喵喵？', autoDismissAfter: 2000 }
+                ];
             }
 
             var c1 = state.choice1;
@@ -57,13 +64,16 @@ var NPC_DIALOGUE_DRIVERS = {
                 thirdLine = '喵三喵四喵喵喵？';
             }
 
-            return [{
-                text: thirdLine,
-                choices: [
-                    { label: '没啥。', key: 'nothing' },
-                    { label: '看看你有没有受伤。', key: 'care' }
-                ]
-            }];
+            return [
+                {
+                    choicePrompt: '你想说什么？',
+                    choices: [
+                        { label: '没啥。', key: 'nothing' },
+                        { label: '看看你有没有受伤。', key: 'care' }
+                    ]
+                },
+                { text: thirdLine, autoDismissAfter: 2000 }
+            ];
         },
 
         onChoice: function (pd, stateId, state, choiceKey) {
@@ -72,6 +82,10 @@ var NPC_DIALOGUE_DRIVERS = {
             if (v === 0) {
                 state.choice1 = choiceKey;
                 state.visitCount = 1;
+                if (!state._questCompleted) {
+                    state._questCompleted = true;
+                    return { completeTask: 'guide_find_cat_spirit' };
+                }
             } else if (v === 1) {
                 state.choice2 = choiceKey;
                 state.visitCount = 2;

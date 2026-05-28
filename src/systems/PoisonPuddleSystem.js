@@ -134,14 +134,32 @@ function createPoisonPuddleSystem(deps) {
             var drawSize = s.size * pulse;
 
             ctx.globalAlpha = sAlpha;
+
+            // 加法叠加：消除 PNG 黑色背景，与普通灵光一致
             if (Assets && Assets.normalStarImage && Assets.normalStarImage.complete) {
+                ctx.globalCompositeOperation = 'lighter';
                 ctx.drawImage(Assets.normalStarImage, s.x - drawSize / 2, s.y - drawSize / 2, drawSize, drawSize);
+                ctx.globalCompositeOperation = 'source-over';
             } else {
                 ctx.font = Math.floor(drawSize) + 'px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('⭐', s.x, s.y);
             }
+
+            // 发光序列帧叠加（与普通灵光一致）
+            var beautyFrames = Assets && Assets.beautyFrames;
+            if (beautyFrames && beautyFrames.length > 0) {
+                var bfIndex = Math.floor(Date.now() / 60) % beautyFrames.length;
+                var bfImg = beautyFrames[bfIndex];
+                if (bfImg && bfImg.complete) {
+                    var bfSize = drawSize * 1.5 * 1.5;
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.drawImage(bfImg, s.x - bfSize / 2, s.y - bfSize / 2, bfSize, bfSize);
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            }
+
             ctx.globalAlpha = 1;
         }
     }

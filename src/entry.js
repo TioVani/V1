@@ -115,6 +115,7 @@ import { createChargeSystem } from './systems/ChargeSystem.js';
 import { createDragSystem } from './systems/DragSystem.js';
 import { createLinkChainSystem } from './systems/LinkChainSystem.js';
 import { createTouchGestureSystem } from './systems/TouchGestureSystem.js';
+import { createTouchPipeline } from './systems/TouchPipeline.js';
 import { createSaturationState, SATURATION_COSTS } from './systems/SaturationState.js';
 import { PauseCoordinator } from './utils/PauseCoordinator.js';
 import * as BrowserAPI from './platform/BrowserAPI.js';
@@ -324,6 +325,7 @@ var GameModules = {
     createDragSystem: createDragSystem,
     createLinkChainSystem: createLinkChainSystem,
     createTouchGestureSystem: createTouchGestureSystem,
+    createTouchPipeline: createTouchPipeline,
     createSaturationState: createSaturationState,
     SATURATION_COSTS: SATURATION_COSTS,
 

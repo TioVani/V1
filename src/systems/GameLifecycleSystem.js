@@ -415,6 +415,10 @@ function createGameLifecycleSystem(deps) {
         clearMonsterAttackInterval();
         if (stopPetAttackTimer) stopPetAttackTimer();
 
+        // 清理战斗渲染数据（防止模式切换后残留渲染）
+        if (setStars) setStars([]);
+        if (clearAllAnimations) clearAllAnimations();
+
         if (getNormalBattleAdapter && getNormalBattleAdapter()) {
             getNormalBattleAdapter().destroy();
         }
@@ -551,6 +555,10 @@ function createGameLifecycleSystem(deps) {
         clearMoveInterval();
         clearMonsterAttackInterval();
         stopPetAttackTimer();
+
+        // 清理战斗渲染数据（防止模式切换后残留渲染）
+        if (setStars) setStars([]);
+        if (clearAllAnimations) clearAllAnimations();
 
         // 销毁普通战斗适配器
         if (getNormalBattleAdapter && getNormalBattleAdapter()) {

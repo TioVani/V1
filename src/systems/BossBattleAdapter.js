@@ -633,7 +633,7 @@ function createBossBattleAdapter(deps) {
             monster: bossMonster,
             playerHp: pd.playerHp,
             playerMaxHp: pd.maxPlayerHp,
-            playerShield: 0,
+            playerShield: getSaveData().playerShield || 0,
             playerStats: charStats,
             playerSkills: pd.skills ? pd.skills.equipped : [],
             activePet: pd.activePet || null,
@@ -827,7 +827,6 @@ function createBossBattleAdapter(deps) {
         // 同步状态到 game.js
         var pd = getSaveData();
         pd.playerHp = S.playerHp;
-        pd.playerShield = S.playerShield;
         setTimeLeft(S.timeLeft);
 
         // 同步怪物状态

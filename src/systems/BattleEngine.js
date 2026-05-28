@@ -74,6 +74,10 @@ function createBattleEngine(deps) {
     var setPlayerPoisonDamage = deps.setPlayerPoisonDamage;
     var setPlayerPoisonTickTime = deps.setPlayerPoisonTickTime;
 
+    // ─── playerShield getter/setter（真相源读写） ───
+    var getPlayerShield = deps.getPlayerShield;
+    var setPlayerShield = deps.setPlayerShield;
+
     // ─── 运行时配置（init 时从 COMBAT_SPEC + overrides 解析） ───
     var RC = null;  // Runtime Constants
     var RF = null;  // Runtime Features
@@ -114,7 +118,7 @@ function createBattleEngine(deps) {
             phase: PHASE.IDLE,
             monster: null,
             stars: [],
-            playerHp: 100, playerMaxHp: 100, playerShield: 0,
+            playerHp: 100, playerMaxHp: 100,
             timeLeft: timeLimit, timeLimit: timeLimit,
             mode: 'normal', floor: 1,
             combo: 0, lastHitTime: 0, lastStarClickTime: 0,
@@ -253,7 +257,7 @@ function createBattleEngine(deps) {
         setPlayerPoisonEndTime(Date.now() + (poisonSkill.duration || 3) * 1000);
         setPlayerPoisonDamage(poisonSkill.damage || 5);
         setPlayerPoisonTickTime(Date.now() + getSpecValue(RC, 'STATUS.POISON_TICK_MS'));
-        var poisonLabel = S.playerShield > 0 ? '腐蚀!' : '中毒!';
+        var poisonLabel = getPlayerShield() > 0 ? '腐蚀!' : '中毒!';
         anim.createPlayerDamage(0, false, true, poisonLabel);
         anim.addMessage('☠️ ' + poisonLabel + ' 每秒-' + (poisonSkill.damage || 5) + '灵能', '#ff6b6b');
     }
@@ -275,9 +279,10 @@ function createBattleEngine(deps) {
 
         var poisonDmg = getPlayerPoisonDamage();
         var shieldAbsorb = 0;
-        if (S.playerShield > 0) {
-            shieldAbsorb = Math.min(S.playerShield, poisonDmg);
-            S.playerShield -= shieldAbsorb;
+        var sh = getPlayerShield();
+        if (sh > 0) {
+            shieldAbsorb = Math.min(sh, poisonDmg);
+            setPlayerShield(sh - shieldAbsorb);
             poisonDmg -= shieldAbsorb;
         }
         S.playerHp -= poisonDmg;
@@ -466,9 +471,10 @@ function createBattleEngine(deps) {
 
                     // 护盾吸收
                     var shieldAbsorb = 0;
-                    if (S.playerShield > 0) {
-                        shieldAbsorb = Math.min(S.playerShield, damage);
-                        S.playerShield -= shieldAbsorb;
+                    var sh = getPlayerShield();
+                    if (sh > 0) {
+                        shieldAbsorb = Math.min(sh, damage);
+                        setPlayerShield(sh - shieldAbsorb);
                         damage -= shieldAbsorb;
                     }
 
@@ -572,7 +578,7 @@ function createBattleEngine(deps) {
                 var shieldPct = getSpecValue(RC, 'SPECIAL_STARS.SHIELD_AMOUNT') / 100;
                 var maxHp = (S.playerStats && S.playerStats.hp) || S.playerMaxHp;
                 var shieldAmt = Math.floor(maxHp * shieldPct);
-                S.playerShield = (S.playerShield || 0) + shieldAmt;
+                setPlayerShield(getPlayerShield() + shieldAmt);
                 anim.addMessage('🛡️ +' + shieldAmt + '护盾', '#cc88ff');
                 anim.createStarBurst(star.x, star.y, 'shield');
                 break;
@@ -587,9 +593,10 @@ function createBattleEngine(deps) {
             case 'unlucky':
                 anim.playNormal();
                 var hpCost = getSpecValue(RC, 'SPECIAL_STARS.UNLUCKY_HP_COST');
-                if (S.playerShield > 0) {
-                    var absorb = Math.min(S.playerShield, hpCost);
-                    S.playerShield -= absorb;
+                var sh = getPlayerShield();
+                if (sh > 0) {
+                    var absorb = Math.min(sh, hpCost);
+                    setPlayerShield(sh - absorb);
                     hpCost -= absorb;
                 }
                 S.playerHp -= hpCost;
@@ -703,7 +710,7 @@ function createBattleEngine(deps) {
         S.monster = config.monster || null;
         S.playerHp = config.playerHp;
         S.playerMaxHp = config.playerMaxHp;
-        S.playerShield = config.playerShield;
+        if (config.playerShield !== undefined) setPlayerShield(config.playerShield);
         S.timeLeft = config.timeLimit;
         S.timeLimit = config.timeLimit;
         S.mode = config.mode;
@@ -779,7 +786,8 @@ function createBattleEngine(deps) {
 
         for (var i = stars.length - 1; i >= 0; i--) {
             var star = stars[i];
-            var hitRadius = star.size > 50 ? star.size : star.size / 2 + 10;
+            var hitRadius = star.size > 50 ? star.size : Math.max(Math.floor(star.size * 0.7), 32);
+            if (star.falling) hitRadius *= 2;
             var dx = x - star.x, dy = y - star.y;
             if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
 
@@ -1091,7 +1099,7 @@ function createBattleEngine(deps) {
                 success = true;
                 break;
             case 'shield':
-                S.playerShield = (S.playerShield || 0) + skill.shield;
+                setPlayerShield(getPlayerShield() + skill.shield);
                 anim.addMessage(skill.emoji + ' +' + skill.shield + '护盾', '#cc88ff');
                 success = true;
                 break;
@@ -1218,9 +1226,8 @@ function createBattleEngine(deps) {
         return S.monster;
     }
 
-    function setPlayerState(hp, shield) {
+    function setPlayerState(hp) {
         if (hp !== undefined) S.playerHp = hp;
-        if (shield !== undefined) S.playerShield = shield;
     }
 
     return {

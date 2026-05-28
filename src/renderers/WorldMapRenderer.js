@@ -33,6 +33,7 @@ function createWorldMapRenderer(deps) {
     var _dialogueCallback = null;
     var _choiceHotspots = [];   // [{ x, y, w, h, key }, ...]
     var _confirmEntity = null;  // { id, type, x, y, label }
+    var _autoDismissTimer = null;
     var _playerCanvas = null;
     var _chestCanvas = null;
 
@@ -40,9 +41,26 @@ function createWorldMapRenderer(deps) {
         _dialogue = { lines: lines, index: 0 };
         _dialogueCallback = callback || null;
         _choiceHotspots = [];
+        _clearAutoDismiss();
+    }
+
+    function _clearAutoDismiss() {
+        if (_autoDismissTimer) {
+            clearTimeout(_autoDismissTimer);
+            _autoDismissTimer = null;
+        }
+    }
+
+    function _startAutoDismiss(ms) {
+        _clearAutoDismiss();
+        _autoDismissTimer = setTimeout(function () {
+            _autoDismissTimer = null;
+            dismissDialogue();
+        }, ms);
     }
 
     function dismissDialogue() {
+        _clearAutoDismiss();
         _dialogue = null;
         _dialogueCallback = null;
         _choiceHotspots = [];
@@ -76,7 +94,11 @@ function createWorldMapRenderer(deps) {
         }
 
         _choiceHotspots = [];
-        return _dialogue.lines[_dialogue.index];
+        var nextLine = _dialogue.lines[_dialogue.index];
+        if (nextLine && typeof nextLine === 'object' && nextLine.autoDismissAfter > 0) {
+            _startAutoDismiss(nextLine.autoDismissAfter);
+        }
+        return nextLine;
     }
 
     function showConfirm(entity) {
@@ -534,37 +556,53 @@ function createWorldMapRenderer(deps) {
         // NPC 对话框（用屏幕设计比例，不用地图缩放）
         var uiScale = getScreenScale();
         if (_dialogue && _dialogue.lines.length > 0) {
-            var lineIdx = Math.min(_dialogue.index, _dialogue.lines.length - 1);
-            var line = _dialogue.lines[lineIdx];
+            var line = _dialogue.lines[_dialogue.index];
             var lineText = typeof line === 'object' ? line.text : line;
+            var hasText = lineText && lineText.length > 0;
+            var hasChoices = line && typeof line === 'object' && line.choices && line.choices.length > 0;
+            var isPureChoice = hasChoices && !hasText;
+
             var dlgFontSize = Math.floor(15 * uiScale);
+            var hintFontSize = Math.floor(14 * uiScale);
             ctx.font = dlgFontSize + 'px sans-serif';
 
-            // 先计算换行，确定对话框高度
+            // 计算文本换行
             var maxTextW = sw - Math.floor(80 * uiScale);
             var lineH = dlgFontSize + Math.floor(4 * uiScale);
             var textLines = [];
-            var curLine = '';
-            var chars = lineText.split('');
-            for (var ci = 0; ci < chars.length; ci++) {
-                var testLine = curLine + chars[ci];
-                if (ctx.measureText(testLine).width > maxTextW && curLine.length > 0) {
-                    textLines.push(curLine);
-                    curLine = chars[ci];
-                } else {
-                    curLine = testLine;
+            if (hasText) {
+                var curLine = '';
+                var chars = lineText.split('');
+                for (var ci = 0; ci < chars.length; ci++) {
+                    var testLine = curLine + chars[ci];
+                    if (ctx.measureText(testLine).width > maxTextW && curLine.length > 0) {
+                        textLines.push(curLine);
+                        curLine = chars[ci];
+                    } else {
+                        curLine = testLine;
+                    }
                 }
+                if (curLine) textLines.push(curLine);
             }
-            if (curLine) textLines.push(curLine);
 
             var padding = Math.floor(20 * uiScale);
             var dlgW = sw - Math.floor(40 * uiScale);
-            var hasChoices = line && typeof line === 'object' && line.choices && line.choices.length > 0;
             var btnH = hasChoices ? Math.floor(38 * uiScale) : 0;
-            var dlgH = padding + textLines.length * lineH + Math.floor(30 * uiScale) + btnH + (hasChoices ? Math.floor(10 * uiScale) : 0);
+            var btnGap = Math.floor(8 * uiScale);
+
+            // 对话框高度自适应：纯选项行 vs 文本行
+            var dlgH;
+            if (isPureChoice) {
+                var promptH = (line.choicePrompt ? Math.floor(24 * uiScale) : Math.floor(8 * uiScale));
+                dlgH = padding + promptH + btnH + padding;
+            } else {
+                dlgH = padding + textLines.length * lineH + Math.floor(30 * uiScale) + btnH + (hasChoices ? Math.floor(10 * uiScale) : 0);
+            }
+
             var dlgX = (sw - dlgW) / 2;
             var dlgY = designBottom - Math.floor(20 * uiScale) - dlgH;
 
+            // 对话框背景
             ctx.fillStyle = 'rgba(10,10,21,0.9)';
             ctx.strokeStyle = '#e8d5a3';
             ctx.lineWidth = Math.floor(1.5 * uiScale);
@@ -583,24 +621,41 @@ function createWorldMapRenderer(deps) {
             ctx.fill();
             ctx.stroke();
 
-            // 渲染文本（已预计算 textLines）
-            ctx.font = dlgFontSize + 'px sans-serif';
-            ctx.fillStyle = '#e8d5a3';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            var textX = dlgX + padding;
-            var textY = dlgY + padding;
-            for (var ti = 0; ti < textLines.length; ti++) {
-                ctx.fillText(textLines[ti], textX, textY);
-                textY += lineH;
+            // 渲染文本（纯选项行跳过文本渲染）
+            if (hasText) {
+                ctx.font = dlgFontSize + 'px sans-serif';
+                ctx.fillStyle = '#e8d5a3';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                var textX = dlgX + padding;
+                var textY = dlgY + padding;
+                for (var ti = 0; ti < textLines.length; ti++) {
+                    ctx.fillText(textLines[ti], textX, textY);
+                    textY += lineH;
+                }
             }
 
             // 绘制选项按钮
             if (hasChoices) {
                 _choiceHotspots = [];
                 var btnW = Math.floor((dlgW - padding * 3) / 2);
-                var btnGap = Math.floor(8 * uiScale);
-                var btnY = dlgY + dlgH - btnH - Math.floor(15 * uiScale);
+
+                // 纯选项行：提示文字 + 按钮居上；混合行：按钮居下
+                var btnY;
+                if (isPureChoice) {
+                    // 提示文字
+                    if (line.choicePrompt) {
+                        ctx.font = hintFontSize + 'px sans-serif';
+                        ctx.fillStyle = 'rgba(232,213,163,0.6)';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'top';
+                        ctx.fillText(line.choicePrompt, dlgX + dlgW / 2, dlgY + padding);
+                    }
+                    var promptOffset = line.choicePrompt ? Math.floor(24 * uiScale) : Math.floor(8 * uiScale);
+                    btnY = dlgY + padding + promptOffset;
+                } else {
+                    btnY = dlgY + dlgH - btnH - Math.floor(15 * uiScale);
+                }
 
                 for (var bi = 0; bi < line.choices.length; bi++) {
                     var btnX = dlgX + padding + bi * (btnW + btnGap);

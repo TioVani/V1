@@ -252,7 +252,9 @@ function createNormalBattleAdapter(deps) {
             setPlayerPoisoned: function(v) { getPlayerEffects().poisoned = v; },
             setPlayerPoisonEndTime: function(v) { getPlayerEffects().poisonEndTime = v; },
             setPlayerPoisonDamage: function(v) { getPlayerEffects().poisonDamage = v; },
-            setPlayerPoisonTickTime: function(v) { getPlayerEffects().poisonTickTime = v; }
+            setPlayerPoisonTickTime: function(v) { getPlayerEffects().poisonTickTime = v; },
+            getPlayerShield: function() { return getSaveData().playerShield || 0; },
+            setPlayerShield: function(v) { getSaveData().playerShield = v; }
         };
     }
 
@@ -308,9 +310,10 @@ function createNormalBattleAdapter(deps) {
                 return capResult;
             }
         }
-        // 掉落星星区域限制
+        // 掉落星星区域限制（放宽到 40% + 设计坐标系）
         if (star.falling && getStarMode() === getSTAR_MODE().FALLING) {
-            if (star.y < getScreenHeight() * 0.6) {
+            var effectiveTop = designOffsetY + Math.floor(getScreenHeight() * 0.4);
+            if (star.y < effectiveTop) {
                 return { skip: true };
             }
         }
@@ -923,14 +926,13 @@ function createNormalBattleAdapter(deps) {
             var fx = getPlayerEffects();
             var pd = getSaveData();
             var hp = pd.playerHp;
-            var shield = pd.playerShield;
             var state = getGameState();
             var GAME_STATE = getGameConst();
             if (state === GAME_STATE.TOWER_COMBAT) {
                 var ts = getTowerSystem();
-                if (ts) { hp = ts.playerHp; shield = ts.playerShield || 0; }
+                if (ts) { hp = ts.playerHp; }
             }
-            battleEngine.setPlayerState(hp, shield);
+            battleEngine.setPlayerState(hp);
             battleEngine.update();
         }
         // 收服灵光生成
@@ -980,15 +982,13 @@ function createNormalBattleAdapter(deps) {
         // 统一同步：玩家状态 → BattleEngine
         var pd = getSaveData();
         var hpToSync = pd.playerHp;
-        var shieldToSync = pd.playerShield;
         if (isTower) {
             var ts = getTowerSystem();
             if (ts) {
                 hpToSync = ts.playerHp;
-                shieldToSync = ts.playerShield || 0;
             }
         }
-        Logger.info('[HP] set_state_to_engine | hp=' + hpToSync + ' shield=' + shieldToSync + (isTower ? ' [tower]' : ''));
+        Logger.info('[HP] set_state_to_engine | hp=' + hpToSync + (isTower ? ' [tower]' : ''));
 
         // 设置攻击目标
         if (isTower) {
@@ -1055,12 +1055,10 @@ function createNormalBattleAdapter(deps) {
             if (ts) {
                 Logger.info('[HP] sync_back_tower | engine:' + es.playerHp + ' tower:' + ts.playerHp);
                 ts.playerHp = es.playerHp;
-                ts.playerShield = es.playerShield;
             }
         } else {
             Logger.info('[HP] sync_back | engine:' + es.playerHp + ' pd:' + pd.playerHp + ' delta:' + (es.playerHp - pd.playerHp));
             pd.playerHp = es.playerHp;
-            pd.playerShield = es.playerShield;
         }
 
         var combatState = getCombatState();

@@ -2016,6 +2016,7 @@ function createAnimationSystem(deps) {
     }
 
     function drawStarBurstAnimations(scale) {
+        if (PauseCoordinator.instance.isPaused) return;
         var ctx = getCtx();
         for (var i = 0; i < starBurstAnimations.length; i++) {
             var anim = starBurstAnimations[i];
@@ -2064,6 +2065,7 @@ function createAnimationSystem(deps) {
     }
 
     function drawMergeAnimations(scale) {
+        if (PauseCoordinator.instance.isPaused) return;
         var ctx = getCtx();
         for (var i = 0; i < mergeAnimations.length; i++) {
             var anim = mergeAnimations[i];

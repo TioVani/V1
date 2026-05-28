@@ -76,7 +76,7 @@ export const STORY_SCENES = {
         // 阶段三：战斗后剧情（全屏对话）
         postBattle: {
             script: PROLOGUE_AFTER_BATTLE,
-            onCompleteAction: { type: 'create_task', taskId: 'guide_find_cat_spirit' },
+            onCompleteAction: null,
         },
     },
 };

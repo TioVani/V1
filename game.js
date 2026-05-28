@@ -517,6 +517,11 @@ var worldMapSystem = null;
 var worldMapRenderer = null;
 var _keysDown = {};
 var _towerKeyMoveCooldown = 0;
+// 空格灵光系统闭包变量
+var _pendingSpaceKeyTutorial = false;
+var _spaceKeyHolding = false;
+var _spaceKeyDownTime = 0;
+var _spaceKeyTargetStar = null;
 var _joystickActive = false;
 var _joystickStartX = 0;
 var _joystickStartY = 0;
@@ -613,6 +618,8 @@ var chargeSystem = null;
 var dragSystem = null;
 var linkChainSystem = null;
 var touchGestureSystem = null;
+var touchPipeline = null;
+var USE_TOUCH_PIPELINE = true;
 var _lastBossStunTime = 0;
 var getStarBaseScore = null;
 // 游戏生命周期系统函数桥接
@@ -2440,9 +2447,15 @@ function init() {
             showToast: function(opts) { $P.showToast(opts); },
             log: function() { _log.apply(null, arguments); },
             getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
+            getAudioSystem: function() { return audioSystem; },
+            onTutorialComplete: function() { _pendingSpaceKeyTutorial = false; }
         });
-        renderSquad = function() { squadRenderer.renderSquad(); };
+        renderSquad = function() {
+            if (_pendingSpaceKeyTutorial && squadRenderer.setTutorialHighlight) {
+                squadRenderer.setTutorialHighlight('dodge');
+            }
+            squadRenderer.renderSquad();
+        };
         renderPortraitLarge = function() { squadRenderer.renderPortraitLarge(); };
         renderSquadCharacter = function() { squadRenderer.renderSquadCharacter(); };
         renderSquadEquipment = function() { squadRenderer.renderSquadEquipment(); };
@@ -2549,7 +2562,7 @@ function init() {
             getGachaRoundRect: function() { return gachaRoundRect; },
             getState: function() { return state; },
             getGameState: function() { return GAME_STATE; },
-            getSaveData: function() { return saveData; },
+            getSaveData: function() { return dataStore.combined; },
             getRuntimeData: function() { return runtimeData; },
             getScore: function() { return score; },
             getTimeLeft: function() { return timeLeft; },
@@ -3107,6 +3120,8 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
         });
         _log('手势协调系统初始化完成');
 
+        // 统一触摸管道 — 待普通战斗适配器创建后初始化
+
         // 普通战斗适配器（BattleEngine — Phase 3 灵韵点击迁移）
         normalBattleAdapter = _gameModules.createNormalBattleAdapter({
             getGameState: function() { return state; },
@@ -3282,6 +3297,38 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
             victoryHealPlugin: victoryHealPlugin
         });
         _log('普通战斗适配器模块初始化完成');
+
+        // 统一触摸管道（中间件模式，替换分散的 4 层触摸逻辑）
+        touchPipeline = _gameModules.createTouchPipeline({
+            normalBattleAdapter: normalBattleAdapter,
+            linkChainSystem: linkChainSystem,
+            chargeSystem: chargeSystem,
+            dragSystem: dragSystem,
+            rhythmSkillSystem: rhythmSkillSystem,
+            poisonPuddleSystem: poisonPuddleSystem,
+            touchGestureSystem: touchGestureSystem,
+            playerEffects: playerEffects,
+            handlePoisonPuddleStar: function(ps, pi) {
+                audioSystem.playPoisonClick();
+                audioSystem.playPetAttack();
+                var pDmg = _COMBAT_SPEC.STATUS.POISON_STAR_DAMAGE;
+                var _scale = getScreenScale();
+                var _designBottom = Math.min(getDesignOffsetY() + Math.floor(812 * _scale), screenHeight);
+                createMeteorAnimation(
+                    ps.x, ps.y,
+                    pDmg,
+                    false,
+                    'poison',
+                    0,
+                    1,
+                    null,
+                    { x: screenWidth / 2, y: _designBottom - Math.floor(50 * _scale) }
+                );
+                applyPoisonStarEffect(pDmg);
+                poisonPuddleSystem.removePoisonStar(pi);
+            }
+        });
+        _log('统一触摸管道初始化完成');
 
         // 运行时不变量检查器（调试模式每帧自动检查）
         invariantChecker = _gameModules.createInvariantChecker({
@@ -3460,6 +3507,7 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                         } else {
                             state = GAME_STATE.WORLDMAP;
                         }
+                        modeLifecycle.setActiveMode(null);
                     }
                 };
                 state = GAME_STATE.TUTORIAL;
@@ -3487,22 +3535,15 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                 dialogueSystem.destroy();
             }
 
-            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-            if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
-            if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
-            if (stopPetAttackTimer) stopPetAttackTimer();
-
             _tutorial.retryCount++;
             if (_tutorial.retryCount > 3) {
                 _log('教学重试次数已达上限');
-                _tutorial.active = false;
-                _tutorial.ending = false;
-                godMode = false;
-runtimeData.godMode = false;
                 // 剧情场景失败上限：通知 SceneDispatcher
                 if (sceneDispatcher && sceneDispatcher.getActiveSceneId()) {
+                    modeLifecycle.cleanupMode('tutorial');
                     sceneDispatcher.onBattleEnd('lose');
                 } else {
+                    modeLifecycle.cleanupMode('tutorial');
                     worldMapSystem.restoreReturnPosition();
                     worldMapSystem.saveProgress();
                     state = GAME_STATE.WORLDMAP;
@@ -3511,17 +3552,9 @@ runtimeData.godMode = false;
                 return;
             }
 
-            startGame();
-            spawnMonster('tutorial_jp');
-            tipShowTipOnce('tutorial_retry', '再试一次！点击灵光攻击邪灵');
+            // 用 tutorial restart 替代 startGame + 手动覆盖
             _tutorial.ending = false;
-            // 重新注册 first_star_click trigger（仅第二条引导）
-            if (sceneDispatcher && sceneDispatcher.getActiveSceneId()) {
-                var _sceneRef = _gameModules.STORY_SCENES[sceneDispatcher.getActiveSceneId()];
-                if (_sceneRef && _sceneRef.inBattle) {
-                    sceneDispatcher.registerBattleTriggersRetry(_sceneRef.inBattle);
-                }
-            }
+            modeLifecycle.restartMode('tutorial');
         };
         restartGame = function() {
             modeLifecycle.transitionTo('normal');
@@ -3541,7 +3574,7 @@ runtimeData.godMode = false;
             getPreviousGameState: function() { return stateMachine.getPreviousState ? stateMachine.getPreviousState() : null; }
         });
 
-        // 注册 5 个战斗模式
+        // 注册 6 个战斗模式
         modeLifecycle.registerMode('normal', {
             enter: function(ctx) {
                 if (rhythmSystem) rhythmSystem.reset();
@@ -3640,6 +3673,75 @@ runtimeData.godMode = false;
                 return false;
             }
         }, GAME_STATE.PLAYING);
+
+        // 教学战斗模式 — 区分于普通模式，restart 时保留教学状态
+        modeLifecycle.registerMode('tutorial', {
+            enter: function(ctx) {
+                if (rhythmSystem) rhythmSystem.reset();
+                if (chargeSystem) chargeSystem.reset();
+                if (dragSystem) dragSystem.reset();
+                if (linkChainSystem) linkChainSystem.reset();
+                if (touchGestureSystem) touchGestureSystem.reset();
+                _battleMusicTriggered = false;
+                _tutorial.active = true;
+                _tutorial.ending = false;
+                _tutorial.retryCount = 0;
+                if (ctx && ctx.entityId) _tutorial.entityId = ctx.entityId;
+                godMode = true;
+                runtimeData.godMode = true;
+                gameLifecycleSystem.startGame();
+                state = GAME_STATE.TUTORIAL;
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                                spawnMonster('tutorial_jp');
+                tipShowTipOnce('tutorial_start', '点击灵光阻止对手！');
+            },
+            pause: function() {},
+            resume: function(ctx) { gameLifecycleSystem.resumeNormalTimers(); },
+            cleanup: function(ctx) {
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (moveInterval) { clearInterval(moveInterval); moveInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                if (normalBattleAdapter) normalBattleAdapter.destroy();
+                saveBestScore();
+                if (audioSystem) audioSystem.endBattle();
+                monsters = [];
+                _tutorial.active = false;
+                _tutorial.ending = false;
+                godMode = false;
+                runtimeData.godMode = false;
+                if (ctx && ctx.fullExit) stateMachine.transitionTo(GAME_STATE.WORLDMAP);
+            },
+            restart: function(ctx) {
+                if (rhythmSystem) rhythmSystem.reset();
+                if (chargeSystem) chargeSystem.reset();
+                if (dragSystem) dragSystem.reset();
+                if (linkChainSystem) linkChainSystem.reset();
+                if (touchGestureSystem) touchGestureSystem.reset();
+                _battleMusicTriggered = false;
+                _tutorial.active = true;
+                _tutorial.ending = false;
+                godMode = true;
+                runtimeData.godMode = true;
+                gameLifecycleSystem.startGame();
+                state = GAME_STATE.TUTORIAL;
+                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
+                if (stopPetAttackTimer) stopPetAttackTimer();
+                                spawnMonster('tutorial_jp');
+                tipShowTipOnce('tutorial_retry', '再试一次！点击灵光阻止对手');
+                if (sceneDispatcher && sceneDispatcher.getActiveSceneId()) {
+                    var _sceneRef = _gameModules.STORY_SCENES[sceneDispatcher.getActiveSceneId()];
+                    if (_sceneRef && _sceneRef.inBattle) {
+                        sceneDispatcher.registerBattleTriggersRetry(_sceneRef.inBattle);
+                    }
+                }
+            },
+            renderResult: function(rc) { handlers['normal'].renderResult(rc); },
+            handleResultTouch: function(x, y) { return false; }
+        }, GAME_STATE.TUTORIAL);
 
         modeLifecycle.registerMode('boss', {
             enter: function(ctx) {
@@ -3818,7 +3920,7 @@ runtimeData.godMode = false;
             }
         }, GAME_STATE.SEASON_PLAYING);
 
-        _log('ModeLifecycleManager 初始化完成，已注册 5 个战斗模式');
+        _log('ModeLifecycleManager 初始化完成，已注册 6 个战斗模式');
 
         // ===== StateMachine — 状态转移校验 =====
         stateMachine = createStateMachine({
@@ -4027,29 +4129,10 @@ runtimeData.godMode = false;
         sceneDispatcher = createSceneDispatcher({
             dialogueSystem: dialogueSystem,
             startBattle: function(context) {
-                // 剧情场景进入战斗：等效于原 tutorial 流程
-                _tutorial.active = true;
-                _tutorial.entityId = context.entityId;
-                _tutorial.ending = false;
-                _tutorial.retryCount = 0;
+                // 剧情场景进入教学战斗：全部状态由 tutorial enter handler 设置
                 worldMapSystem.snapshotReturnPosition();
-                godMode = true;
-                runtimeData.godMode = true;
-
+                modeLifecycle.transitionTo('tutorial', { entityId: context.entityId });
                 if (audioSystem) audioSystem.enterBattle();
-                // 不用 modeLifecycle.transitionTo('normal')，因为它会把 state 设为 PLAYING
-                // 教学战斗需要 state 为 TUTORIAL，否则 endGame 流程不对
-                modeLifecycle.transitionTo('normal');
-                // 覆盖 state 为 TUTORIAL（normal enter 设了 PLAYING）
-                state = GAME_STATE.TUTORIAL;
-
-                // 硬杀干扰源
-                if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-                if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
-                if (stopPetAttackTimer) stopPetAttackTimer();
-                timeLeft = 9999;
-
-                spawnMonster('tutorial_jp');
             },
             stateMachine: stateMachine,
             gameStateEnum: GAME_STATE,
@@ -4073,27 +4156,9 @@ runtimeData.godMode = false;
                         sceneDispatcher.start(result.entity.storyScene, { entityId: result.entity.id });
                         return;
                     }
-                    _tutorial.active = true;
-                    _tutorial.entityId = result.entity.id;
-                    _tutorial.ending = false;
-                    _tutorial.retryCount = 0;
                     worldMapSystem.snapshotReturnPosition();
-                    godMode = true;
-                    runtimeData.godMode = true;
-
                     if (audioSystem) audioSystem.enterBattle();
-                    // 启动游戏（初始化引擎、UI等基础）
-                    startGame();
-
-                    // === 硬杀干扰源（保留星星生成，杀倒计时和怪物攻击） ===
-                    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-                    if (monsterAttackInterval) { clearInterval(monsterAttackInterval); monsterAttackInterval = null; }
-                    if (stopPetAttackTimer) stopPetAttackTimer();
-                    timeLeft = 9999;
-
-                    // 只生成一只怪（剑魄教学对手）
-                    spawnMonster('tutorial_jp');
-                    tipShowTipOnce('tutorial_start', '点击灵光攻击邪灵！净化它！');
+                    modeLifecycle.transitionTo('tutorial', { entityId: result.entity.id });
                 }
                 if (result.type === 'enemy') {
                     _log('触发敌人战斗:', result.entity.id);
@@ -4232,10 +4297,19 @@ runtimeData.godMode = false;
             worldMapRenderer.showDialogue(script, function (choiceKey) {
                 if (choiceKey) {
                     var result = drv.onChoice(pd, driverId, state, choiceKey);
+                    if (result && result.completeTask && completeEventTask) {
+                        completeEventTask(result.completeTask);
+                    }
                     if (result && result.toast) {
                         $P.showToast({ title: result.toast, icon: 'success', duration: 2500 });
                     }
                     worldMapSystem.saveProgress();
+
+                    // 空格灵光引导：首次获得闪避灵光时触发
+                    if (choiceKey === 'care' && driverId === 'cat_spirit' && pd.unlockedStarTypes.indexOf('dodge') !== -1 && !pd._spaceKeyTutorialShown) {
+                        pd._spaceKeyTutorialShown = true;
+                        _pendingSpaceKeyTutorial = true;
+                    }
                 }
             });
         }
@@ -4272,9 +4346,48 @@ runtimeData.godMode = false;
                     }
                 }
             }
+            // 空格灵光触发
+            if (e.key === ' ' && !e.repeat && !_spaceKeyHolding) {
+                var _combatStates = [GAME_STATE.PLAYING, GAME_STATE.SEASON_PLAYING, GAME_STATE.STAGE_PLAYING, GAME_STATE.BOSS_BATTLE, GAME_STATE.TOWER_COMBAT];
+                if (_combatStates.indexOf(state) !== -1 && saveData.spaceKeyStar) {
+                    // 检查硬控和节奏技
+                    if (playerEffects.isStunned && playerEffects.isStunned()) { return; }
+                    if (rhythmSkillSystem && rhythmSkillSystem.isActive()) { return; }
+                    // 遍历 stars[] 从后往前找目标灵光
+                    var _found = null;
+                    for (var si = stars.length - 1; si >= 0; si--) {
+                        if (stars[si].type === saveData.spaceKeyStar && stars[si].visible) {
+                            _found = stars[si];
+                            break;
+                        }
+                    }
+                    if (_found) {
+                        _spaceKeyHolding = true;
+                        _spaceKeyDownTime = Date.now();
+                        _spaceKeyTargetStar = _found;
+                    }
+                }
+            }
         });
         document.addEventListener('keyup', function(e) {
             _keysDown[e.key.toLowerCase()] = false;
+            // 空格松手
+            if (e.key === ' ' && _spaceKeyHolding) {
+                var holdDuration = Date.now() - _spaceKeyDownTime;
+                if (holdDuration < 150) {
+                    // 短按：调用 handleStarClick
+                    if (_spaceKeyTargetStar && _spaceKeyTargetStar.visible && normalBattleAdapter) {
+                        normalBattleAdapter.handleStarClick(_spaceKeyTargetStar.x, _spaceKeyTargetStar.y);
+                    }
+                }
+                // 长按释放由 ChargeSystem 处理（在 update 中检测）
+                if (holdDuration >= 150 && chargeSystem) {
+                    chargeSystem.releaseCharge();
+                }
+                _spaceKeyHolding = false;
+                _spaceKeyDownTime = 0;
+                _spaceKeyTargetStar = null;
+            }
             // 键盘松手时输出位置
             if (state === GAME_STATE.WORLDMAP && worldMapSystem) {
                 var _pp = worldMapSystem.getPlayerPos();
@@ -4456,6 +4569,7 @@ function handleTouchStart(res) {
                     { id: 'season', action: function() { if (audioSystem) audioSystem.playMenu2(); try { initSeasonContent(); seasonSelection = { character: null, skills: [], pet: null, starTypes: [] }; stateMachine.transitionTo(GAME_STATE.SEASON_MENU); } catch (e2) { console.error('进入赛季模式失败:', e2); $P.showToast({ title: '赛季暂不可用', icon: 'none' }); } } },
                     { id: 'boss', action: function() { if (audioSystem) audioSystem.playMenu2(); bossSelectScrollY = 0; stateMachine.transitionTo(GAME_STATE.BOSS_SELECT); } },
                     { id: 'tower', action: function() { if (audioSystem) audioSystem.playMenu2(); try { if (saveData.infiniteTower && saveData.infiniteTower.isPaused) { stateMachine.transitionTo(GAME_STATE.TOWER_RESUME); } else { towerSystem.init(); stateMachine.transitionTo(GAME_STATE.TOWER); } } catch (e3) { console.error('进入无尽之塔失败:', e3); $P.showToast({ title: '进入失败，请重试', icon: 'none' }); } } },
+                    { id: 'idle', action: function() { if (audioSystem) audioSystem.playMenu2(); if (afkSystem) afkSystem.popupVisible = true; } },
                     // { id: 'fusion', action: function() { state = GAME_STATE.FUSION; } },
                     // { id: 'upgrade', action: function() { state = GAME_STATE.UPGRADE; } }
                 ];
@@ -4912,17 +5026,12 @@ function handleTouchStart(res) {
             if (x >= screenWidth/2 - btnWidth/2 && x <= screenWidth/2 + btnWidth/2 &&
                 y >= menuBtnY - btnHeight/2 && y <= menuBtnY + btnHeight/2) {
                 _log('点击返回菜单');
-                // 教学剧情退出：重置剧情状态，让实体重新出现
+                // 教学剧情退出额外清理（cleanup handler 只清战斗状态）
                 if (_tutorial.active) {
-                    _tutorial.active = false;
-                    _tutorial.ending = false;
                     _tutorial.completed = false;
                     runtimeData.tutorialCompleted = false;
-                    godMode = false;
-                    runtimeData.godMode = false;
                     if (sceneDispatcher) sceneDispatcher.destroy();
                     if (dialogueSystem) dialogueSystem.destroy();
-                    // 让教学实体重新出现
                     if (worldMapSystem) {
                         worldMapSystem.restoreReturnPosition();
                         worldMapSystem.unresolveEntity('tutorial_spirits');
@@ -4930,7 +5039,7 @@ function handleTouchStart(res) {
                 }
                 var exitMode = modeLifecycle.getActiveMode();
                 if (exitMode) {
-                    modeLifecycle.cleanupMode(exitMode);
+                    modeLifecycle.cleanupMode(exitMode, { fullExit: true });
                 } else {
                     endGame();
                 }
@@ -4968,80 +5077,80 @@ function handleTouchStart(res) {
         }
     
         if (state === GAME_STATE.PLAYING || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.TUTORIAL) {
-            if (playerEffects.stunned) {
-                // 检查打断是否结束
-                if (Date.now() >= playerEffects.stunEndTime) {
-                    playerEffects.stunned = false;
-                    _log('打断结束，恢复操作');
-                } else {
-                    // 仍在打断中，无法操作
-                    _log('玩家被打断中，无法操作');
-                    return;
+            if (USE_TOUCH_PIPELINE && touchPipeline) {
+                // ── 统一触摸管道模式 ──
+                for (let t = 0; t < touches.length; t++) {
+                    var ctx = touchPipeline.createContext({
+                        x: touches[t].clientX,
+                        y: touches[t].clientY,
+                        touchId: touches[t].identifier,
+                        timestamp: Date.now(),
+                        stars: stars,
+                        playerEffects: playerEffects,
+                        isGrounded: true
+                    });
+                    touchPipeline.runStart(ctx);
                 }
-            }
-
-            // 多点触控：遍历所有触点
-            for (let t = 0; t < touches.length; t++) {
-                var touch = touches[t];
-                var touchX = touch.clientX;
-                var touchY = touch.clientY;
-
-                // D4-节奏技 节奏灵光触摸（最高优先级，节奏阶段阻断其他交互）
-                if (rhythmSkillSystem && rhythmSkillSystem.isActive()) {
-                    rhythmSkillSystem.handleTouch(touchX, touchY);
-                    continue;   // 节奏阶段所有触摸被消费
+            } else {
+                // ── 旧触摸逻辑（备用） ──
+                if (playerEffects.stunned) {
+                    if (Date.now() >= playerEffects.stunEndTime) {
+                        playerEffects.stunned = false;
+                    } else {
+                        return;
+                    }
                 }
 
-                // D4 联连触发灵光触摸（优先级次高）
-                if (linkChainSystem && linkChainSystem.isReady()) {
-                    if (linkChainSystem.handleTriggerTouch(touchX, touchY)) {
-                        // 触发成功 → 同时让 TouchGestureSystem 开始追踪此触点
-                        if (touchGestureSystem) {
-                            touchGestureSystem.handleGestureStart(touchX, touchY, touch.identifier);
-                        }
+                for (let t = 0; t < touches.length; t++) {
+                    var touch = touches[t];
+                    var touchX = touch.clientX;
+                    var touchY = touch.clientY;
+
+                    if (rhythmSkillSystem && rhythmSkillSystem.isActive()) {
+                        rhythmSkillSystem.handleTouch(touchX, touchY);
                         continue;
                     }
-                }
 
-                // D2-D5 手势分类（优先于现有灵韵点击）
-                if (touchGestureSystem) {
-                    var gestureConsumed = touchGestureSystem.handleGestureStart(touchX, touchY, touch.identifier);
-                    if (gestureConsumed) continue;
-                }
-
-                // 普通/赛季/闯关/塔/Boss模式：通过 NormalBattleAdapter 统一处理灵韵点击
-                if (normalBattleAdapter) {
-                    if (normalBattleAdapter.handleStarClick(touchX, touchY)) continue;
-                }
-
-                // 灵韵点击已由 NormalBattleAdapter + BattleEngine 完整覆盖
-                // 包括：偷灵/毒灵/毒液滩（onBeforeStarClick 扩展）+ 所有特殊灵韵 + 攻击灵韵
-                // 仅当 normalBattleAdapter 不存在或返回 false 时才到达此处
-                // 不做 fallback splice — 若引擎未处理（如阶段切换），灵韵留在屏幕可再次点击
-
-                // 检查毒灵点击（毒液滩系统独立灵韵数组）
-                for (let pi = poisonPuddleSystem.poisonStars.length - 1; pi >= 0; pi--) {
-                var ps = poisonPuddleSystem.poisonStars[pi];
-                var psDx = touchX - ps.x;
-                var psDy = touchY - ps.y;
-                if (psDx * psDx + psDy * psDy < ps.size * ps.size) {
-                    audioSystem.playPoisonClick();
-                    audioSystem.playPetAttack();
-                    var pDmg = _COMBAT_SPEC.STATUS.POISON_STAR_DAMAGE;
-                    // 创建飞向玩家血条的反向流星动画
-                    createMeteorAnimation(
-                        ps.x, ps.y,
-                        pDmg,
-                        false,
-                        'poison',
-                        0,
-                        1,
-                        null,
-                        { x: screenWidth / 2, y: designBottom - Math.floor(50 * scale) }
-                    );
-                    applyPoisonStarEffect(pDmg);
-                    poisonPuddleSystem.removePoisonStar(pi);
+                    if (linkChainSystem && linkChainSystem.isReady()) {
+                        if (linkChainSystem.handleTriggerTouch(touchX, touchY)) {
+                            if (touchGestureSystem) {
+                                touchGestureSystem.handleGestureStart(touchX, touchY, touch.identifier);
+                            }
+                            continue;
+                        }
                     }
+
+                    if (touchGestureSystem) {
+                        var gestureConsumed = touchGestureSystem.handleGestureStart(touchX, touchY, touch.identifier);
+                        if (gestureConsumed) continue;
+                    }
+
+                    if (normalBattleAdapter) {
+                        if (normalBattleAdapter.handleStarClick(touchX, touchY)) continue;
+                    }
+
+                    for (let pi = poisonPuddleSystem.poisonStars.length - 1; pi >= 0; pi--) {
+                    var ps = poisonPuddleSystem.poisonStars[pi];
+                    var psDx = touchX - ps.x;
+                    var psDy = touchY - ps.y;
+                    if (psDx * psDx + psDy * psDy < ps.size * ps.size) {
+                        audioSystem.playPoisonClick();
+                        audioSystem.playPetAttack();
+                        var pDmg = _COMBAT_SPEC.STATUS.POISON_STAR_DAMAGE;
+                        createMeteorAnimation(
+                            ps.x, ps.y,
+                            pDmg,
+                            false,
+                            'poison',
+                            0,
+                            1,
+                            null,
+                            { x: screenWidth / 2, y: designBottom - Math.floor(50 * scale) }
+                        );
+                        applyPoisonStarEffect(pDmg);
+                        poisonPuddleSystem.removePoisonStar(pi);
+                    }
+                }
                 }
             }
         } else if (state === GAME_STATE.MENU) {
@@ -5118,6 +5227,7 @@ function handleTouchStart(res) {
                             $P.showToast({ title: '进入失败，请重试', icon: 'none' });
                         }
                     } },
+                    { id: 'idle', action: () => { if (audioSystem) audioSystem.playMenu2(); if (afkSystem) afkSystem.popupVisible = true; } },
                     // { id: 'fusion', action: () => { state = GAME_STATE.FUSION; } },
                     // { id: 'upgrade', action: () => { state = GAME_STATE.UPGRADE; } }
                 ];
@@ -5924,6 +6034,23 @@ function render() {
             // BattleEngine 每帧 tick（处理 pendingDeaths、攻击者、时间倒计时等）
             if (normalBattleAdapter) normalBattleAdapter.update();
 
+            // 空格灵光长按检测：超过150ms进入蓄力
+            if (_spaceKeyHolding && _spaceKeyTargetStar && Date.now() - _spaceKeyDownTime >= 150) {
+                // 灵光被其他系统消费则取消蓄力
+                if (!_spaceKeyTargetStar.visible) {
+                    _spaceKeyHolding = false;
+                    _spaceKeyDownTime = 0;
+                    _spaceKeyTargetStar = null;
+                } else if (chargeSystem && chargeSystem.beginMonitoring) {
+                    chargeSystem.beginMonitoring(
+                        _spaceKeyTargetStar.x, _spaceKeyTargetStar.y,
+                        'spacekey', _spaceKeyTargetStar
+                    );
+                    // beginMonitoring 成功后不再重复调用
+                    _spaceKeyDownTime = 0; // 防止重复触发
+                }
+            }
+
             // overlay 引导对话更新
             if (dialogueSystem && dialogueSystem.isActive()) {
                 dialogueSystem.update(dt);
@@ -6064,7 +6191,18 @@ function handleTouchMove(res) {
     }
 
     // D2-D5 手势移动
-    if (touchGestureSystem && res.touches && res.touches[0]) {
+    if (USE_TOUCH_PIPELINE && touchPipeline && res.touches && res.touches[0]) {
+        var moveCtx = touchPipeline.createContext({
+            x: res.touches[0].clientX,
+            y: res.touches[0].clientY,
+            touchId: res.touches[0].identifier,
+            timestamp: Date.now(),
+            stars: stars,
+            playerEffects: playerEffects,
+            isGrounded: true
+        });
+        touchPipeline.runMove(moveCtx);
+    } else if (touchGestureSystem && res.touches && res.touches[0]) {
         touchGestureSystem.handleGestureMove(res.touches[0].clientX, res.touches[0].clientY);
     }
 
@@ -6350,7 +6488,18 @@ function handleTouchEnd(res) {
     }
 
     // D2-D5 手势结束
-    if (touchGestureSystem) {
+    if (USE_TOUCH_PIPELINE && touchPipeline && res.changedTouches && res.changedTouches[0]) {
+        var endCtx = touchPipeline.createContext({
+            x: res.changedTouches[0].clientX,
+            y: res.changedTouches[0].clientY,
+            touchId: res.changedTouches[0].identifier,
+            timestamp: Date.now(),
+            stars: stars,
+            playerEffects: playerEffects,
+            isGrounded: true
+        });
+        touchPipeline.runEnd(endCtx);
+    } else if (touchGestureSystem) {
         var gestureEndResult = touchGestureSystem.handleGestureEnd();
         // D2 监控回退：触发 D1 灵光点击
         if (gestureEndResult && gestureEndResult.d1Fallback) {

@@ -68,6 +68,7 @@ function createPlayerDataSystem() {
         skills: { owned: [], equipped: [], gachaTickets: 0 },
         pets: { owned: [], equipped: null },
         equippedStars: [],
+        spaceKeyStar: null,
         normalStarEnabled: true,
         stageProgress: {},
         faithData: {

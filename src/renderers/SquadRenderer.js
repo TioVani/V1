@@ -35,7 +35,11 @@ function createSquadRenderer(deps) {
     var getSquadTab = deps.getSquadTab;
     var getShowPortraitLarge = deps.getShowPortraitLarge;
     var getDesignOffsetY = deps.getDesignOffsetY || function() { return 0; };
+    var onTutorialComplete = deps.onTutorialComplete || function() {};
     var DESIGN_HEIGHT = 812;
+
+    // 空格灵光引导状态
+    var _tutorialHighlightStarId = null;
 
     // ==================== renderSquad ====================
     function renderSquad() {
@@ -788,15 +792,35 @@ function createSquadRenderer(deps) {
         var hSlotGap = Math.floor(8 * scale);
         var totalWidth = 5 * slotSize + 4 * hSlotGap;
         var startX = x + (w - totalWidth) / 2;
+        var spaceKeyStar = pd.spaceKeyStar;
+        var tutorialActive = _tutorialHighlightStarId !== null;
+        var now = Date.now();
+        var tutorialPulse = tutorialActive ? 0.5 + 0.5 * Math.sin(now / 300) : 0;
 
         for (let i = 0; i < 5; i++) {
             var starId = equippedStars[i];
             var star = starId ? SEASON_STAR_TYPES.find(st => st.id === starId) : null;
             var slotX = startX + i * (slotSize + hSlotGap);
+            var isSpaceKey = starId && starId === spaceKeyStar;
+            var isTutorialEmptySlot = tutorialActive && !starId;
 
             // 槽位背景
             ctx.fillStyle = 'rgba(60, 60, 80, 0.5)';
             fillRoundRect(ctx, slotX, fixedSlotY, slotSize, slotSize, 8);
+
+            // 空格灵光指示：金色描边
+            if (isSpaceKey) {
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = Math.floor(3 * scale);
+                ctx.strokeRect(slotX + 1, fixedSlotY + 1, slotSize - 2, slotSize - 2);
+            }
+
+            // 引导高亮：空余槽位闪烁
+            if (isTutorialEmptySlot) {
+                ctx.strokeStyle = 'rgba(255, 215, 0, ' + tutorialPulse.toFixed(2) + ')';
+                ctx.lineWidth = Math.floor(3 * scale);
+                ctx.strokeRect(slotX + 1, fixedSlotY + 1, slotSize - 2, slotSize - 2);
+            }
 
             if (star) {
                 // 已装备星星
@@ -804,6 +828,15 @@ function createSquadRenderer(deps) {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(star.emoji, slotX + slotSize / 2, fixedSlotY + slotSize / 2);
+
+                // 空格键标记
+                if (isSpaceKey) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.font = 'bold ' + Math.floor(10 * scale) + 'px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillText('空格', slotX + slotSize / 2, fixedSlotY + slotSize - 2);
+                }
             } else {
                 // 未装备
                 ctx.fillStyle = '#444444';
@@ -877,10 +910,26 @@ function createSquadRenderer(deps) {
 
                 // 检查是否已装备
                 var isEquipped = equippedStars.indexOf(star.id) !== -1;
+                var isTutorialRow = tutorialActive && star.id === _tutorialHighlightStarId;
 
                 // 星星背景
                 ctx.fillStyle = isEquipped ? 'rgba(100, 150, 100, 0.5)' : 'rgba(60, 60, 80, 0.5)';
                 fillRoundRect(ctx, x + Math.floor(10 * scale), listY, w - Math.floor(20 * scale), slotH, 8);
+
+                // 引导高亮：金色描边呼吸动画
+                if (isTutorialRow) {
+                    ctx.strokeStyle = 'rgba(255, 215, 0, ' + tutorialPulse.toFixed(2) + ')';
+                    ctx.lineWidth = Math.floor(3 * scale);
+                    ctx.strokeRect(x + Math.floor(10 * scale) + 1, listY + 1, w - Math.floor(20 * scale) - 2, slotH - 2);
+                }
+
+                // 空格灵光标记
+                if (star.id === spaceKeyStar) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.font = 'bold ' + Math.floor(11 * scale) + 'px sans-serif';
+                    ctx.textAlign = 'right';
+                    ctx.fillText('[空格]', x + w - Math.floor(72 * scale), listY + Math.floor(25 * scale));
+                }
 
                 // 星星图标
                 ctx.font = Math.floor(24 * scale) + 'px sans-serif';
@@ -920,6 +969,38 @@ function createSquadRenderer(deps) {
 
         // 恢复裁剪状态
         ctx.restore();
+
+        // 引导气泡（非模态，绘制在裁剪区域外）
+        if (tutorialActive && _tutorialHighlightStarId) {
+            // 找到引导灵光在列表中的位置
+            var tutorialStar = SEASON_STAR_TYPES.find(function(st) { return st.id === _tutorialHighlightStarId; });
+            if (tutorialStar) {
+                var bubbleY = separatorY + Math.floor(10 * scale);
+                var bubbleX = x + Math.floor(15 * scale);
+                var bubbleW = w - Math.floor(30 * scale);
+                var bubbleH = Math.floor(50 * scale);
+
+                // 气泡背景
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+                fillRoundRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, 10);
+
+                // 气泡文字
+                ctx.fillStyle = '#1a1a2e';
+                ctx.font = 'bold ' + Math.floor(12 * scale) + 'px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('获得' + tutorialStar.name + '！点击装备后，再点击装备槽位设为空格键触发。',
+                    bubbleX + bubbleW / 2, bubbleY + bubbleH / 2);
+
+                // 检测引导完成条件：灵光已装备 + 已设为空格键
+                var pd2 = getSaveData();
+                var es2 = pd2.equippedStars || [];
+                if (es2.indexOf(_tutorialHighlightStarId) !== -1 && pd2.spaceKeyStar === _tutorialHighlightStarId) {
+                    _tutorialHighlightStarId = null;
+                    onTutorialComplete();
+                }
+            }
+        }
     }
 
     // ==================== 编队交互逻辑 ====================
@@ -1083,7 +1164,7 @@ function createSquadRenderer(deps) {
                 return;
             }
 
-            // 固定槽位：点击已装备星星卸下
+            // 固定槽位：点击已装备星星 → 设为/取消空格灵光
             var _fixedSlotY = contentY + Math.floor(70 * scale);
             var _slotSize = Math.floor(50 * scale);
             var _hSlotGap = Math.floor(8 * scale);
@@ -1096,10 +1177,16 @@ function createSquadRenderer(deps) {
                 if (x >= _slotX && x <= _slotX + _slotSize && y >= _fixedSlotY && y <= _fixedSlotY + _slotSize) {
                     if (_equippedStars[si]) {
                         var _starId = _equippedStars[si];
-                        var _star = SEASON_STAR_TYPES.find(function(st) { return st.id === _starId; });
-                        _equippedStars.splice(si, 1);
-                        pd.equippedStars = _equippedStars;
-                        deps.showToast({ title: '已卸下 ' + (_star ? _star.name : _starId), icon: 'none', duration: 1000 });
+                        // 切换空格灵光绑定
+                        if (pd.spaceKeyStar === _starId) {
+                            pd.spaceKeyStar = null;
+                            var _star = SEASON_STAR_TYPES.find(function(st) { return st.id === _starId; });
+                            deps.showToast({ title: '已取消空格键触发 ' + (_star ? _star.name : _starId), icon: 'none', duration: 1000 });
+                        } else {
+                            pd.spaceKeyStar = _starId;
+                            var _star2 = SEASON_STAR_TYPES.find(function(st) { return st.id === _starId; });
+                            deps.showToast({ title: '已设为空格键触发 ' + (_star2 ? _star2.name : _starId), icon: 'none', duration: 1000 });
+                        }
                         deps.savePlayerData();
                     }
                     return;
@@ -1135,6 +1222,10 @@ function createSquadRenderer(deps) {
                     var isEquipped = equippedStars.indexOf(star.id) !== -1;
                     if (isEquipped) {
                         equippedStars.splice(equippedStars.indexOf(star.id), 1);
+                        // 如果卸下的是空格灵光，同时取消绑定
+                        if (pd.spaceKeyStar === star.id) {
+                            pd.spaceKeyStar = null;
+                        }
                         deps.showToast({ title: '已卸下 ' + star.name, icon: 'none', duration: 1000 });
                     } else {
                         if (equippedStars.length >= 5) {
@@ -1184,6 +1275,11 @@ function createSquadRenderer(deps) {
         if (scroll.squadScrollY > maxScroll) scroll.squadScrollY = maxScroll;
     }
 
+    // 设置引导高亮
+    function setTutorialHighlight(starId) {
+        _tutorialHighlightStarId = starId;
+    }
+
     return {
         renderSquad: renderSquad,
         renderPortraitLarge: renderPortraitLarge,
@@ -1195,7 +1291,8 @@ function createSquadRenderer(deps) {
         handleClick: handleClick,
         handleScrollStart: handleScrollStart,
         handleScrollMove: handleScrollMove,
-        handleScrollEnd: handleScrollEnd
+        handleScrollEnd: handleScrollEnd,
+        setTutorialHighlight: setTutorialHighlight
     };
 }
 export { createSquadRenderer };

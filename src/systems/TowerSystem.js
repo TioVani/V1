@@ -225,7 +225,6 @@ function createTowerSystem(deps) {
     var victoryPopupTimer = null;
     var hiddenPathDialog = null;
     var lastStarClickTime = 0;
-    var playerShield = 0;
     var playerRage = 0;
     var greedyHpPool = 0;
     var greedySkillUnlocked = false;
@@ -977,7 +976,7 @@ function createTowerSystem(deps) {
                 features: TOWER_COMBAT_FEATURES,
                 playerHp: playerHp,
                 playerMaxHp: playerMaxHp,
-                playerShield: 0,
+                playerShield: getSaveData().playerShield || 0,
                 playerStats: stats,
                 activePet: activePet,
                 playerSkills: playerSkills,
@@ -1099,7 +1098,7 @@ function createTowerSystem(deps) {
 
                 // 护盾优先吸收（同步到 BattleEngine 再扣，保持单一血量源）
                 var currentHp = playerHp;
-                var currentShield = playerShield;
+                var currentShield = getSaveData().playerShield || 0;
                 var shieldAbsorb = 0;
                 if (currentShield > 0) {
                     shieldAbsorb = Math.min(currentShield, damage);
@@ -1110,10 +1109,10 @@ function createTowerSystem(deps) {
 
                 // 同步扣血结果到 BattleEngine（统一血量源）
                 if (battleEngine) {
-                    battleEngine.setPlayerState(currentHp, currentShield);
+                    battleEngine.setPlayerState(currentHp);
                 }
                 playerHp = currentHp;
-                playerShield = currentShield;
+                getSaveData().playerShield = currentShield;
 
                 // 护盾吸收的伤害 → 灰色数字（先显示，和普通模式一致）
                 if (shieldAbsorb > 0) {
@@ -1150,7 +1149,7 @@ function createTowerSystem(deps) {
                         playerPoisonEndTime = Date.now() + (poisonSkill.duration || 3) * 1000;
                         playerPoisonDamage = poisonSkill.damage || 5;
                         playerPoisonTickTime = Date.now() + 1000;
-                        var poisonLabel = playerShield > 0 ? '腐蚀!' : '中毒!';
+                        var poisonLabel = getSaveData().playerShield > 0 ? '腐蚀!' : '中毒!';
                         createPlayerDamageAnimation(0, false, true, poisonLabel);
                         addGameMessage('☠️ ' + poisonLabel + ' 每秒-' + playerPoisonDamage + '灵能', '#ff6b6b');
                     }
@@ -1178,7 +1177,7 @@ function createTowerSystem(deps) {
                 }
                 // 最终同步状态到 BattleEngine（中毒/眩晕等也要同步）
                 if (battleEngine) {
-                    battleEngine.setPlayerState(playerHp, playerShield);
+                    battleEngine.setPlayerState(playerHp);
                 }
             }
         );
@@ -1269,7 +1268,7 @@ function createTowerSystem(deps) {
                 break;
             case 'shield':
                 var shieldAmt = skill.shield;
-                playerShield = (playerShield || 0) + shieldAmt;
+                getSaveData().playerShield = (getSaveData().playerShield || 0) + shieldAmt;
                 addGameMessage(skill.emoji + ' +' + shieldAmt + '护盾', '#cc88ff');
                 success = true;
                 break;
@@ -1327,7 +1326,6 @@ function createTowerSystem(deps) {
             combatMonster = st.monster;
             combatTime = st.timeLeft;
             playerHp = st.playerHp;
-            playerShield = st.playerShield;
             playerPoisoned = st.isPoisoned;
             comboStarActive = st.comboStarActive;
             playerRage = st.playerRage;
@@ -1342,9 +1340,10 @@ function createTowerSystem(deps) {
             if (now >= playerPoisonTickTime) {
                 var poisonDmg = playerPoisonDamage;
                 var shieldAbsorb = 0;
-                if (playerShield > 0) {
-                    shieldAbsorb = Math.min(playerShield, poisonDmg);
-                    playerShield -= shieldAbsorb;
+                var ts = getSaveData().playerShield || 0;
+                if (ts > 0) {
+                    shieldAbsorb = Math.min(ts, poisonDmg);
+                    getSaveData().playerShield = ts - shieldAbsorb;
                     poisonDmg -= shieldAbsorb;
                 }
                 playerHp -= poisonDmg;
@@ -1808,7 +1807,7 @@ function createTowerSystem(deps) {
         combatReward = null;
         isHiddenPathBoss = true;
         lastStarClickTime = 0;
-        playerShield = 0;
+        getSaveData().playerShield = 0;
         playerRage = 0;
         greedyHpPool = 0;
         greedySkillUnlocked = false;
@@ -2260,7 +2259,7 @@ function createTowerSystem(deps) {
         set playerHp(v) { playerHp = v; },
         get playerMaxHp() { return playerMaxHp; },
         set playerMaxHp(v) { playerMaxHp = v; },
-        get playerShield() { return playerShield; },
+        get playerShield() { return getSaveData().playerShield || 0; },
         get exploredCells() { return exploredCells; },
         get collectedRewards() { return collectedRewards; },
         set collectedRewards(v) { collectedRewards = v; },
@@ -2310,7 +2309,7 @@ function createTowerSystem(deps) {
             cleanupCombat();
             combatReward = null;
             resetComboFn();
-            playerShield = 0;
+            getSaveData().playerShield = 0;
             playerRage = 0;
             playerPoisoned = false;
             playerPoisonEndTime = 0;
