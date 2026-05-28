@@ -357,6 +357,15 @@ function createAudioSystem(deps) {
         playQuickTap();
     }
 
+    function playDragProjectile() {
+        var el = document.querySelector('audio[data-bgm-id="battleCritical"]');
+        if (!el) return;
+        el.playbackRate = 1.0 + Math.random() * 0.5;
+        el.volume = 0.6;
+        el.currentTime = 0;
+        el.play().catch(function() {});
+    }
+
     function playLinkStart() {
         var el = document.querySelector('audio[data-bgm-id="battleLinkStart"]');
         if (!el) return;
@@ -782,6 +791,7 @@ function createAudioSystem(deps) {
         playFocus: playFocus,
         playFocusStage: playFocusStage,
         playChargeRelease: playChargeRelease,
+        playDragProjectile: playDragProjectile,
         playLinkStart: playLinkStart,
         playMerge: playMerge,
         playFail: playFail,

@@ -62,6 +62,8 @@ function createLinkChainSystem(deps) {
     var playNormal = deps.playNormal || function () {};
     var createMonsterDamageAnimation = deps.createMonsterDamageAnimation || function () {};
     var createMeteor = deps.createMeteor || function () {};
+    var playRainbow = deps.playRainbow || function () {};
+    var playQuickTap = deps.playQuickTap || function () {};
 
     // 内部状态
     var state = {
@@ -371,6 +373,10 @@ function createLinkChainSystem(deps) {
                         startTime: Date.now(),
                         duration: 300
                     });
+                    // 每创建一个投射物 → 播放 Rainbow 音效（pitch 1.0-1.9 随机）
+                    playRainbow(1.0 + Math.random() * 0.9);
+                    // 0.35秒后播放 QuickTap 音效
+                    setTimeout(function() { playQuickTap(); }, 350);
                 }
                 break;
             }

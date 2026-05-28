@@ -41,6 +41,8 @@ function createChargeSystem(deps) {
     var playFocus = deps.playFocus || function () {};
     var playFocusStage = deps.playFocusStage || function () {};
     var playChargeRelease = deps.playChargeRelease || function () {};
+    var playDragProjectile = deps.playDragProjectile || function () {};
+    var playNormal = deps.playNormal || function () {};
     var _firedStageSound = { light: false, medium: false, full: false };
 
     var state = {
@@ -478,7 +480,9 @@ function createChargeSystem(deps) {
                         abs.y = abs.targetY;
                         state.chargeStartTime -= CHARGE_AUTO_ABSORB_PROGRESS * CHARGE_FULL_MIN;
                         spawnAbsorbBurst(abs.targetX, abs.targetY);
+                        playNormal();
                         fireSingleMeteor(abs.targetX, abs.targetY);
+                        playDragProjectile();
                         addScore(5);
                         addLinkCharge(5);
                     }

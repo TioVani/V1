@@ -40,6 +40,7 @@ function createDragSystem(deps) {
     var createMeteorAnimation = deps.createMeteorAnimation || function () { return null; };
     var getStarImage = deps.getStarImage || function () { return null; };
     var getTotalAttack = deps.getTotalAttack || function () { return 0; };
+    var playDragProjectile = deps.playDragProjectile || function () { };
 
     // 内部状态
     var state = {
@@ -177,6 +178,7 @@ function createDragSystem(deps) {
                         // 有怪物时 → 发射流星（复用AnimationSystem通用流星动画，即时造成基础伤害）
                         var aliveMonsters = getActiveMonsters();
                         if (aliveMonsters && aliveMonsters.length > 0) {
+                            playDragProjectile();
                             var target = aliveMonsters[Math.floor(Math.random() * aliveMonsters.length)];
                             var totalAtk = getTotalAttack();
                             var baseDamage = Math.floor(totalAtk * 1.5);
@@ -267,6 +269,7 @@ function createDragSystem(deps) {
         if (aggregateCount > 0) {
             var aliveMonsters = getActiveMonsters();
             if (aliveMonsters && aliveMonsters.length > 0) {
+                playDragProjectile();
                 var target = aliveMonsters[Math.floor(Math.random() * aliveMonsters.length)];
                 var bonus = getAttackBonus();  // 1 + dragStacks * 0.05
                 var totalAtk = getTotalAttack();

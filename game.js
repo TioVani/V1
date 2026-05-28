@@ -2926,7 +2926,9 @@ function init() {
             createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
             playFocus: function() { if (audioSystem) audioSystem.playFocus(); },
             playFocusStage: function(p) { if (audioSystem) audioSystem.playFocusStage(p); },
-            playChargeRelease: function() { if (audioSystem) audioSystem.playChargeRelease(); }
+            playChargeRelease: function() { if (audioSystem) audioSystem.playChargeRelease(); },
+            playDragProjectile: function() { if (audioSystem) audioSystem.playDragProjectile(); },
+            playNormal: function() { if (audioSystem) audioSystem.playNormal(); }
         });
 
         dragSystem = _gameModules.createDragSystem({
@@ -2954,7 +2956,8 @@ function init() {
             getAudioSystem: function() { return audioSystem; },
             createMeteorAnimation: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { return createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
             getStarImage: function() { return Assets.normalStarImage; },
-            getTotalAttack: function() { return calculateTotalAttack ? calculateTotalAttack() : 0; }
+            getTotalAttack: function() { return calculateTotalAttack ? calculateTotalAttack() : 0; },
+            playDragProjectile: function() { if (audioSystem) audioSystem.playDragProjectile(); }
         });
         _log('D3 拖拽聚合系统初始化完成');
 
@@ -2987,7 +2990,9 @@ function init() {
             playLinkStart: function() { if (audioSystem) audioSystem.playLinkStart(); },
             playNormal: function() { if (audioSystem) audioSystem.playNormal(); },
             createMonsterDamageAnimation: function(obj, dmg) { animationSystem.createMonsterDamageAnimation(obj, dmg); },
-            createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); }
+            createMeteor: function(sx, sy, dmg, crit, st, ss, cm, cb, customEnd) { createMeteorAnimation(sx, sy, dmg, crit, st, ss, cm, cb, customEnd); },
+            playRainbow: function(pitch) { if (audioSystem) audioSystem.playRainbow(pitch); },
+            playQuickTap: function() { if (audioSystem) audioSystem.playQuickTap(); }
         });
         _log('D4 灵光联连系统初始化完成');
 
