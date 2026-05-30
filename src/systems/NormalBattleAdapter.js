@@ -935,6 +935,18 @@ function createNormalBattleAdapter(deps) {
             battleEngine.setPlayerState(hp);
             battleEngine.update();
         }
+
+        // ── 僵尸清理：hp≤0 但仍 active 的怪物，由各伤害路径遗漏的统一兜底 ──
+        var allMonsters = getMonsters();
+        for (var zi = allMonsters.length - 1; zi >= 0; zi--) {
+            var zm = allMonsters[zi];
+            if (zm.hp <= 0 && zm.active && zm.maxHp > 0) {
+                Logger.warn('[NormalBattleAdapter] 僵尸清理:', zm.type, zm.id);
+                zm.active = false;
+                onMonsterKilled(zm);
+            }
+        }
+
         // 收服灵光生成
         var capSys = getCaptureSystem();
         if (capSys) {
@@ -2112,6 +2124,7 @@ function createNormalBattleAdapter(deps) {
         active = true;
         battleEngine = engine;
         towerConfig.skipAutoTimers = true; // 塔模式由 TowerSystem 自己管理怪物攻击，不走 BattleEngine attacker
+        towerConfig.deathDelayMs = 0; // preventFinish 模式下 deathDelayMs 必为 0
         // 注入 NormalBattleAdapter 扩展钩子
         towerConfig.extensions = {
             onBeforeStarClick: onBeforeStarClickHook,
@@ -2153,6 +2166,8 @@ function createNormalBattleAdapter(deps) {
             onAfterSpecialStar: onAfterSpecialStarHook,
             preventFinish: true
         });
+        // preventFinish 模式下 deathDelayMs 必为 0（不变量约束）
+        bossConfig.deathDelayMs = 0;
         engine.init(bossConfig);
         if (onEngineReady) onEngineReady(engine);
         Logger.info('[NormalBattleAdapter] initBossEngine — Boss 模式统一路径');

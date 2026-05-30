@@ -138,6 +138,7 @@ function createInvariantChecker(deps) {
 
     // INV-5: 战斗中且 preventFinish 模式下，BattleEngine.update() 应被每帧调用
     var _lastEngineUpdateTime = 0;
+    var _wasCombatLastFrame = false;
     invariants.push({
         id: 'engine_update_liveness',
         check: function() {
@@ -149,13 +150,24 @@ function createInvariantChecker(deps) {
 
             if (!isCombat) {
                 _lastEngineUpdateTime = Date.now();
+                _wasCombatLastFrame = false;
                 return { pass: true };
             }
 
             var nba = getNormalBattleAdapter && getNormalBattleAdapter();
-            if (!nba || !nba.isActive()) return { pass: true };
+            if (!nba || !nba.isActive()) {
+                _lastEngineUpdateTime = Date.now();
+                return { pass: true };
+            }
 
             var now = Date.now();
+            // 刚进入战斗或长时间中断（标签页后台/暂停恢复）：重置时间戳，不报告
+            if (!_wasCombatLastFrame || now - _lastEngineUpdateTime > 1000) {
+                _lastEngineUpdateTime = now;
+                _wasCombatLastFrame = true;
+                return { pass: true };
+            }
+
             var gap = now - _lastEngineUpdateTime;
             _lastEngineUpdateTime = now;
 

@@ -541,6 +541,8 @@ function createBattleEngine(deps) {
         for (var i = 0; i < S.pendingDeaths.length; i++) {
             if (S.pendingDeaths[i].monsterId === monster.id) return;
         }
+        // hp≤0 的怪物立即标记为 inactive，避免 invariant 误报
+        monster.active = false;
         S.pendingDeaths.push({ monsterId: monster.id, deathTime: Date.now(), monster: monster });
     }
 

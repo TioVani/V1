@@ -1,4 +1,4 @@
-// 器落山河 - Canvas 2D 游戏
+// 万物有灵 - Canvas 2D 游戏
 // 包含：游戏循环、数据持久化、广告（移除音效以保证兼容性）
 
 // 调试日志开关 - 生产环境自动关闭
@@ -75,11 +75,6 @@ let touchStartState = null;  // 触摸开始时的游戏状态
 
 // 玩家闪避状态（闪避灵韵）
 
-// 调试面板
-let debugPanelOpen = false;          // 调试面板是否打开
-var devBattleSystem = null;            // 开发者战斗调参工具
-
-
 // 抽卡动画系统
 
 // ==================== 贪婪灵韵系统 ====================
@@ -111,6 +106,7 @@ var createSceneDispatcher = _gameModules.createSceneDispatcher;
 var PORTRAIT_MAP = _gameModules.PORTRAIT_MAP;
 var STORY_SCENES = _gameModules.STORY_SCENES;
 var NPC_DIALOGUE_DRIVERS = _gameModules.NPC_DIALOGUE_DRIVERS;
+var EASTER_EGG_DRIVERS = _gameModules.EASTER_EGG_DRIVERS;
 // 抽卡配置（供渲染等直接使用）
 var GACHA_POOL_TYPES = _gameModules.GACHA_POOL_TYPES;
 var GACHA_POOL_ROTATION_DAYS = _gameModules.GACHA_POOL_ROTATION_DAYS;
@@ -161,7 +157,6 @@ var createAFKRenderer = _gameModules.createAFKRenderer;
 var createMenuRenderer = _gameModules.createMenuRenderer;
 var createSeasonRenderer = _gameModules.createSeasonRenderer;
 var createTaskRenderer = _gameModules.createTaskRenderer;
-var createDebugRenderer = _gameModules.createDebugRenderer;
 var createShopRenderer = _gameModules.createShopRenderer;
 var createBackpackRenderer = _gameModules.createBackpackRenderer;
 var createGachaRenderer = _gameModules.createGachaRenderer;
@@ -421,13 +416,10 @@ var attackMonstersAOE = null;
 var killMonster = null;
 var onMonsterKilled = null;
 var updatePoisonEffect = null;
-// 调试系统桥接
-var debugSystem = null;
 // UI编辑器桥接
 var uiConfig = null;
 var uiEditorSystem = null;
 var combatFontConfig = null;
-var executeDebugAction = null;
 var addMaterialToBackpack = null;
 var endStage = null;
 // 挂机系统函数桥接（在 init() 中实例化后赋值）
@@ -550,7 +542,6 @@ var renderSeasonMenu = null;
 var renderSeasonSelect = null;
 var renderSeasonLeaderboard = null;
 var renderTasks = null;
-var renderDebugPanel = null;
 // 背包渲染桥接
 var renderBackpack = null;
 var renderMaterialsTab = null;
@@ -601,7 +592,6 @@ var afkRenderer = null;
 var menuRenderer = null;
 var seasonRenderer = null;
 var taskRenderer = null;
-var debugRenderer = null;
 var shopRenderer = null;
 var backpackRenderer = null;
 var gachaRenderer = null;
@@ -1030,46 +1020,6 @@ function init() {
 
         _log('统一数据存储模块初始化完成');
 
-        // 初始化调试系统模块
-        debugSystem = _gameModules.createDebugSystem({
-            getSaveData: function() { return saveData; },
-            getRuntimeData: function() { return runtimeData; },
-            getCharacters: function() { return Characters; },
-            getEquipments: function() { return _gameModules.Equipments; },
-            getSkills: function() { return _gameModules.Skills; },
-            getPets: function() { return _gameModules.Pets; },
-            getSeasonStarTypes: function() { return _gameModules.SEASON_STAR_TYPES; },
-            savePlayerData: function() { /* no-op: GameDataStore auto-flush via Proxy */ },
-            showToast: function(title, icon, duration) { $P.showToast({ title: title, icon: icon, duration: duration }); },
-            setBestScore: function(val) { bestScore = val; },
-            getUpgradeEngine: function() { return upgradeEngine; },
-            toggleDevBattle: function() {
-                if (devBattleSystem) {
-                    devBattleSystem.toggle();
-                    debugPanelOpen = false;
-                }
-            },
-            toggleUIEditor: function() {
-                debugPanelOpen = false;
-                if (uiEditorSystem) uiEditorSystem.toggle();
-            },
-            toggleGodMode: function() {
-                godMode = !godMode;
-                runtimeData.godMode = godMode;
-                $P.showToast({ title: godMode ? '无敌模式 ON' : '无敌模式 OFF', icon: 'none', duration: 1500 });
-            },
-            resetSaveData: function() { dataStore.reset(); },
-            onResetComplete: function() {
-                bestScore = 0;
-                _tutorial.completed = false;
-                _tutorial.active = false;
-                _tutorial.ending = false;
-                _tutorial.victoryPopup = null;
-            }
-        });
-        executeDebugAction = function(actionId) { debugSystem.executeDebugAction(actionId); };
-        _log('调试系统模块初始化完成');
-
         // 初始化UIConfig和UIEditor
         uiConfig = _gameModules.createUIConfig({
             storageSet: function(key, val) { $P.setStorageSync(key, val); },
@@ -1384,49 +1334,14 @@ function init() {
             setPlayerPoisoned: function(val) { playerEffects.poisoned = val; },
             setPlayerPoisonEndTime: function(val) { playerEffects.poisonEndTime = val; },
             setPlayerPoisonDamage: function(val) { playerEffects.poisonDamage = val; },
-            setPlayerPoisonTickTime: function(val) { playerEffects.poisonTickTime = val; }
+            setPlayerPoisonTickTime: function(val) { playerEffects.poisonTickTime = val; },
+            // playerShield getter/setter（真相源：saveData.playerShield）
+            getPlayerShield: function() { return saveData.playerShield || 0; },
+            setPlayerShield: function(v) { saveData.playerShield = v; }
         });
         towerSystem._setBattleEngine(battleEngine);
         window._tower = towerSystem; // 控制台快捷入口
         _log('爬塔系统模块初始化完成');
-
-        // 初始化开发者战斗调参工具
-        devBattleSystem = _gameModules.createDevBattleSystem({
-            getScreenWidth: function() { return screenWidth; },
-            getScreenHeight: function() { return screenHeight; },
-            getScreenScale: getScreenScale,
-            getBattleEngine: function() {
-                // 优先返回当前活跃模式的引擎，避免推送到错误的引擎实例
-                if (normalBattleAdapter && normalBattleAdapter.getBattleEngine) {
-                    var nbe = normalBattleAdapter.getBattleEngine();
-                    if (nbe) return nbe;
-                }
-                if (towerSystem && towerSystem._getBattleEngine) return towerSystem._getBattleEngine();
-                if (typeof BossBattleMode !== 'undefined' && BossBattleMode.getBattleEngine) return BossBattleMode.getBattleEngine();
-                return null;
-            },
-            onToggle: function(isVisible) {
-                if (isVisible) {
-                    previousState = state;
-                    PauseCoordinator.instance.pause();
-                    stateMachine.transitionTo(GAME_STATE.PAUSED);
-                } else {
-                    PauseCoordinator.instance.resume();
-                    stateMachine.transitionTo(previousState);
-                }
-            },
-            onSpecChanged: function(overrides) {
-                // spec 参数已通过 BattleEngine.subscribe → StarSystem.onSpecChanged 自动推送
-                // 这里只同步灵韵生成间隔到 comboState（供 getCurrentStarInterval 读取）
-                var RC = _gameModules.specResolver(_gameModules.COMBAT_SPEC, Object.keys(overrides).length > 0 ? overrides : null);
-                var newInterval = _gameModules.getSpecValue(RC, 'STAR.SPAWN_INTERVAL_MS');
-                if (newInterval && newInterval !== comboState.currentStarInterval) {
-                    comboState.currentStarInterval = newInterval;
-                }
-            },
-            getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
-        });
 
         // 初始化挂机系统模块
         afkSystem = createAFKSystem({
@@ -1985,7 +1900,6 @@ function init() {
             getSTAR_MODE: function() { return STAR_MODE; },
             getFALLING_CONFIG: function() { return FALLING_CONFIG; },
             getUiScrollState: function() { return uiScrollState; },
-            getDebugPanelOpen: function() { return debugPanelOpen; },
             getCharacters: function() { return Characters; },
             getCharacterKey: getCharacterKey,
             isModeUnlocked: isModeUnlocked,
@@ -2078,19 +1992,6 @@ function init() {
             getAudioSystem: function() { return audioSystem; }
         });
         renderTasks = function() { taskRenderer.renderTasks(); };
-
-        debugRenderer = createDebugRenderer({
-            getCtx: function() { return ctx; },
-            getScreenWidth: function() { return screenWidth; },
-            getScreenHeight: function() { return screenHeight; },
-            getScreenScale: function() { return getScreenScale(); },
-            getFillRoundRect: function() { return fillRoundRect; },
-            getStrokeRoundRect: function() { return strokeRoundRect; },
-            getGodMode: function() { return godMode; },
-            getDesignOffsetY: getDesignOffsetY,
-            getAudioSystem: function() { return audioSystem; }
-        });
-        renderDebugPanel = function() { debugRenderer.renderDebugPanel(); };
 
         shopRenderer = createShopRenderer({
             getCtx: function() { return ctx; },
@@ -3335,8 +3236,7 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
             getGameState: function() { return state; },
             getGameConst: function() { return GAME_STATE; },
             getMonsters: function() { return monsters; },
-            getNormalBattleAdapter: function() { return normalBattleAdapter; },
-            isDebug: function() { return debugPanelOpen; }
+            getNormalBattleAdapter: function() { return normalBattleAdapter; }
         });
 
         // 游戏生命周期系统
@@ -4231,7 +4131,114 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                     if (rewardMsg) $P.showToast({ title: rewardMsg, icon: 'success', duration: 2000 });
                     worldMapSystem.saveProgress();
                 }
+
+                // ── 辅助函数：遍历所有 onArrive 彩蛋并触发匹配的 ──────────
+                function _checkOnArriveEasterEggs(targetWorld) {
+                    for (var driverKey in EASTER_EGG_DRIVERS) {
+                        if (!EASTER_EGG_DRIVERS.hasOwnProperty(driverKey)) continue;
+                        var drv = EASTER_EGG_DRIVERS[driverKey];
+                        if (drv.trigger !== 'onArrive') continue;
+                        if (drv.targetWorld !== targetWorld) continue;
+
+                        var pd = saveData;
+                        var chk = pd.easterEggs && pd.easterEggs[drv.stateKey];
+                        if (chk) continue;  // 已触发过，跳过
+
+                        var act = drv.onTrigger({ pd: pd });
+                        if (act.toast) $P.showToast(act.toast);
+
+                        if (act.reward) {
+                            var aid = act.reward.achievementId;
+                            if (!pd.taskProgress) pd.taskProgress = {};
+                            if (!pd.taskProgress.achievements) pd.taskProgress.achievements = {};
+                            var entry = pd.taskProgress.achievements[aid];
+                            if (!entry) entry = pd.taskProgress.achievements[aid] = { progress: 0, claimed: false };
+                            if (!entry.claimed) {
+                                entry.progress = 1;
+                                entry.claimed = true;
+                                if (act.reward.spiritStones) {
+                                    pd.starSource = (pd.starSource || 0) + act.reward.spiritStones;
+                                }
+                            }
+                        }
+
+                        if (!pd.easterEggs) pd.easterEggs = {};
+                        pd.easterEggs[drv.stateKey] = true;
+                        worldMapSystem.saveProgress();
+                    }
+                }
+
                 if (result.type === 'portal') {
+                    // ── 通用彩蛋检测（不对任何特定传送门写硬编码）────────────
+                    if (result.easterEgg && EASTER_EGG_DRIVERS[result.easterEgg]) {
+                        var driver = EASTER_EGG_DRIVERS[result.easterEgg];
+                        var pd = saveData;
+
+                        // 彩蛋已完成（成就已领取）→ 跳过彩蛋分支，走默认传送
+                        var achId = driver.onPass({ pd: pd }).reward.achievementId;
+                        var achCat = pd.taskProgress && pd.taskProgress.achievements;
+                        if (achCat && achCat[achId] && achCat[achId].claimed) {
+                            // 成就已领，彩蛋完全结束，fall through 到默认传送
+                        } else {
+                            var checked = pd.easterEggs && pd.easterEggs[driver.stateKey];
+
+                            // 冷却保护（拦截和通过都受冷却限制）
+                            var _now = Date.now();
+                            if (_now - _lastPortalTime < 2000) {
+                                $P.showToast({ title: '传送冷却中...', icon: 'none', duration: 1000 });
+                                return;
+                            }
+                            _lastPortalTime = _now;
+
+                            if (!checked) {
+                                // 第一次：拦截
+                                var action = driver.onFirstTrigger({ pd: pd, worldMapRenderer: worldMapRenderer });
+                                // 先存档标记（防止对话期间重复触发）
+                                if (!pd.easterEggs) pd.easterEggs = {};
+                                pd.easterEggs[driver.stateKey] = true;
+                                worldMapSystem.saveProgress();
+                                // 再播对话（showDialogue 非阻塞，对话关闭后无需额外操作，标记已持久化）
+                                if (action.dialogue && worldMapRenderer) {
+                                    worldMapRenderer.showDialogue(action.dialogue);
+                                }
+                                return;
+                            }
+
+                            // 第二次：正常传送 + 附加逻辑
+                            _log('彩蛋传送（通过）:', result.targetWorld);
+                            if (audioSystem) audioSystem.playTeleport();
+                            var fromWorld = worldMapSystem.getWorldId();
+                            // world_17 BGM 切换
+                            if (fromWorld === 'world_17' && result.targetWorld !== 'world_17') {
+                                if (audioSystem) {
+                                    audioSystem.exitArdeacinerea();
+                                    audioSystem.playBgm('shuhanTheme', 0.32);
+                                }
+                            }
+                            worldMapSystem.loadWorld(result.targetWorld, fromWorld);
+                            _updateCatSpiritVisibility(result.targetWorld);
+                            if (result.targetWorld === 'world_17') {
+                                if (audioSystem) audioSystem.enterArdeacinerea();
+                            }
+
+                            // 驱动器定义的通过后行为（仅触发一次）
+                            var passAction = driver.onPass({ pd: pd });
+                            if (passAction.toast) $P.showToast(passAction.toast);
+                            if (passAction.reward) {
+                                if (!achCat) { if (!pd.taskProgress) pd.taskProgress = {}; pd.taskProgress.achievements = {}; achCat = pd.taskProgress.achievements; }
+                                if (!achCat[achId]) achCat[achId] = { progress: 0, claimed: false };
+                                achCat[achId].progress = 1;
+                                achCat[achId].claimed = true;
+                                if (passAction.reward.spiritStones) {
+                                    pd.starSource = (pd.starSource || 0) + passAction.reward.spiritStones;
+                                }
+                                worldMapSystem.saveProgress();
+                            }
+                            _checkOnArriveEasterEggs(result.targetWorld);
+                            return;
+                        }
+                    }
+                    // ── 默认传送逻辑（非彩蛋传送门）────────────
                     var _now = Date.now();
                     if (_now - _lastPortalTime < 3000) {
                         $P.showToast({ title: '传送冷却中...', icon: 'none', duration: 1000 });
@@ -4255,6 +4262,8 @@ playQte: function() { if (audioSystem) audioSystem.playQte(); },
                     if (result.targetWorld === 'world_17') {
                         if (audioSystem) audioSystem.enterArdeacinerea();
                     }
+                    // ── 通用 onArrive 彩蛋检测 ──────────────────
+                    _checkOnArriveEasterEggs(result.targetWorld);
                 }
                 if (result.type === 'portal_locked') {
                     _log('传送门未解锁:', result.message);
@@ -4475,39 +4484,6 @@ function handleTouchStart(res) {
         return;
     }
 
-    // ===== 调试面板关闭/操作（最高优先级，不受任何状态限制）=====
-    if (debugPanelOpen && debugRenderer) {
-        var _dpResult = debugRenderer.handleDebugPanelTouch(x, y);
-        if (_dpResult === 'close') {
-            debugPanelOpen = false;
-            return;
-        }
-        if (_dpResult) {
-            executeDebugAction(_dpResult);
-            return;
-        }
-        return;
-    }
-
-    // ===== 开发者战斗调参工具（优先级最高）=====
-    if (devBattleSystem && devBattleSystem.isVisible()) {
-        devBattleSystem.handleTouch(x, y);
-        return;
-    }
-
-    // ===== 调试按钮（WORLDMAP状态，不受教学状态限制）=====
-    if (state === GAME_STATE.WORLDMAP) {
-        var _dbSz = Math.floor(32 * scale);
-        var _dbOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-        var _dbX = screenWidth - Math.floor(50 * scale) + _dbOv.dx * scale;
-        var _dbY = getDesignOffsetY() + Math.floor(15 * scale) + _dbOv.dy * scale;
-        if (x >= _dbX && x <= _dbX + _dbSz && y >= _dbY && y <= _dbY + _dbSz) {
-            debugPanelOpen = true;
-            _log('打开调试面板');
-            return;
-        }
-    }
-
     // ===== 启动画面触摸 =====
     if (state === GAME_STATE.TITLE && titleRenderer) {
         var wasActivated = titleRenderer.isActivated && titleRenderer.isActivated();
@@ -4691,54 +4667,6 @@ function handleTouchStart(res) {
     // ===== 挂机弹窗处理（最高优先级，阻止触摸穿透）=====
     if (afkSystem.popupVisible || afkSystem.resultVisible) {
         return;
-    }
-
-    // ===== 开发者战斗调参工具（优先级最高）=====
-    if (devBattleSystem && devBattleSystem.isVisible()) {
-        devBattleSystem.handleTouch(x, y);
-        return;
-    }
-
-    // ===== 调试面板处理（优先级最高）=====
-    if (debugPanelOpen) {
-        var touchResult = debugRenderer.handleDebugPanelTouch(x, y);
-        if (touchResult === 'close') {
-            debugPanelOpen = false;
-            _log('关闭调试面板');
-            return;
-        }
-        if (touchResult) {
-            executeDebugAction(touchResult);
-            return;
-        }
-        return; // 调试面板打开时，不处理其他点击
-    }
-    
-    // ===== 调试按钮点击（菜单界面右上角）=====
-    if (state === GAME_STATE.MENU) {
-        const debugIconSize = Math.floor(32 * scale);
-        var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-        const debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
-        const debugIconY = getDesignOffsetY() + Math.floor(15 * scale) + debugOv.dy * scale;
-
-        if (x >= debugIconX && x <= debugIconX + debugIconSize &&
-            y >= debugIconY && y <= debugIconY + debugIconSize) {
-            debugPanelOpen = true;
-            _log('打开调试面板');
-            return;
-        }
-    }
-
-    // ===== 战斗中 DevBattle 浮动按钮（左下角）=====
-    if (devBattleSystem && (state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING)) {
-        var devBtnSize = Math.floor(36 * scale);
-        var devBtnX = Math.floor(12 * scale);
-        var devBtnY = designBottom - Math.floor(56 * scale);
-        if (x >= devBtnX && x <= devBtnX + devBtnSize &&
-            y >= devBtnY && y <= devBtnY + devBtnSize) {
-            devBattleSystem.toggle();
-            return;
-        }
     }
 
     // 如果是TOWER状态，记录触摸位置
@@ -6089,42 +6017,9 @@ function render() {
         tipUpdateTip();
         tipRenderTip(getScreenScale());
 
-        // 调试面板覆盖层（在所有界面上显示）
-        if (debugPanelOpen) {
-            renderDebugPanel();
-        }
-
         // UI编辑器覆盖层（在所有界面上显示）
         if (uiEditorSystem && uiEditorSystem.isActive()) {
             uiEditorSystem.render();
-        }
-
-        // 战斗中 DevBattle 浮动按钮（左下角，面板未打开时显示）
-        if (devBattleSystem && (state === GAME_STATE.PLAYING || state === GAME_STATE.PAUSED || state === GAME_STATE.BOSS_BATTLE || state === GAME_STATE.TOWER || state === GAME_STATE.TOWER_COMBAT || state === GAME_STATE.SEASON_PLAYING || state === GAME_STATE.STAGE_PLAYING)) {
-            if (!devBattleSystem.isVisible()) {
-                var dbtnScale = getScreenScale();
-                var dbDesignBottom = Math.min(getDesignOffsetY() + Math.floor(812 * dbtnScale), screenHeight);
-                var dbtnSize = Math.floor(36 * dbtnScale);
-                var dbtnX = Math.floor(12 * dbtnScale);
-                var dbtnY = dbDesignBottom - Math.floor(56 * dbtnScale);
-                ctx.save();
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
-                ctx.fillRect(dbtnX, dbtnY, dbtnSize, dbtnSize);
-                ctx.strokeStyle = '#FFD700';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(dbtnX, dbtnY, dbtnSize, dbtnSize);
-                ctx.fillStyle = '#000000';
-                ctx.font = 'bold ' + Math.floor(16 * dbtnScale) + 'px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('D', Math.floor(dbtnX + dbtnSize / 2), Math.floor(dbtnY + dbtnSize / 2));
-                ctx.restore();
-            }
-        }
-
-        // 开发者战斗调参工具覆盖层
-        if (devBattleSystem && devBattleSystem.isVisible()) {
-            devBattleSystem.render(ctx);
         }
     } catch (error) {
         console.error('Render error:', error);
@@ -6216,9 +6111,6 @@ function handleTouchMove(res) {
         }
         return;
     }
-
-    // 开发者调参工具显示时阻止触摸穿透
-    if (devBattleSystem && devBattleSystem.isVisible()) return;
 
     // 大世界地图摇杆移动
     if (state === GAME_STATE.WORLDMAP && _joystickActive && res.touches && res.touches[0]) {
@@ -6525,9 +6417,6 @@ function handleTouchEnd(res) {
         if (saveData.firstBossKilled && afkSystem.popupVisible && handleAfkPopupTouch(x, y)) {
             return;
         }
-
-        // 开发者调参工具显示时阻止触摸穿透
-        if (devBattleSystem && devBattleSystem.isVisible()) return;
 
         // 大世界地图摇杆释放
         if (state === GAME_STATE.WORLDMAP) {
@@ -7223,8 +7112,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getUIConfig: function() { return uiConfig; },
         getUIEditorSystem: function() { return uiEditorSystem; },
 
-        // 桥接变量（让 simulator 可以直接操作）
-        _executeDebugAction: function() { return executeDebugAction; }
-    };
-}
+        }
+};
 

@@ -187,7 +187,10 @@ function createBossBattleAdapter(deps) {
             setPlayerPoisoned: function(v) { getPlayerEffects().poisoned = v; },
             setPlayerPoisonEndTime: function(v) { getPlayerEffects().poisonEndTime = v; },
             setPlayerPoisonDamage: function(v) { getPlayerEffects().poisonDamage = v; },
-            setPlayerPoisonTickTime: function(v) { getPlayerEffects().poisonTickTime = v; }
+            setPlayerPoisonTickTime: function(v) { getPlayerEffects().poisonTickTime = v; },
+            // playerShield getter/setter（真相源：saveData.playerShield）
+            getPlayerShield: function() { return getSaveData().playerShield; },
+            setPlayerShield: function(v) { getSaveData().playerShield = v; }
         };
     }
 
@@ -643,6 +646,7 @@ function createBossBattleAdapter(deps) {
             features: BOSS_COMBAT_FEATURES,
             timeLimit: BOSS_BATTLE_CONFIG.baseTime,
             timeDamageOnHit: 8,
+            deathDelayMs: 0,
             bossStunChance: getBOSS_STUN_CHANCE(),
             bossStunDuration: getBOSS_STUN_DURATION(),
             onDamageDealt: onDamageDealtHandler,

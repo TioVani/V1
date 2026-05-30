@@ -41,6 +41,33 @@ function createSquadRenderer(deps) {
     // 空格灵光引导状态
     var _tutorialHighlightStarId = null;
 
+    // 按像素宽度拆分文字为多行
+    function wrapText(ctx, text, maxWidth, maxLines) {
+        var lines = [];
+        var currentLine = '';
+        for (var i = 0; i < text.length; i++) {
+            var testLine = currentLine + text[i];
+            if (ctx.measureText(testLine).width > maxWidth && currentLine.length > 0) {
+                lines.push(currentLine);
+                if (lines.length >= maxLines) break;
+                currentLine = text[i];
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine && lines.length < maxLines) {
+            lines.push(currentLine);
+        }
+        var lastLine = lines[lines.length - 1];
+        if (lastLine && ctx.measureText(lastLine).width > maxWidth) {
+            while (ctx.measureText(lastLine + '…').width > maxWidth && lastLine.length > 0) {
+                lastLine = lastLine.slice(0, -1);
+            }
+            lines[lines.length - 1] = lastLine + '…';
+        }
+        return lines;
+    }
+
     // ==================== renderSquad ====================
     function renderSquad() {
         var ctx = getCtx();
@@ -970,27 +997,36 @@ function createSquadRenderer(deps) {
         // 恢复裁剪状态
         ctx.restore();
 
-        // 引导气泡（非模态，绘制在裁剪区域外）
+        // 引导气泡（非模态，绘制在裁剪区域外，底部对齐）
         if (tutorialActive && _tutorialHighlightStarId) {
             // 找到引导灵光在列表中的位置
             var tutorialStar = SEASON_STAR_TYPES.find(function(st) { return st.id === _tutorialHighlightStarId; });
             if (tutorialStar) {
-                var bubbleY = separatorY + Math.floor(10 * scale);
-                var bubbleX = x + Math.floor(15 * scale);
                 var bubbleW = w - Math.floor(30 * scale);
-                var bubbleH = Math.floor(50 * scale);
+                var bubbleH = Math.floor(60 * scale);
+                var bubbleX = x + Math.floor(15 * scale);
+                var bubbleY = designBottom - Math.floor(bubbleH + 15 * scale);
 
                 // 气泡背景
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.75)';
                 fillRoundRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, 10);
 
-                // 气泡文字
+                // 气泡文字（多行换行）
                 ctx.fillStyle = '#1a1a2e';
                 ctx.font = 'bold ' + Math.floor(12 * scale) + 'px sans-serif';
                 ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('获得' + tutorialStar.name + '！点击装备后，再点击装备槽位设为空格键触发。',
-                    bubbleX + bubbleW / 2, bubbleY + bubbleH / 2);
+                ctx.textBaseline = 'top';
+
+                var fullText = '获得' + tutorialStar.name + '！点击装备后，再点击装备槽位设为空格键触发。';
+                var maxLineWidth = bubbleW - Math.floor(20 * scale);
+                var lines = wrapText(ctx, fullText, maxLineWidth, 2);
+                var lineHeight = Math.floor(16 * scale);
+                var totalTextHeight = lines.length * lineHeight;
+                var startTextY = bubbleY + (bubbleH - totalTextHeight) / 2;
+
+                for (var li = 0; li < lines.length; li++) {
+                    ctx.fillText(lines[li], bubbleX + bubbleW / 2, startTextY + li * lineHeight);
+                }
 
                 // 检测引导完成条件：灵光已装备 + 已设为空格键
                 var pd2 = getSaveData();
@@ -1089,6 +1125,20 @@ function createSquadRenderer(deps) {
         var contentX = Math.floor(15 * scale);
         var contentY = (getSquadTab() === 'character') ? designOffsetY + Math.floor(20 * scale) : designOffsetY + Math.floor(280 * scale);
         var contentW = screenWidth - tabWidth - contentX - Math.floor(15 * scale);
+
+        // 引导气泡点击拦截（仅在灵光页生效）
+        if (_tutorialHighlightStarId) {
+            var bubbleStar = SEASON_STAR_TYPES.find(function(st) { return st.id === _tutorialHighlightStarId; });
+            if (bubbleStar && getSquadTab() === 'stars') {
+                var bubbleHitX = contentX + Math.floor(15 * scale);
+                var bubbleHitW = contentW - Math.floor(30 * scale);
+                var bubbleHitH = Math.floor(60 * scale);
+                var bubbleHitY = (designOffsetY + Math.floor(DESIGN_HEIGHT * scale)) - Math.floor(bubbleHitH + 15 * scale);
+                if (x >= bubbleHitX && x <= bubbleHitX + bubbleHitW && y >= bubbleHitY && y <= bubbleHitY + bubbleHitH) {
+                    return;
+                }
+            }
+        }
 
         if (getSquadTab() === 'character') {
             var portraitMaxW = Math.floor(160 * scale);

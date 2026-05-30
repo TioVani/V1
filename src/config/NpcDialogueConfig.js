@@ -100,8 +100,11 @@ var NPC_DIALOGUE_DRIVERS = {
                     state.resolved = true;
                     return { toast: '获得闪避灵光！你已解锁闪避灵光。' };
                 }
-                state.visitCount = 3;
-                state.resolved = true;
+                // 选了"没啥。" → 重置整个对话流程，下次交互从第1次重新开始
+                state.visitCount = 0;
+                state.choice1 = null;
+                state.choice2 = null;
+                state.resolved = false;
             }
 
             return null;

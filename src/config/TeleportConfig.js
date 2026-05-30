@@ -61,7 +61,7 @@ var TRANSFER_TABLE = [
     { id:'portal_market', world:'world_03', x:1338, y:384, sx:null, sy:null, to:'world_04', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_alley', world:'world_04', x:70, y:384, sx:null, sy:null, to:'world_03', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_temple', world:'world_04', x:1338, y:384, sx:742, sy:50, to:'world_05', exp:0, msg:null, dr:100, ir:50, pr:89 },
-    { id:'portal_market_w05', world:'world_05', x:70, y:384, sx:null, sy:null, to:'world_04', exp:0, msg:null, dr:100, ir:50, pr:90 },
+    { id:'portal_market_w05', world:'world_05', x:186, y:749, sx:null, sy:null, to:'world_04', exp:0, msg:null, dr:100, ir:50, pr:90 },
         { id:'portal_return_w02', world:'world_05', x:1284, y:748, sx:null, sy:null, to:'world_02', exp:0, msg:null, dr:120, ir:60, pr:90 },
     { id:'portal_w05_w10', world:'world_05', x:320, y:291, sx:993, sy:440, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_temple_w06', world:'world_06', x:70, y:384, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:100, ir:50, pr:90 },
@@ -74,7 +74,7 @@ var TRANSFER_TABLE = [
     { id:'portal_tunnel', world:'world_09', x:1338, y:384, sx:null, sy:null, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_w10_w05', world:'world_10', x:993, y:440, sx:null, sy:null, to:'world_05', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_garden_w10', world:'world_10', x:70, y:384, sx:null, sy:null, to:'world_03', exp:0, msg:null, dr:100, ir:50, pr:90 },
-    { id:'portal_dusk', world:'world_10', x:1338, y:384, sx:null, sy:null, to:'world_11', exp:0.5, msg:'密道尽头似乎通向某个特殊的地方……', dr:100, ir:50, pr:89 },
+    { id:'portal_dusk', world:'world_10', x:1338, y:384, sx:null, sy:null, to:'world_11', exp:0.5, msg:'密道尽头似乎通向某个特殊的地方……', dr:100, ir:50, pr:89, easterEgg:'worldEdge' },
     { id:'portal_tunnel_w11', world:'world_11', x:70, y:384, sx:null, sy:null, to:'world_10', exp:0, msg:null, dr:100, ir:50, pr:90 },
     { id:'portal_dawn', world:'world_11', x:1338, y:384, sx:null, sy:null, to:'world_12', exp:0, msg:null, dr:100, ir:50, pr:89 },
     { id:'portal_dusk_w12', world:'world_12', x:70, y:384, sx:null, sy:null, to:'world_11', exp:0, msg:null, dr:100, ir:50, pr:90 },
@@ -143,6 +143,7 @@ function buildTransferDataForWorld(worldId) {
             if (row.sx !== null && row.sx !== undefined) entity.spawnX = row.sx;
             if (row.sy !== null && row.sy !== undefined) entity.spawnY = row.sy;
             if (row.msg) entity.lockedMessage = row.msg;
+            if (row.easterEgg) entity.easterEgg = row.easterEgg;
             entities.push(entity);
         }
     }

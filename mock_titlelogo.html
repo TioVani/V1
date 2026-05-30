@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>titleLogo Mock</title></head>
+<body style="background:#111;margin:0;padding:20px;">
+<canvas id="c" width="375" height="812" style="border:1px solid #555;"></canvas>
+<script>
+var canvas = document.getElementById('c');
+var ctx = canvas.getContext('2d');
+var img = new Image();
+img.onload = function() {
+  console.log('img loaded, w=' + img.width + ' h=' + img.height + ' complete=' + img.complete + ' _loaded=' + img._loaded);
+  draw();
+};
+img.onerror = function() { console.log('img load FAILED'); };
+img._loaded = false;
+img.onload2 = function() { img._loaded = true; };
+img.src = 'assets/images/background/WWYL.png';
+
+function draw() {
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, 375, 812);
+
+  var scale = 1;
+  var screenWidth = 375;
+  var designOffsetY = 0;
+  var DESIGN_HEIGHT = 812;
+  var titleX = screenWidth / 2;
+  var titleY = designOffsetY + Math.floor(DESIGN_HEIGHT / 3 * scale);
+
+  // 模拟 MenuRenderer 的逻辑
+  var titleLogo = img;
+  if (titleLogo && (titleLogo.complete || titleLogo._loaded)) {
+    var logoH = Math.floor(200 * scale);
+    var logoW = Math.floor(titleLogo.width / titleLogo.height * logoH);
+    console.log('logoH=' + logoH + ' logoW=' + logoW + ' drawing at x=' + (titleX - logoW/2) + ' y=' + (titleY - logoH/2));
+    ctx.drawImage(titleLogo, titleX - logoW / 2, titleY - logoH / 2, logoW, logoH);
+  } else {
+    console.log('fallback text, complete=' + titleLogo.complete + ' _loaded=' + titleLogo._loaded);
+    ctx.fillStyle = '#ffd700';
+    ctx.font = '48px sans-serif';
+    ctx.fillText('万物有灵', titleX - 100, titleY);
+  }
+}
+</script>
+</body>
+</html>

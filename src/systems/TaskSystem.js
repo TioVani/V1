@@ -20,7 +20,7 @@ export const GUIDE_TASKS = [
     { id: 'guide_kill_boss', name: '守护灵净化', description: '净化第一只守护灵级邪灵', type: 'kill_boss', target: 1, order: 8, rewards: { gold: 150, exp: 50 }, tip: '2000灵辉值后会出现守护灵，它更强但净化奖励也更丰厚！' },
     { id: 'guide_use_ice_crystal', name: '水行灵光·初醒', description: '使用一颗水灵晶唤醒水行灵光', type: 'use_ice_crystal', target: 1, order: 9, rewards: { gold: 75, exp: 25 }, tip: '水灵晶可以唤醒水灵光，提升灵光威力！' },
     { id: 'guide_high_score', name: '灵辉汇聚', description: '单次净化获得2000灵辉值', type: 'score', target: 2000, order: 10, rewards: { gold: 100, timePotion: 1 }, tip: '挑战更高灵辉值，解锁更多灵域内容！' },
-    { id: 'guide_find_cat_spirit', name: '找到猫灵', description: '剑魄正在追击猫灵，她身上散发着污染的气息。帮助剑魄找到猫灵的下落。', type: 'event_flag', target: 1, order: 999, rewards: { currency: 5000, spiritStones: 150, exp: 300 }, tip: '剑魄已经追上去了，在世界地图上继续探索寻找猫灵的踪迹吧。' }
+    { id: 'guide_find_cat_spirit', name: '找到猫灵', description: '剑魄正在追击猫灵，她身上散发着污染的气息。帮助剑魄找到猫灵的下落。', type: 'event_flag', target: 1, order: 999, rewards: { gold: 5000, starSource: 160, exp: 300 }, tip: '剑魄已经追上去了，在世界地图上继续探索寻找猫灵的踪迹吧。' }
 ];
 
 export const DAILY_TASKS = [
@@ -40,7 +40,9 @@ export const ACHIEVEMENT_TASKS = [
     { id: 'ach_combo_100', name: '连灵入圣', description: '达成100连灵', type: 'max_combo', target: 100, rewards: { gold: 1500, exp: 375 } },
     { id: 'ach_play_100', name: '灵域常客', description: '累计完成100次净化', type: 'total_games', target: 100, rewards: { gold: 750, exp: 150 } },
     { id: 'ach_perfect_100', name: '灵光合鸣', description: '累计达成100次灵光合拍', type: 'total_perfects', target: 100, rewards: { gold: 400, exp: 88 } },
-    { id: 'ach_critical_50', name: '会心名家', description: '单次净化达成50次会心一击', type: 'critical_hits', target: 50, rewards: { gold: 600, exp: 125 } }
+    { id: 'ach_critical_50', name: '会心名家', description: '单次净化达成50次会心一击', type: 'critical_hits', target: 50, rewards: { gold: 600, exp: 125 } },
+    { id: 'world_edge', name: '世界的边缘？', description: '通往世界边缘的秘密', type: 'event_flag', target: 1, rewards: { starSource: 150 }, hidden: true },
+    { id: 'world_04_arrive', name: '勒就是灵域？？？', description: '首次到达蜀汉·市场', type: 'event_flag', target: 1, rewards: { starSource: 150 }, hidden: true }
 ];
 
 // ==================== 任务系统工厂函数 ====================
@@ -183,11 +185,11 @@ export function createTaskSystem(deps) {
                 if (!pd.taskProgress[category][task.id].claimed) {
                     pd.taskProgress[category][task.id].claimed = true;
                     if (task.rewards) {
-                        if (task.rewards.gold || task.rewards.currency) {
-                            pd.starSource = (pd.starSource || 0) + (task.rewards.gold || 0) + (task.rewards.currency || 0);
+                        if (task.rewards.gold) {
+                            pd.gold = (pd.gold || 0) + task.rewards.gold;
                         }
-                        if (task.rewards.spiritStones) {
-                            pd.spiritStones = (pd.spiritStones || 0) + task.rewards.spiritStones;
+                        if (task.rewards.starSource) {
+                            pd.starSource = (pd.starSource || 0) + task.rewards.starSource;
                         }
                         if (task.rewards.exp) {
                             addCharExp(pd.currentCharacterId || 'char_001', task.rewards.exp);
@@ -258,6 +260,9 @@ export function createTaskSystem(deps) {
         var rewards = task.rewards;
         if (rewards.gold) {
             pd.gold += rewards.gold;
+        }
+        if (rewards.starSource) {
+            pd.starSource = (pd.starSource || 0) + rewards.starSource;
         }
         if (rewards.exp) {
             if (pd.currentCharacterId) {

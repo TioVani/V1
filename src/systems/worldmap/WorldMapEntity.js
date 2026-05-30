@@ -138,12 +138,12 @@ function createWorldMapEntity(deps) {
         var exploration = getExplorationPercent ? getExplorationPercent() : 1;
         if (entity.requireExploration > 0 && exploration < entity.requireExploration) {
             if (onInteractResult) {
-                onInteractResult({ type: 'portal_locked', entity: entity, message: entity.lockedMessage, current: exploration, required: entity.requireExploration });
+                onInteractResult({ type: 'portal_locked', entity: entity, message: entity.lockedMessage, current: exploration, required: entity.requireExploration, easterEgg: entity.easterEgg });
             }
-            return { type: 'portal_locked', message: entity.lockedMessage || '条件未满足', current: exploration, required: entity.requireExploration };
+            return { type: 'portal_locked', message: entity.lockedMessage || '条件未满足', current: exploration, required: entity.requireExploration, easterEgg: entity.easterEgg };
         }
-        if (onInteractResult) onInteractResult({ type: 'portal', entity: entity, targetWorld: entity.targetWorld });
-        return { type: 'portal', targetWorld: entity.targetWorld };
+        if (onInteractResult) onInteractResult({ type: 'portal', entity: entity, targetWorld: entity.targetWorld, easterEgg: entity.easterEgg });
+        return { type: 'portal', targetWorld: entity.targetWorld, easterEgg: entity.easterEgg };
     }
 
     function handleBarrier(entity) {

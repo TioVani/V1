@@ -163,6 +163,10 @@ function createGameDataStore(deps) {
         purchasedShopPets: [],
         _spaceKeyTutorialShown: false,
         seasonData: null,
+        easterEggs: {
+            worldEdgeChecked: false,
+            world04ArriveChecked: false
+        },
         npcDialogState: null
     };
 

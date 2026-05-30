@@ -18,7 +18,6 @@ function createMenuRenderer(deps) {
     var getSTAR_MODE = deps.getSTAR_MODE;
     var getFALLING_CONFIG = deps.getFALLING_CONFIG;
     var getUiScrollState = deps.getUiScrollState;
-    var getDebugPanelOpen = deps.getDebugPanelOpen;
     var getCharacters = deps.getCharacters;
     var getCharacterKey = deps.getCharacterKey;
     var isModeUnlocked = deps.isModeUnlocked;
@@ -79,16 +78,6 @@ function createMenuRenderer(deps) {
             }
         });
         uiConfig.register({
-            id: 'menu_debug_icon', renderer: 'menu', state: 'menu',
-            label: '调试图标', category: 'icon',
-            getPosition: function() {
-                var sc = getScreenScale();
-                var sw = getScreenWidth();
-                var sz = Math.floor(32 * sc);
-                return { x: sw - Math.floor(50 * sc), y: Math.floor(15 * sc), width: sz, height: sz };
-            }
-        });
-        uiConfig.register({
             id: 'menu_btn', renderer: 'menu', state: 'menu',
             label: '菜单按钮(收起)', category: 'button',
             getPosition: function() {
@@ -122,7 +111,6 @@ function createMenuRenderer(deps) {
         var pd = getSaveData();
         var bestScore = getBestScore();
         var uiScrollState = getUiScrollState();
-        var debugPanelOpen = getDebugPanelOpen();
         var Characters = getCharacters();
         var hasClaimableRewards = getHasClaimableRewards();
         var getCharacterExperience = deps.getCharacterExperience;
@@ -191,7 +179,7 @@ function createMenuRenderer(deps) {
             var logoW = Math.floor(titleLogo.width / titleLogo.height * logoH);
             ctx.drawImage(titleLogo, titleX - logoW / 2, titleY - logoH / 2, logoW, logoH);
         } else {
-            drawText('器落山河', titleX, titleY, Math.floor(48 * scale), '#ffd700');
+            drawText('万物有灵', titleX, titleY, Math.floor(48 * scale), '#ffd700');
         }
 
         // 说明
@@ -218,20 +206,7 @@ function createMenuRenderer(deps) {
             renderMenuBar();
         }
 
-        // 调试按钮（右上角，始终可见）
-        var debugOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-        var debugIconSize = Math.floor(32 * scale);
-        var debugIconX = screenWidth - Math.floor(50 * scale) + debugOv.dx * scale;
-        var debugIconY = designOffsetY + Math.floor(15 * scale) + debugOv.dy * scale;
-
-        ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
-        fillRoundRect(ctx, debugIconX, debugIconY, debugIconSize, debugIconSize, 4);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🔧', debugIconX + debugIconSize / 2, debugIconY + debugIconSize / 2);
-    }
+        }
 
     function renderMenuBar() {
         var ctx = getCtx();
@@ -242,7 +217,6 @@ function createMenuRenderer(deps) {
         var designBottom = Math.min(designOffsetY + Math.floor(DESIGN_HEIGHT * scale), screenHeight);
         var Assets = getAssets();
         var pd = getSaveData();
-        var debugPanelOpen = getDebugPanelOpen();
         var Characters = getCharacters();
         var uiScrollState = getUiScrollState();
         var hasClaimableRewards = getHasClaimableRewards();
@@ -401,19 +375,6 @@ function createMenuRenderer(deps) {
             ctx.lineWidth = Math.floor(2 * scale);
             ctx.stroke();
         }
-
-        // 调试按钮（右上角，始终可见）
-        var _dbSz = Math.floor(32 * scale);
-        var _dbOv = uiConfig ? uiConfig.get('menu_debug_icon') : { dx: 0, dy: 0 };
-        var _dbX = screenWidth - Math.floor(50 * scale) + _dbOv.dx * scale;
-        var _dbY = designOffsetY + Math.floor(15 * scale) + _dbOv.dy * scale;
-        ctx.fillStyle = debugPanelOpen ? '#FF6B6B' : '#4a4a6a';
-        fillRoundRect(ctx, _dbX, _dbY, _dbSz, _dbSz, 4);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold ' + Math.floor(18 * scale) + 'px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('🔧', _dbX + _dbSz / 2, _dbY + _dbSz / 2);
 
         // 角色图标（右下角）
         if (pd.ownedCharacters && pd.ownedCharacters.length > 0 && pd.currentCharacterId) {

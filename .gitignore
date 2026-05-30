@@ -26,6 +26,9 @@ code.fortify.config.json
 
 # 测试截图
 browser/test_*.png
+test_*.png
+test_game_loaded.png
+mock_titlelogo_result.png
 
 # 异常目录
 E:AIGameV1browser/
@@ -51,6 +54,14 @@ package-lock.json
 文案包装*
 项目诊断报告*
 
+# HTML5 打包输出（本地使用）
+html5-package/
+
+# 视频文件（体积过大）
+*.mp4
+*.webm
+assets/video/
+
 # 临时调试文件
 Snipaste_*.jpg
 screenshot_temp.png
@@ -63,3 +74,9 @@ test_realbitmap_mock.js
 leaderboard-mock-test.html
 temp_stash_full.diff
 assets/images/tmp/
+mock_titlelogo.html
+mock_titlelogo_result.png
+
+# 剪映素材 & 压缩包（本地使用）
+JianyingPro Materials/
+*.7z

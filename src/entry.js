@@ -52,7 +52,6 @@ import { drawRoundRect, fillRoundRect, strokeRoundRect, gachaRoundRect } from '.
 import { createDelayedHpTracker } from './utils/DelayedHpTracker.js';
 import { createGameLifecycleSystem } from './systems/GameLifecycleSystem.js';
 import { createPlayerDataSystem } from './systems/PlayerDataSystem.js';
-import { createDebugSystem } from './systems/DebugSystem.js';
 import { createGameDataStore } from './systems/GameDataStore.js';
 import { createMigrationPipeline } from './systems/MigrationPipeline.js';
 import { createUIConfig } from './config/UIConfig.js';
@@ -63,7 +62,6 @@ import { createTipSystem } from './systems/TipSystem.js';
 import { createAudioSystem } from './systems/AudioSystem.js';
 import { createBattleEngine, BATTLE_CONSTANTS } from './systems/BattleEngine.js';
 import { createBossBattleAdapter } from './systems/BossBattleAdapter.js';
-import { createDevBattleSystem } from './systems/DevBattleSystem.js';
 import { createNormalBattleAdapter } from './systems/NormalBattleAdapter.js';
 import { createCaptureSystem, CAPTURE_STAR_TYPE, CAPTURE_CONFIG } from './systems/CaptureSystem.js';
 import { createInvariantChecker } from './systems/InvariantChecker.js';
@@ -74,7 +72,6 @@ import { createAFKRenderer } from './renderers/AFKRenderer.js';
 import { createMenuRenderer } from './renderers/MenuRenderer.js';
 import { createSeasonRenderer } from './renderers/SeasonRenderer.js';
 import { createTaskRenderer } from './renderers/TaskRenderer.js';
-import { createDebugRenderer } from './renderers/DebugRenderer.js';
 import { createShopRenderer } from './renderers/ShopRenderer.js';
 import { createBackpackRenderer } from './renderers/BackpackRenderer.js';
 import { createGachaRenderer } from './renderers/GachaRenderer.js';
@@ -137,6 +134,7 @@ import { createDialogueSystem } from './systems/DialogueSystem.js';
 import { createSceneDispatcher } from './systems/SceneDispatcher.js';
 import { PORTRAIT_MAP, PROLOGUE_DIALOGUE, PROLOGUE_AFTER_BATTLE, STORY_SCENES } from './config/DialogueConfig.js';
 import { NPC_DIALOGUE_DRIVERS } from './config/NpcDialogueConfig.js';
+import { EASTER_EGG_DRIVERS } from './config/EasterEggConfig.js';
 
 var GameModules = {
     createStarThiefSystem: createStarThiefSystem,
@@ -248,8 +246,7 @@ var GameModules = {
     createPlayerDataSystem: createPlayerDataSystem,
     createGameDataStore: createGameDataStore,
     createMigrationPipeline: createMigrationPipeline,
-    createDebugSystem: createDebugSystem,
-    createPoisonPuddleSystem: createPoisonPuddleSystem,
+        createPoisonPuddleSystem: createPoisonPuddleSystem,
     playerEffects: playerEffects,
     combatState: combatState,
     uiScrollState: uiScrollState,
@@ -271,8 +268,7 @@ var GameModules = {
     createMenuRenderer: createMenuRenderer,
     createSeasonRenderer: createSeasonRenderer,
     createTaskRenderer: createTaskRenderer,
-    createDebugRenderer: createDebugRenderer,
-    createShopRenderer: createShopRenderer,
+        createShopRenderer: createShopRenderer,
     createBackpackRenderer: createBackpackRenderer,
     createGachaRenderer: createGachaRenderer,
     createStageRenderer: createStageRenderer,
@@ -280,8 +276,7 @@ var GameModules = {
     createBossRenderer: createBossRenderer,
     createTowerRenderer: createTowerRenderer,
     createGameBattleRenderer: createGameBattleRenderer,
-    createDevBattleSystem: createDevBattleSystem,
-    COMBAT_SPEC: COMBAT_SPEC,
+        COMBAT_SPEC: COMBAT_SPEC,
     COMBAT_FEATURES: COMBAT_FEATURES,
     FEATURE_ENUMS: FEATURE_ENUMS,
     FEATURE_CONSTRAINTS: FEATURE_CONSTRAINTS,
@@ -364,7 +359,8 @@ var GameModules = {
     PROLOGUE_DIALOGUE: PROLOGUE_DIALOGUE,
     PROLOGUE_AFTER_BATTLE: PROLOGUE_AFTER_BATTLE,
     STORY_SCENES: STORY_SCENES,
-    NPC_DIALOGUE_DRIVERS: NPC_DIALOGUE_DRIVERS
+    NPC_DIALOGUE_DRIVERS: NPC_DIALOGUE_DRIVERS,
+    EASTER_EGG_DRIVERS: EASTER_EGG_DRIVERS
 };
 
 // CommonJS 环境

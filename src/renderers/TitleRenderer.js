@@ -77,7 +77,7 @@ function createTitleRenderer(deps) {
             ctx.fillStyle = '#e8d5a3';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('器落山河', sw / 2, sh * 0.35);
+            ctx.fillText('万物有灵', sw / 2, sh * 0.35);
         }
 
         // 副标题
